@@ -1,0 +1,123 @@
+type Visitor {
+	FP string `json:"fp,omitempty"`
+}
+
+type Session {
+	ID string `json:"id"`
+}
+
+type LoginForm {
+    Email    string `form:"email" validate:"required,email"`
+    Password string `form:"password" validate:"required,min=6,max=32"`
+}
+
+type LoginFormResponse {
+	Session
+	Visitor
+	Token string `json:"token"`
+}
+
+type RegisterForm {
+    FirstName string `form:"first_name" validate:"required,min=2,max=32"`
+    LastName  string `form:"last_name" validate:"required,min=2,max=32"`
+    Email     string `form:"email" validate:"required,email"`
+    Password  string `form:"password" validate:"required,min=6,max=32,allowed=A-Za-z0-9"`
+}
+
+type PricingPackage {
+	ID string `path:"id"`
+}
+
+@server (
+	group:      marketing
+	middleware: Locale,Auth
+	template: default
+    languages: en,es
+)
+service Parking {
+	@page(
+		title: Home
+		menus: main,footer
+		template: home
+	)
+	@doc (
+		summary: Home page
+	)
+	@handler home
+	get /
+
+	@page(
+		title: Pricing
+		menus: main,footer
+	)
+	@doc (
+		summary: Home page
+	)
+	@handler pricing
+	get /pricing
+
+	@handler pricingPackage
+	get /pricing/:id (PricingPackage)
+
+	@handler terms
+	get /terms
+
+	@page (
+		title: Login
+		menus: main,footer
+		template: login
+	)
+	@handler login
+	get /login
+
+	@handler doLogin
+	post /login (LoginForm) response (LoginFormResponse)
+
+	@handler register
+	get /register
+
+	@handler doRegister
+	post /register
+
+	@handler forgotPassword
+	get /forgot-password
+
+	@handler visit
+	post /visit (Visitor)
+
+	@handler doForgotPassword
+	post /forgot-password
+}
+
+@server (
+	group:      admin/billing
+	prefix:     /admin/billing
+	jwt: 		token
+	middleware: Locale,Auth
+)
+service Parking {
+	@handler invoices
+	get /invoices (Visitor) returns (Visitor)
+
+	@handler usage
+	get /usage
+
+	@handler plan
+	get /plan
+}
+
+@server (
+	group:      app/account
+	prefix:     /app/account
+	middleware: Locale,Auth
+)
+service Parking {
+	@handler details
+	get /
+
+	@handler changePassword
+	get /change-password
+
+	@handler selectAccount
+	get /select-account
+}

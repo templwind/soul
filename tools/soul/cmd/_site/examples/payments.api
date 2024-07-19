@@ -1,0 +1,44 @@
+info (
+	type: module
+	name: PaymentsModel
+	version: 1.0.0
+	license: MIT
+)
+
+type Item {
+	Name  string  `form:"name"`
+	Price float64 `form:"price"`
+	Qty   int     `form:"qty"`
+}
+
+type Payment {
+	Amount float64 `form:"amount"`
+	Items  []Item  `form:"items"`
+}
+
+type Response {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+@server (
+	group:      admin/billing
+	prefix:     /admin/billing
+	template:   backoffice
+    languages:  en,es
+	jwt:        Auth
+	middleware: Locale
+)
+service PaymentsModel {
+	@handler authCapture
+	post /payment (Payment) returns (Response)
+
+	@handler refund
+	post /refund (Payment) returns (Response)
+
+	@handler void
+	post /void (Payment) returns (Response)
+
+	@handler authOnly
+	post /authorize (Payment) returns (Response)
+}
