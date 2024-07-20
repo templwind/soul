@@ -314,15 +314,15 @@ func genHandlerImports(server spec.Server, handler spec.Handler, parentPkg strin
 
 	imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/labstack/echo/v4"))
 	if hasTypes {
-		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwindwebserver/httpx"))
+		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/soulwebserver/httpx"))
 	}
 
 	if hasView || hasReturnsPartial {
-		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind"))
+		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/soul"))
 	}
 
 	if hasView {
-		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwindhtmx"))
+		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/soulhtmx"))
 	}
 
 	return strings.Join(imports, "\n\t")

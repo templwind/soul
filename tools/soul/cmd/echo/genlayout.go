@@ -114,7 +114,7 @@ func genLayoutImports(parentPkg string) string {
 		fmt.Sprintf("\"%s\"\n", "net/http"),
 		fmt.Sprintf("\"%s\"\n", pathx.JoinPackages(parentPkg, types.ConfigDir)),
 		fmt.Sprintf("\"%s\"", "github.com/a-h/templ"),
-		fmt.Sprintf("\"%s\"", "github.com/templwind/templwind"),
+		fmt.Sprintf("\"%s\"", "github.com/templwind/soul"),
 	}
 
 	return strings.Join(imports, "\n\t")
