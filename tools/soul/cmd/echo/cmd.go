@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/templwind/templwind/tools/soul/internal/util"
-	"github.com/templwind/templwind/tools/soul/pkg/site/parser"
-	"github.com/templwind/templwind/tools/soul/pkg/site/spec"
+	"github.com/templwind/soul/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/pkg/site/parser"
+	"github.com/templwind/soul/tools/soul/pkg/site/spec"
 
 	"github.com/gookit/color"
 	"github.com/spf13/cobra"

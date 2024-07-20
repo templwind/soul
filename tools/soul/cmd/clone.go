@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/templwind/templwind/tools/soul/internal/components"
-	"github.com/templwind/templwind/tools/soul/internal/installer"
+	"github.com/templwind/soul/tools/soul/internal/components"
+	"github.com/templwind/soul/tools/soul/internal/installer"
 )
 
 func init() {

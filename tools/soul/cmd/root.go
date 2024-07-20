@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/templwind/templwind/tools/soul/cmd/echo"
-	"github.com/templwind/templwind/tools/soul/cmd/parsexo"
-	"github.com/templwind/templwind/tools/soul/cmd/saas"
+	"github.com/templwind/soul/tools/soul/cmd/echo"
+	"github.com/templwind/soul/tools/soul/cmd/parsexo"
+	"github.com/templwind/soul/tools/soul/cmd/saas"
 )
 
 var rootCmd = &cobra.Command{

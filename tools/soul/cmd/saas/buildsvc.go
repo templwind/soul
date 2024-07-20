@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/templwind/templwind/tools/soul/internal/types"
-	"github.com/templwind/templwind/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/internal/types"
+	"github.com/templwind/soul/tools/soul/internal/util"
 
 	"github.com/zeromicro/go-zero/tools/goctl/util/pathx"
 )
@@ -82,7 +82,7 @@ func genSvcImports(rootPkg string, hasMiddlware bool) string {
 	}
 
 	imports = append(imports, fmt.Sprintf("_ \"%s\"", "github.com/mattn/go-sqlite3"))
-	imports = append(imports, fmt.Sprintf("\"%s/db\"", "github.com/templwind/templwind"))
+	imports = append(imports, fmt.Sprintf("\"%s/db\"", "github.com/templwind/soul"))
 
 	return strings.Join(imports, "\n\t")
 }

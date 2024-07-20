@@ -4,9 +4,9 @@ import (
 	"log"
 
 	"github.com/spf13/cobra"
-	"github.com/templwind/templwind/tools/soul/internal/discovery"
-	"github.com/templwind/templwind/tools/soul/internal/installer"
-	"github.com/templwind/templwind/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/internal/discovery"
+	"github.com/templwind/soul/tools/soul/internal/installer"
+	"github.com/templwind/soul/tools/soul/internal/util"
 )
 
 func init() {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/templwind/templwind/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/internal/util"
 )
 
 const (

@@ -11,10 +11,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/templwind/templwind/tools/soul/internal/imports"
-	"github.com/templwind/templwind/tools/soul/internal/types"
-	"github.com/templwind/templwind/tools/soul/internal/util"
-	"github.com/templwind/templwind/tools/soul/pkg/site/spec"
+	"github.com/templwind/soul/tools/soul/internal/imports"
+	"github.com/templwind/soul/tools/soul/internal/types"
+	"github.com/templwind/soul/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/pkg/site/spec"
 
 	"github.com/zeromicro/go-zero/tools/goctl/api/parser/g4/gen/api"
 	"github.com/zeromicro/go-zero/tools/goctl/util/pathx"
@@ -301,7 +301,7 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 			)),
 			imports.WithSpacer(),
 			imports.WithImport("github.com/a-h/templ"),
-			imports.WithImport("github.com/templwind/templwind"),
+			imports.WithImport("github.com/templwind/soul"),
 		).String()
 
 		builder.WithRenameFile("internal/logic/props.go", filepath.Join(subDir, "props.go"))
@@ -444,7 +444,7 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 	}
 	if requireTemplwind {
 
-		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/templwind"))
+		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul"))
 	}
 
 	iOptFuncs = append(iOptFuncs, imports.WithImport(path.Join([]string{

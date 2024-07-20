@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/templwind/templwind/tools/soul/internal/types"
-	"github.com/templwind/templwind/tools/soul/pkg/site/spec"
+	"github.com/templwind/soul/tools/soul/internal/types"
+	"github.com/templwind/soul/tools/soul/pkg/site/spec"
 
 	"github.com/zeromicro/go-zero/tools/goctl/config"
 	"github.com/zeromicro/go-zero/tools/goctl/util/format"
@@ -50,7 +50,7 @@ func genMainImports(parentPkg string) string {
 	imports = append(imports, fmt.Sprintf("\"%s\"\n", pathx.JoinPackages(parentPkg, types.ContextDir)))
 	imports = append(imports, fmt.Sprintf("_ \"%s\"", "github.com/joho/godotenv/autoload"))
 	imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/labstack/echo/v4/middleware"))
-	imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind/conf"))
-	imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind/webserver"))
+	imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwindconf"))
+	imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwindwebserver"))
 	return strings.Join(imports, "\n\t")
 }

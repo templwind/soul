@@ -12,7 +12,7 @@ import (
 	"{{ .serviceName }}/internal/types"
 	"{{ .serviceName }}/internal/ui/components/toast"
 
-	"github.com/templwind/templwind"
+	"github.com/templwind/soul"
 )
 
 type SendFinishedEvent struct {

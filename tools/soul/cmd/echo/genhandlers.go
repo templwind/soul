@@ -7,9 +7,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/templwind/templwind/tools/soul/internal/types"
-	"github.com/templwind/templwind/tools/soul/internal/util"
-	"github.com/templwind/templwind/tools/soul/pkg/site/spec"
+	"github.com/templwind/soul/tools/soul/internal/types"
+	"github.com/templwind/soul/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/pkg/site/spec"
 
 	"github.com/zeromicro/go-zero/tools/goctl/util/pathx"
 )
@@ -314,7 +314,7 @@ func genHandlerImports(server spec.Server, handler spec.Handler, parentPkg strin
 
 	imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/labstack/echo/v4"))
 	if hasTypes {
-		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind/webserver/httpx"))
+		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwindwebserver/httpx"))
 	}
 
 	if hasView || hasReturnsPartial {
@@ -322,7 +322,7 @@ func genHandlerImports(server spec.Server, handler spec.Handler, parentPkg strin
 	}
 
 	if hasView {
-		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind/htmx"))
+		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwindhtmx"))
 	}
 
 	return strings.Join(imports, "\n\t")

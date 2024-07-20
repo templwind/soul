@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/templwind/templwind/conf/encoding"
+	"github.com/templwind/soul/conf/encoding"
 )
 
 var (
