@@ -23,7 +23,7 @@ func Execute(opts ...Option) error {
 	}
 
 	// Clone the repository into memory
-	repoURL := "https://github.com/templwind/templwind"
+	repoURL := "https://github.com/templwind/soul"
 	fs, err := components.CloneRepoToMemory(repoURL)
 	if err != nil {
 		return fmt.Errorf("error cloning repository: %v", err)
@@ -108,8 +108,8 @@ func processComponent(fs afero.Fs, component, projectNamespace, framework, desti
 			}
 
 			for _, imp := range imports {
-				if strings.HasPrefix(imp, "github.com/templwind/templwindcomponents/") {
-					subComponent := strings.TrimPrefix(imp, "github.com/templwind/templwindcomponents/")
+				if strings.HasPrefix(imp, "github.com/templwind/soulcomponents/") {
+					subComponent := strings.TrimPrefix(imp, "github.com/templwind/soulcomponents/")
 					fmt.Println("Found sub-component:", subComponent)
 
 					if err := processComponent(fs, subComponent, projectNamespace, framework, destination, processedComponents); err != nil {
@@ -144,9 +144,9 @@ func rewriteImports(filePath, componentDest, projectNamespace string) error {
 	// Rewrite import paths
 	for _, imp := range node.Imports {
 		importPath := strings.Trim(imp.Path.Value, "\"")
-		fmt.Println("Found import:", importPath, strings.HasPrefix(importPath, "github.com/templwind/templwind"))
-		if strings.HasPrefix(importPath, "github.com/templwind/templwindcomponents") {
-			newImportFilePath := strings.TrimPrefix(importPath, "github.com/templwind/templwindcomponents/")
+		fmt.Println("Found import:", importPath, strings.HasPrefix(importPath, "github.com/templwind/soul"))
+		if strings.HasPrefix(importPath, "github.com/templwind/soulcomponents") {
+			newImportFilePath := strings.TrimPrefix(importPath, "github.com/templwind/soulcomponents/")
 			// replace multiple // with a single /
 			newImportFilePath = strings.ReplaceAll(newImportFilePath, "//", "/")
 			newImportPath := fmt.Sprintf("%s/%s/%s", projectNamespace, filepath.Dir(componentDest), newImportFilePath)
@@ -201,8 +201,8 @@ func processPage(fs afero.Fs, page, projectNamespace, framework, destination, ne
 			}
 
 			for _, imp := range imports {
-				if strings.HasPrefix(imp, "github.com/templwind/templwindcomponents/") {
-					subComponent := strings.TrimPrefix(imp, "github.com/templwind/templwindcomponents/")
+				if strings.HasPrefix(imp, "github.com/templwind/soulcomponents/") {
+					subComponent := strings.TrimPrefix(imp, "github.com/templwind/soulcomponents/")
 					if err := processComponent(fs, subComponent, projectNamespace, framework, destination, processedComponents); err != nil {
 						fmt.Printf("Error processing sub-component %s: %v\n", subComponent, err)
 						continue
@@ -250,8 +250,8 @@ func processModule(fs afero.Fs, module, projectNamespace, framework, destination
 			}
 
 			for _, imp := range imports {
-				if strings.HasPrefix(imp, "github.com/templwind/templwindcomponents/") {
-					subComponent := strings.TrimPrefix(imp, "github.com/templwind/templwindcomponents/")
+				if strings.HasPrefix(imp, "github.com/templwind/soulcomponents/") {
+					subComponent := strings.TrimPrefix(imp, "github.com/templwind/soulcomponents/")
 					if err := processComponent(fs, subComponent, projectNamespace, framework, destination, processedComponents); err != nil {
 						fmt.Printf("Error processing sub-component %s: %v\n", subComponent, err)
 						continue

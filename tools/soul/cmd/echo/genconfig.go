@@ -53,7 +53,7 @@ func genConfig(dir string, cfg *config.Config, site *spec.SiteSpec) error {
 	}
 
 	imports := genConfigImports()
-	// imports := fmt.Sprintf("\"%s/webserver\"", "github.com/templwind/templwind")
+	// imports := fmt.Sprintf("\"%s/webserver\"", "github.com/templwind/soul")
 
 	return genFile(fileGenConfig{
 		dir:             dir,
@@ -73,8 +73,8 @@ func genConfig(dir string, cfg *config.Config, site *spec.SiteSpec) error {
 
 func genConfigImports() string {
 	imports := []string{
-		fmt.Sprintf("\"%s/db\"", "github.com/templwind/templwind"),
-		fmt.Sprintf("\"%s/webserver\"", "github.com/templwind/templwind"),
+		fmt.Sprintf("\"%s/db\"", "github.com/templwind/soul"),
+		fmt.Sprintf("\"%s/webserver\"", "github.com/templwind/soul"),
 	}
 
 	return strings.Join(imports, "\n\t")

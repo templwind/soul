@@ -70,7 +70,7 @@ func genSvcImports(rootPkg string, hasMiddlware bool) string {
 	}
 
 	imports = append(imports, fmt.Sprintf("_ \"%s\"", "github.com/mattn/go-sqlite3"))
-	imports = append(imports, fmt.Sprintf("\"%s/db\"", "github.com/templwind/templwind"))
+	imports = append(imports, fmt.Sprintf("\"%s/db\"", "github.com/templwind/soul"))
 
 	return strings.Join(imports, "\n\t")
 }

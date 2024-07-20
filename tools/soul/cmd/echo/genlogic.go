@@ -380,7 +380,7 @@ func genPropsImports(parentPkg string) string {
 		fmt.Sprintf("\"%s\"\n", "net/http"),
 		fmt.Sprintf("\"%s\"", pathx.JoinPackages(parentPkg, types.ConfigDir)),
 		fmt.Sprintf("\"%s\"\n", "github.com/a-h/templ"),
-		fmt.Sprintf("\"%s\"", "github.com/templwind/templwind"),
+		fmt.Sprintf("\"%s\"", "github.com/templwind/soul"),
 	}
 	return strings.Join(imports, "\n\t")
 }
@@ -462,17 +462,17 @@ func genLogicImports(server spec.Server, handler spec.Handler, parentPkg string)
 		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/labstack/echo/v4"))
 	}
 	if requireTemplwind {
-		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind"))
+		imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/soul"))
 	}
 	if hasReturnsPartial {
-		// imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind"))
+		// imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/soul"))
 
 	}
 
 	// TODO: method fix
 
 	// if requireTemplwind {
-	// 	imports = append(imports, "\"github.com/templwind/templwind\"")
+	// 	imports = append(imports, "\"github.com/templwind/soul\"")
 	// }
 	imports = append(imports, fmt.Sprintf("\"%s/core/logx\"", vars.ProjectOpenSourceURL))
 	return strings.Join(imports, "\n\t")
