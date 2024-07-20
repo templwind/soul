@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/templwind/templwind/tools/soul/pkg/site/ast"
-	"github.com/templwind/templwind/tools/soul/pkg/site/lexer"
-	"github.com/templwind/templwind/tools/soul/pkg/site/spec"
+	"github.com/templwind/soul/tools/soul/pkg/site/ast"
+	"github.com/templwind/soul/tools/soul/pkg/site/lexer"
+	"github.com/templwind/soul/tools/soul/pkg/site/spec"
 )
 
 // Parser represents a parser

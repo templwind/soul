@@ -9,9 +9,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/templwind/templwind/tools/soul/internal/types"
-	"github.com/templwind/templwind/tools/soul/internal/util"
-	"github.com/templwind/templwind/tools/soul/pkg/site/spec"
+	"github.com/templwind/soul/tools/soul/internal/types"
+	"github.com/templwind/soul/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/pkg/site/spec"
 
 	"github.com/zeromicro/go-zero/core/collection"
 	"github.com/zeromicro/go-zero/tools/goctl/config"

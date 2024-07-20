@@ -3,7 +3,7 @@ package spec
 import (
 	"fmt"
 
-	"github.com/templwind/templwind/tools/soul/pkg/site/ast"
+	"github.com/templwind/soul/tools/soul/pkg/site/ast"
 )
 
 // Define the constants used in the spec

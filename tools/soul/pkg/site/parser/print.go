@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/templwind/templwind/tools/soul/pkg/site/ast"
+	"github.com/templwind/soul/tools/soul/pkg/site/ast"
 )
 
 // PrintAST prints the entire AST with indentation

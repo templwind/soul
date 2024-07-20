@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/templwind/templwind/tools/soul/internal/imports"
-	"github.com/templwind/templwind/tools/soul/internal/types"
-	"github.com/templwind/templwind/tools/soul/internal/util"
-	"github.com/templwind/templwind/tools/soul/pkg/site/spec"
+	"github.com/templwind/soul/tools/soul/internal/imports"
+	"github.com/templwind/soul/tools/soul/internal/types"
+	"github.com/templwind/soul/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/pkg/site/spec"
 )
 
 func buildHandlers(builder *SaaSBuilder) error {
@@ -381,22 +381,22 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 	// imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/labstack/echo/v4"))
 	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/labstack/echo/v4"))
 	if hasTypes {
-		// imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind/webserver/httpx"))
-		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/templwind/webserver/httpx"))
+		// imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/soul/webserver/httpx"))
+		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul/webserver/httpx"))
 	}
 
 	if hasView || hasReturnsPartial {
-		// imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind"))
-		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/templwind"))
+		// imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/soul"))
+		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul"))
 	}
 
 	if hasView {
-		// imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/templwind/htmx"))
-		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/templwind/htmx"))
+		// imports = append(imports, fmt.Sprintf("\"%s\"", "github.com/templwind/soul/htmx"))
+		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul/htmx"))
 	}
 
 	if hasSocket {
-		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/templwind/webserver/wsmanager"))
+		iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul/webserver/wsmanager"))
 	}
 
 	// return strings.Join(imports, "\n\t")

@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/templwind/templwind/tools/soul/internal/imports"
-	"github.com/templwind/templwind/tools/soul/internal/types"
-	"github.com/templwind/templwind/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/internal/imports"
+	"github.com/templwind/soul/tools/soul/internal/types"
+	"github.com/templwind/soul/tools/soul/internal/util"
 )
 
 func buildMiddleware(builder *SaaSBuilder) error {

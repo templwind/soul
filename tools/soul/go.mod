@@ -1,4 +1,4 @@
-module github.com/templwind/templwind/tools/soul
+module github.com/templwind/soul/tools/soul
 
 go 1.22.2
 
@@ -24,6 +24,6 @@ require (
 	go.opentelemetry.io/otel v1.19.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	go.uber.org/automaxprocs v1.5.3 // indirect
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sys v0.21.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

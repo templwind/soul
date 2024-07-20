@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/spf13/cobra"
-	"github.com/templwind/templwind/tools/soul/internal/update"
+	"github.com/templwind/soul/tools/soul/internal/update"
 )
 
 func UpdateCmd() *cobra.Command {

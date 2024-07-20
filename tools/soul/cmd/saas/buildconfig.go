@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/templwind/templwind/tools/soul/internal/imports"
-	"github.com/templwind/templwind/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/internal/imports"
+	"github.com/templwind/soul/tools/soul/internal/util"
 )
 
 const (
@@ -41,8 +41,8 @@ func buildConfig(builder *SaaSBuilder) error {
 		imports.WithSpacer(),
 		imports.WithImport("github.com/biter777/countries"),
 		imports.WithImport("github.com/gosimple/slug"),
-		imports.WithImport("github.com/templwind/templwind/db"),
-		imports.WithImport("github.com/templwind/templwind/webserver"),
+		imports.WithImport("github.com/templwind/soul/db"),
+		imports.WithImport("github.com/templwind/soul/webserver"),
 	).String()
 	builder.Data["auth"] = strings.Join(auths, "\n")
 	builder.Data["jwtTrans"] = strings.Join(jwtTransList, "\n")
