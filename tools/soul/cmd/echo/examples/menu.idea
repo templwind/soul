@@ -1,0 +1,68 @@
+@menus (
+	menu (
+		name:       main
+		items (
+			item (
+				title:  Home
+				url:    /
+			)
+			item (
+				title:  Pricing
+				url:    /pricing
+				icon:   <svg>...</svg>
+			)
+			item (
+				title:  Login
+				url:    /login
+				icon:   <svg>...</svg>
+			)
+			item (
+				title:  Register
+				url:    /register
+				icon:   <svg>...</svg>
+			)
+		)
+	)
+	menu (
+		name:       footer
+		items (
+			item (
+				title:  Terms
+				url:    /terms
+				icon:   <svg>...</svg>
+				items: (
+					item (
+						title:  Terms of Service
+						url:    /terms/service
+						items: (
+							item (
+								title:  Acceptable Use Policy
+								url:    /terms/aup
+							)
+					)
+					item (
+						title:  Terms of Use
+						url:    /terms/use
+						items: (
+							item (
+								title:  Privacy Policy
+								url:    /terms/privacy
+							)
+						)
+					)
+				)
+			)
+			item (
+				title:  Privacy
+				url:    /privacy
+				icon:   <svg>...</svg>
+				items: (
+					item (
+						title:  Privacy Policy
+						url:    /privacy/policy
+					)
+				)
+			)
+		)
+	)
+)
