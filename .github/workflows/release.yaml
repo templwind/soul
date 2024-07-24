@@ -45,6 +45,10 @@ jobs:
           go build -o tools/soul/dist/soul-${GOOS}-${GOARCH} .
         working-directory: ./tools/soul
 
+      - name: List dist files
+        run: ls -al tools/soul/dist
+        working-directory: ./tools/soul
+
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
