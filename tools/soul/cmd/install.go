@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/templwind/soul/tools/soul/internal/discovery"
 	"github.com/templwind/soul/tools/soul/internal/installer"
-	"github.com/templwind/soul/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/pkg/util"
 )
 
 func init() {

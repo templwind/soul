@@ -10,8 +10,8 @@ import (
 
 	"github.com/templwind/soul/tools/soul/internal/imports"
 	"github.com/templwind/soul/tools/soul/internal/types"
-	"github.com/templwind/soul/tools/soul/internal/util"
 	"github.com/templwind/soul/tools/soul/pkg/site/spec"
+	"github.com/templwind/soul/tools/soul/pkg/util"
 )
 
 func buildHandlers(builder *SaaSBuilder) error {
