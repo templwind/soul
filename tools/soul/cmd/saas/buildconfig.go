@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/templwind/soul/tools/soul/internal/imports"
-	"github.com/templwind/soul/tools/soul/internal/util"
+	"github.com/templwind/soul/tools/soul/pkg/util"
 )
 
 const (
