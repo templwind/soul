@@ -1,28 +1,63 @@
+name: Release soul binary
+
 on:
   push:
     tags:
       - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   releases-matrix:
-    name: Release soul binary
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # build and publish in parallel: linux/386, linux/amd64, linux/arm64,
-        # windows/386, windows/amd64, windows/arm64, darwin/amd64, darwin/arm64
         goos: [linux, windows, darwin]
         goarch: ["386", amd64, arm64]
         exclude:
           - goarch: "386"
             goos: darwin
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: wangyoucao577/go-release-action@v1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go environment
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.22.5"
+
+      - name: Build the binary
+        run: |
+          mkdir -p build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}/soul tools/soul
+
+      - name: Create a release if it doesn't exist
+        id: create_release
+        run: |
+          RELEASE_RESPONSE=$(curl -s -o response.json -w "%{http_code}" -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${{ github.repository }}/releases -d '{"tag_name":"${{ github.ref_name }}","name":"Release ${{ github.ref_name }}"}')
+          if [ $RELEASE_RESPONSE -eq 201 ]; then
+            echo "Release created"
+          else
+            echo "Failed to create release"
+            cat response.json
+            exit 1
+          fi
+
+      - name: Upload release assets
+        uses: wangyoucao577/go-release-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "https://dl.google.com/go/go1.22.2.linux-amd64.tar.gz"
           project_path: "tools/soul"
           binary_name: "soul"
           extra_files: tools/soul/README.md
+          release_tag: ${{ github.ref }}
+          release_name: "Release ${{ github.ref }}"
+          release_repo: ${{ github.repository }}
+          compress_assets: true
+          overwrite: false
+          retry: 3
