@@ -31,8 +31,9 @@ jobs:
 
       - name: Build the binary
         run: |
-          mkdir -p build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}/soul tools/soul
+          cd tools/soul
+          mkdir -p ../build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ../build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}/soul
 
       - name: Create a release if it doesn't exist
         id: create_release
