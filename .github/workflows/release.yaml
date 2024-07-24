@@ -35,11 +35,29 @@ jobs:
           mkdir -p ../build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ../build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}/soul
 
-      - name: Create a release if it doesn't exist
+      - name: Check if release exists
+        id: check_release
+        run: |
+          RELEASE_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}"
+          RESPONSE=$(curl -s -o response.json -w "%{http_code}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" $RELEASE_URL)
+          if [ $RESPONSE -eq 200 ]; then
+            echo "Release already exists"
+            echo "release_exists=true" >> $GITHUB_ENV
+          elif [ $RESPONSE -eq 404 ]; then
+            echo "Release does not exist"
+            echo "release_exists=false" >> $GITHUB_ENV
+          else
+            echo "Unexpected response: $RESPONSE"
+            cat response.json
+            exit 1
+          fi
+
+      - name: Create release if it does not exist
+        if: env.release_exists == 'false'
         id: create_release
         run: |
-          RELEASE_RESPONSE=$(curl -s -o response.json -w "%{http_code}" -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${{ github.repository }}/releases -d '{"tag_name":"${{ github.ref_name }}","name":"Release ${{ github.ref_name }}"}')
-          if [ $RELEASE_RESPONSE -eq 201 ]; then
+          RESPONSE=$(curl -s -o response.json -w "%{http_code}" -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${{ github.repository }}/releases -d '{"tag_name":"${{ github.ref_name }}","name":"Release ${{ github.ref_name }}"}')
+          if [ $RESPONSE -eq 201 ]; then
             echo "Release created"
           else
             echo "Failed to create release"
