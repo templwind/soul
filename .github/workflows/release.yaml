@@ -65,6 +65,11 @@ jobs:
             exit 1
           fi
 
+      - name: Create tarball
+        run: |
+          cd tools/soul/build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}
+          tar cvfz ../../soul-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz README.md soul
+
       - name: Upload release assets
         uses: wangyoucao577/go-release-action@v1
         with:
