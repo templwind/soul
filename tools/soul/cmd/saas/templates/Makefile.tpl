@@ -85,7 +85,7 @@ staticcheck:
 ## gen: Generate the website from the ast code
 .PHONY: gen
 gen:
-	soul echo -a ${EXECUTABLE}.api -d .
+	soul saas -a ${EXECUTABLE}.api -d .
 
 ## xo: generate models from database
 .PHONY: xo
