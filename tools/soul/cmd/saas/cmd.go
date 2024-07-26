@@ -171,7 +171,7 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 	})
 
 	// ignore the whole internal/logic directory
-	builder.WithIgnorePath("internal/logic/[logic]")
+	builder.WithIgnorePath("internal/logic")
 	builder.WithIgnorePath("internal/handler")
 	builder.WithIgnoreFile("internal/types/loginvalidation.go")
 	builder.WithIgnoreFile("internal/types/registervalidation.go")

@@ -1,5 +1,5 @@
 {
-  "name": "{{.serviceName}}",
+  "name": "crowdgains",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -17,6 +17,7 @@
     "concurrently": "^8.2.2",
     "htmx.org": "^2.0.0",
     "postcss": "^8.4.38",
+    "postcss-import": "^16.1.0",
     "sass": "^1.77.4",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.2.2",
@@ -24,6 +25,6 @@
     "vite": "^5.2.0"
   },
   "dependencies": {
-    "alpinejs": "^3.14.1"
+    "daisyui": "^4.12.10"
   }
 }
