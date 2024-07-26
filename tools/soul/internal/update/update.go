@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const currentVersion = "v0.0.1"
+const currentVersion = "v0.0.2"
 const repoOwner = "templwind"
 const repoName = "soul"
 
