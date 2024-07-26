@@ -115,7 +115,7 @@ func genNotFoundLayout(builder *SaaSBuilder) error {
 
 	return builder.genFile(fileGenConfig{
 		subdir:       layoutPath,
-		templateFile: "templates/internal/logic/[logic]/layout.go.tpl",
+		templateFile: "templates/internal/logic/layout.go.tpl",
 		data:         builder.Data,
 	})
 }
@@ -152,7 +152,7 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 
 	if err := builder.genFile(fileGenConfig{
 		subdir:       layoutPath,
-		templateFile: "templates/internal/logic/[logic]/layout.go.tpl",
+		templateFile: "templates/internal/logic/layout.go.tpl",
 		data:         builder.Data,
 	}); err != nil {
 		fmt.Println("error generating layout.go file", err)
@@ -365,10 +365,10 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 		builder.Data["templName"] = util.ToCamel(handler.Name + "View")
 		builder.Data["pageTitle"] = util.ToTitle(handler.Name)
 
-		builder.WithRenameFile("internal/logic/logic.templ", filepath.Join(subDir, strings.ToLower(util.ToCamel(handler.Name))+".templ"))
+		builder.WithRenameFile(filepath.Join(subDir, "logic.templ"), filepath.Join(subDir, strings.ToLower(util.ToCamel(handler.Name))+".templ"))
 		if err := builder.genFile(fileGenConfig{
 			subdir:       subDir,
-			templateFile: "templates/internal/logic/[logic]/logic.templ.tpl",
+			templateFile: "templates/internal/logic/logic.templ.tpl",
 			data:         builder.Data,
 		}); err != nil {
 			return err
@@ -389,7 +389,7 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 		builder.WithRenameFile("internal/logic/props.go", filepath.Join(subDir, "props.go"))
 		if err := builder.genFile(fileGenConfig{
 			subdir:       subDir,
-			templateFile: "templates/internal/logic/[logic]/props.go.tpl",
+			templateFile: "templates/internal/logic/props.go.tpl",
 			data:         builder.Data,
 		}); err != nil {
 			return err
@@ -405,7 +405,7 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 	builder.WithRenameFile(filepath.Join(subDir, "logic.go"), filepath.Join(subDir, strings.ToLower(util.ToCamel(handler.Name))+".go"))
 	return builder.genFile(fileGenConfig{
 		subdir:       subDir,
-		templateFile: "templates/internal/logic/[logic]/logic.go.tpl",
+		templateFile: "templates/internal/logic/logic.go.tpl",
 		data:         builder.Data,
 	})
 }
