@@ -75,13 +75,13 @@ func genTypes(builder *SaaSBuilder) (string, error) {
 func writeType(writer io.Writer, tp spec.Type) error {
 	fmt.Fprintf(writer, "type %s struct {\n", gotctlutil.Title(tp.GetName()))
 	for _, member := range tp.GetFields() {
-		if member.Name == member.Type {
-			if _, err := fmt.Fprintf(writer, "\t%s\n", strings.Title(member.Type)); err != nil {
-				return err
-			}
+		// if member.Name == member.Type {
+		// 	if _, err := fmt.Fprintf(writer, "\t%s\n", strings.Title(member.Type)); err != nil {
+		// 		return err
+		// 	}
 
-			continue
-		}
+		// 	continue
+		// }
 
 		if err := util.WriteProperty(writer, member.Name, member.Tag, "", member.Type, 1); err != nil {
 			return err

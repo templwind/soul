@@ -965,5 +965,5 @@ func firstChar(s string) string {
 	if len(s) == 0 {
 		return ""
 	}
-	return string(s[0])
+	return strings.ToLower(string(s[0]))
 }

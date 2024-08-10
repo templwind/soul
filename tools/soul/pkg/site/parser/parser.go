@@ -236,7 +236,8 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 			strings.EqualFold(part, "socket") ||
 			strings.EqualFold(part, "sse") ||
 			strings.EqualFold(part, "video") ||
-			strings.EqualFold(part, "audio")
+			strings.EqualFold(part, "audio") ||
+			strings.EqualFold(part, "file")
 	}
 
 	cleanType := func(part string) string {
@@ -284,6 +285,13 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 						continue
 					} else {
 						panic("Audio paths (get audio /path) can only be used with a GET method")
+					}
+				case "file":
+					if method.Method == "POST" {
+						method.IsUploadFile = true
+						continue
+					} else {
+						panic("File paths (post file /path) can only be used with a POST method")
 					}
 				}
 			}

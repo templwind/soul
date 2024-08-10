@@ -1,8 +1,6 @@
 package main
 
-import (
-	"github.com/templwind/soul/tools/soul/cmd"
-)
+import "github.com/templwind/soul/tools/soul/cmd"
 
 func main() {
 	// defer func() {
@@ -10,6 +8,6 @@ func main() {
 	// 		fmt.Println("error: ", r)
 	// 	}
 	// }()
-
+	//
 	cmd.Execute()
 }

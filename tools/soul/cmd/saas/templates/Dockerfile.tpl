@@ -51,5 +51,8 @@ FROM gcr.io/distroless/static-debian11 as prod
 # Copy the binary to the production image from the builder stage.
 COPY --from=dev /go/bin/app /app
 
+# Copy the *.yaml file to the production image from the builder stage.
+COPY --from=dev /app/etc/*.yaml /etc/
+
 # Run the binary program produced by `go install`
 CMD ["/app"]

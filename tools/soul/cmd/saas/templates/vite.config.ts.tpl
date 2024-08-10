@@ -1,7 +1,16 @@
 import { defineConfig } from "vite";
-import { resolve } from "path";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { sveltePreprocess } from "svelte-preprocess";
 
 export default defineConfig({
+  plugins: [
+    svelte({
+      include: ["src/svelte/**/*.svelte"],
+      preprocess: sveltePreprocess({
+        typescript: true,
+      }),
+    }),
+  ],
   server: {
     open: false,
     port: 3000,
@@ -12,16 +21,16 @@ export default defineConfig({
     cssCodeSplit: true,
     rollupOptions: {
       input: {
-        admin: resolve(__dirname, "src/admin.ts"),
-        app: resolve(__dirname, "src/app.ts"),
-        main: resolve(__dirname, "src/main.ts"),
+        admin: "src/admin.ts",
+        app: "src/app.ts",
+        main: "src/main.ts",
       },
       output: {
         format: "es",
         entryFileNames: "js/[name].js",
         chunkFileNames: "js/[name].js",
         assetFileNames: (assetInfo) => {
-          if (assetInfo.name.endsWith(".css")) {
+          if (assetInfo?.name?.endsWith(".css")) {
             return `css/${assetInfo.name}`;
           }
           return "assets/[name][extname]";
@@ -36,5 +45,10 @@ export default defineConfig({
         includePaths: ["./src/styles"],
       },
     },
+  },
+  esbuild: {
+    target: "es2019", // Ensure ES2019 target for `flat` method and other modern JS features
+    jsxFactory: "h",
+    jsxFragment: "Fragment",
   },
 });

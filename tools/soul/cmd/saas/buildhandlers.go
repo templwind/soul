@@ -262,7 +262,7 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 		}
 
 		if method.IsSocket {
-
+			i.AddProjectImport(path.Join(moduleName, types.TypesDir))
 			for _, topic := range method.SocketNode.Topics {
 				if topic.RequestType != nil && len(topic.RequestType.GetName()) > 0 {
 					i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
@@ -302,6 +302,11 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 			}
 		}
 
+		if method.ReturnsPartial {
+			i.AddNativeImport("net/http")
+			i.AddExternalImport("github.com/templwind/templwind")
+		}
+
 		if method.HasRequestType || method.HasResponseType {
 			i.AddProjectImport(path.Join(moduleName, types.TypesDir))
 			i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
@@ -313,13 +318,14 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 
 func getHandlerFolderPath(server spec.Server) string {
 	folder := server.GetAnnotation(types.GroupProperty)
+
 	if len(folder) == 0 || folder == "/" {
 		return types.HandlerDir
 	}
 
 	folder = strings.TrimPrefix(folder, "/")
 	folder = strings.TrimSuffix(folder, "/")
-	folder = strings.ToLower(util.ToPascal(folder))
+	folder = strings.ToLower(folder)
 
 	return path.Join(types.HandlerDir, folder)
 }
