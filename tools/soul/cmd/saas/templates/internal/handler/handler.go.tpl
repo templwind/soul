@@ -201,6 +201,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		{{- end}}
 		if err != nil {
 			c.Logger().Error(err)
+			{{- if .IsFullHTMLPage}}
 			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
 				return templwind.Render(c, http.StatusOK,
 					error5x.New(
@@ -216,8 +217,12 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 					pageLayout.Error5xLayout(svcCtx)...,
 				),
 			)
+			{{- else}}
+			return c.HTML(http.StatusOK, "Internal Server Error")
+			{{- end}}
 		}
 
+		{{- if .IsFullHTMLPage}}
 		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
 			return templwind.Render(c, http.StatusOK,
 				resp,
@@ -234,6 +239,15 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			),
 			{{- end}}
 		)
+		{{- else}}
+		if resp != nil {
+			return templwind.Render(c, http.StatusOK,
+				resp,
+			)
+		} else {
+			return nil
+		}
+		{{- end}}
 {{- end}}
 
 {{ define "fullHTML" }}

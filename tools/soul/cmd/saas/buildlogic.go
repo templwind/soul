@@ -142,13 +142,13 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 		builder.Data["theme"] = theme
 	}
 
-	layoutFile := path.Join(builder.Dir, layoutPath, "layout.go")
-	// only if it exists
-	if _, err := os.Stat(layoutFile); err == nil {
-		if err := os.Remove(layoutFile); err != nil {
-			fmt.Println("error removing file", layoutFile, err)
-		}
-	}
+	// layoutFile := path.Join(builder.Dir, layoutPath, "layout.go")
+	// // only if it exists
+	// if _, err := os.Stat(layoutFile); err == nil {
+	// 	if err := os.Remove(layoutFile); err != nil {
+	// 		fmt.Println("error removing file", layoutFile, err)
+	// 	}
+	// }
 
 	if err := builder.genFile(fileGenConfig{
 		subdir:       layoutPath,
@@ -192,10 +192,13 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 		}
 		uniqueMethods = append(uniqueMethods, handlerName)
 
-		if !method.IsSocket {
-			requiresTempl = true
-		} else {
+		if method.IsSocket {
 			hasSocket = true
+			requiresTempl = false
+		} else {
+			if method.IsFullHTMLPage || method.ReturnsPartial {
+				requiresTempl = true
+			}
 		}
 
 		// skip this method if it is static

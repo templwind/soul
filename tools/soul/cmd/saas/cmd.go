@@ -87,7 +87,9 @@ func Cmd() *cobra.Command {
 				cgoEnabled = false
 			}
 
-			doGenProject(siteFile, dir, db, router, cgoEnabled)
+			if err := doGenProject(siteFile, dir, db, router, cgoEnabled); err != nil {
+				fmt.Println(color.Red.Sprintf("failed to generate project: %s", err.Error()))
+			}
 		},
 	}
 
@@ -195,7 +197,7 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 	builder.WithCustomFunc("internal/handler/routes.go", buildRoutes)
 
 	// internal/logic/*.go
-	builder.WithCustomFunc("internal/logic/[logic]/logic.go", buildLogic)
+	builder.WithCustomFunc("internal/logic/logic.go", buildLogic)
 
 	// internal/middleware/*.go
 	builder.WithIgnoreFile("internal/middleware/template.tpl")
@@ -206,6 +208,11 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 
 	// internal/types/types.go
 	builder.WithCustomFunc("internal/types/types.go", buildTypes)
+
+	// ignore the src/api files (interfaces.ts and functions.ts)
+	builder.WithIgnoreFile("src/api/endpoints.ts")
+	builder.WithIgnoreFile("src/api/models.ts")
+	builder.WithCustomFunc("src/api/models.ts", buildApi)
 
 	builder.Execute()
 
@@ -299,6 +306,7 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 
 	for _, command := range commands {
 		if command.condition() {
+			// fmt.Println(color.Green.Sprintf("Running command: %s", strings.Join(command.args, " ")))
 			cmd := exec.Command(command.args[0], command.args[1:]...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
@@ -313,7 +321,7 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 			}
 
 			if command.asGoRoutine {
-				go run(cmd, command)
+				// go run(cmd, command)
 			} else {
 				run(cmd, command)
 			}
@@ -362,7 +370,6 @@ func openBrowser(url string) error {
 }
 
 func downloadModule(module spec.Module) error {
-
 	return nil
 }
 
@@ -374,22 +381,30 @@ func backupAndSweep(siteFile string) error {
 	_ = os.MkdirAll(tmpDir, os.ModePerm)
 
 	go func() {
+		defer wg.Done()
 		_, fileName := filepath.Split(siteFile)
 		_, e := util.Copy(siteFile, fmt.Sprintf(path.Join(tmpDir, tmpFile), fileName, time.Now().Unix()))
 		if e != nil {
 			err = e
 		}
-		wg.Done()
 	}()
 	go func() {
+		defer wg.Done()
 		if e := sweep(); e != nil {
 			err = e
 		}
-		wg.Done()
 	}()
-	wg.Wait()
 
-	return err
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return err
+	}
 }
 
 func sweep() error {

@@ -72,6 +72,7 @@ type MethodNode struct {
 	IsSSE           bool
 	IsVideoStream   bool
 	IsAudioStream   bool
+	IsUploadFile    bool
 	IsFullHTMLPage  bool
 	NoOutput        bool
 }

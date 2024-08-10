@@ -1,7 +1,7 @@
 package {{.PkgName}}
 
 import (
-	"github.com/templwind/soulhtmx"
+	"github.com/templwind/soul/htmx"
 )
 
 templ layout(props *Props) {

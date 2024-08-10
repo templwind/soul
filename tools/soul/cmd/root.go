@@ -25,6 +25,8 @@ func Execute() {
 	rootCmd.AddCommand(saas.Cmd())
 	rootCmd.AddCommand(echo.Cmd())
 	rootCmd.AddCommand(parsexo.Cmd())
+	rootCmd.AddCommand(UpdateCmd())
+	rootCmd.AddCommand(VersionCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)

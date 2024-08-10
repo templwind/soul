@@ -39,6 +39,7 @@ func Location(w http.ResponseWriter, r *http.Request, target LocationMap) error 
 	if IsHtmxRequest(r) {
 		data, err := json.Marshal(target)
 		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 		w.Header().Set("HX-Location", string(data))
