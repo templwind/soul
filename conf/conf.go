@@ -20,19 +20,28 @@ var (
 
 // Load loads config into v from file, .json, .yaml and .yml are acceptable.
 func Load(file string, v any, opts ...Option) error {
-	content, err := os.ReadFile(file)
-	if err != nil {
-		return err
+	var err error
+	var opt options
+	for _, o := range opts {
+		o(&opt)
+	}
+
+	var content []byte
+	if opt.hasFS {
+		content, err = opt.fs.ReadFile("etc/goshare.yaml")
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		content, err = os.ReadFile(file)
+		if err != nil {
+			return err
+		}
 	}
 
 	loader, ok := loaders[strings.ToLower(path.Ext(file))]
 	if !ok {
 		return fmt.Errorf("unrecognized file type: %s", file)
-	}
-
-	var opt options
-	for _, o := range opts {
-		o(&opt)
 	}
 
 	if opt.env {
