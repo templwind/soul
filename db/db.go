@@ -80,7 +80,7 @@ func WithEnableWALMode(enable bool) OptFunc[DBConfig] {
 
 // connect establishes a new database connection
 func connect(opts *DBConfig) (*sqlx.DB, error) {
-	fmt.Println("Connecting to database:", opts.DSN)
+	// fmt.Println("Connecting to database:", opts.DSN)
 
 	u, err := dburl.Parse(opts.DSN)
 	if err != nil {
@@ -100,6 +100,7 @@ func connect(opts *DBConfig) (*sqlx.DB, error) {
 		}
 	}
 
+	fmt.Println("Connecting to database:", u.Driver, u.DSN)
 	dbConn, err := sqlx.Open(u.Driver, u.DSN)
 	if err != nil {
 		return nil, err
