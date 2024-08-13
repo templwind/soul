@@ -47,8 +47,8 @@ func buildConfig(builder *SaaSBuilder) error {
 	builder.Data["jwtTrans"] = strings.Join(jwtTransList, "\n")
 
 	return builder.genFile(fileGenConfig{
-		subdir:       "internal/config",
-		templateFile: "templates/internal/config/config.go.tpl",
+		subdir:       "app/internal/config",
+		templateFile: "templates/app/internal/config/config.go.tpl",
 		data:         builder.Data,
 	})
 }

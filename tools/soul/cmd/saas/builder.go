@@ -16,7 +16,7 @@ import (
 	"github.com/zeromicro/go-zero/tools/goctl/pkg/golang"
 )
 
-//go:embed templates/*
+//go:embed templates/** templates/**/.github/** templates/**/postgres/.github/**
 var templatesFS embed.FS
 
 type SaaSBuilder struct {
@@ -136,18 +136,35 @@ func (sb *SaaSBuilder) genFile(c fileGenConfig) error {
 
 	filePath := filepath.Join(sb.Dir, c.subdir, fileName)
 
-	// check to see if this has been renamed
+	// fmt.Println("Generating file", filePath)
+
+	// Check if the file needs to be renamed
 	actualName := sb.destFile(c.subdir, fileName)
 	if newName, exists := sb.RenameFiles[actualName]; exists {
 		actualName = newName
+	} else {
+		// Check for any rename pattern that affects the path
+		for origName, renamedName := range sb.RenameFiles {
+			if strings.HasPrefix(actualName, origName) {
+				actualName = strings.Replace(actualName, origName, renamedName, 1)
+				break
+			}
+		}
 	}
 
 	tplFileName := sb.destFile(c.subdir, fileName)
-	// fmt.Println("tplFileName:", tplFileName, sb.OverwriteFiles[tplFileName])
+
+	// Ensure the destination directory exists
+	destDir := filepath.Dir(actualName)
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	// Read the file to check if it exists
 	if _, err := os.ReadFile(filepath.Join(sb.Dir, actualName)); err == nil {
 		if !sb.OverwriteFiles[tplFileName] {
-			// fmt.Println("Skipping file: ", actualName)
-			return nil // File exists and overwrite is not allowed
+			// Skip the file if it exists and overwrite is not allowed
+			return nil
 		}
 	}
 

@@ -81,6 +81,7 @@ func WithEnableWALMode(enable bool) OptFunc[DBConfig] {
 // connect establishes a new database connection
 func connect(opts *DBConfig) (*sqlx.DB, error) {
 	// fmt.Println("Connecting to database:", opts.DSN)
+	var dbConn *sqlx.DB
 
 	u, err := dburl.Parse(opts.DSN)
 	if err != nil {
@@ -98,19 +99,25 @@ func connect(opts *DBConfig) (*sqlx.DB, error) {
 		if err := ensureSQLiteFile(dbPath); err != nil {
 			return nil, err
 		}
-	}
 
-	fmt.Println("Connecting to database:", u.Driver, opts.DSN)
-	dbConn, err := sqlx.Open(u.Driver, opts.DSN)
-	if err != nil {
-		return nil, err
-	}
+		dbConn, err = sqlx.Connect(u.Driver, u.DSN)
+		if err != nil {
+			return nil, err
+		}
 
-	// Enable WAL mode if SQLite and requested
-	if u.Driver == "sqlite3" && opts.EnableWALMode {
+		// Enable WAL mode if SQLite and requestedif u.Driver == "sqlite3" && opts.EnableWALMode {
 		_, err = dbConn.Exec("PRAGMA journal_mode = WAL;")
 		if err != nil {
 			return nil, err
+		}
+	} else {
+		conn, err := dburl.Open(opts.DSN)
+		if err != nil {
+			return nil, err
+		}
+		dbConn = sqlx.NewDb(conn, u.Driver)
+		if dbConn == nil {
+			return nil, fmt.Errorf("failed to connect to database")
 		}
 	}
 

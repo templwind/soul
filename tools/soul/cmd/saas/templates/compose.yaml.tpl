@@ -123,7 +123,7 @@ services:
   # ###############################
   app:
     build: 
-      context: .
+      context: ./app
       target: dev
     depends_on:
       - migrations
@@ -145,9 +145,7 @@ services:
     {{- end}}
     privileged: true
     volumes:
-      - ./:/app
-      - ./db:/db
-      - ./uploads:/uploads
+      - ./app:/app
     restart: always
     logging:
       driver: "json-file"

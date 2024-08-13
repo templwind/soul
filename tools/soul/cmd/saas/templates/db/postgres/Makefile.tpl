@@ -26,6 +26,11 @@ AWS_ECR_URL=$(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(AWS_ECR_REPO
 AWS_LOGIN=$(shell aws ecr get-login-password --region $(AWS_REGION))
 DSN ?= $(shell echo $(DSN) | sed 's|sqlite://||')
 
+# Digital Ocean parameters
+DO_REGION=sfo3
+DO_REGISTRY=registry.digitalocean.com
+DO_IMAGE=$(DO_REGISTRY)/$(NAMESPACE)/$(IMAGE_NAME)
+
 
 all: help
 
@@ -63,3 +68,14 @@ docker-push:
 	$(DOCKER) push $(AWS_ECR_URL):main-$(TIMESTAMP)-$(COMMIT_HASH)
 	docker rmi $(AWS_ECR_URL):latest
 	docker rmi $(AWS_ECR_URL):main-$(TIMESTAMP)-$(COMMIT_HASH)
+
+.PHONY: do-docker-build
+do-docker-build:
+	$(DOCKER_BUILD) --platform=linux/amd64 -t $(DO_IMAGE):latest -t $(DO_IMAGE):main-$(TIMESTAMP)-$(COMMIT_HASH) .
+
+.PHONY: do-docker-push
+do-docker-push:
+	$(DOCKER) push $(DO_IMAGE):latest
+	$(DOCKER) push $(DO_IMAGE):main-$(TIMESTAMP)-$(COMMIT_HASH)
+	docker rmi $(DO_IMAGE):latest
+	docker rmi $(DO_IMAGE):main-$(TIMESTAMP)-$(COMMIT_HASH)

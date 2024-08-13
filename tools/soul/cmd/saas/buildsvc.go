@@ -60,8 +60,8 @@ func buildServiceContext(builder *SaaSBuilder) error {
 	builder.Data["middlewareAssignment"] = middlewareAssignment
 
 	return builder.genFile(fileGenConfig{
-		subdir:       types.ContextDir,
-		templateFile: "templates/internal/svc/servicecontext.go.tpl",
+		subdir:       path.Join("app", types.ContextDir),
+		templateFile: "templates/app/internal/svc/servicecontext.go.tpl",
 		data:         builder.Data,
 	})
 }
