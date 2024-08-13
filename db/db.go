@@ -100,8 +100,8 @@ func connect(opts *DBConfig) (*sqlx.DB, error) {
 		}
 	}
 
-	fmt.Println("Connecting to database:", u.Driver, u.DSN)
-	dbConn, err := sqlx.Connect(u.Driver, u.DSN)
+	fmt.Println("Connecting to database:", u.Driver, opts.DSN)
+	dbConn, err := sqlx.Open(u.Driver, opts.DSN)
 	if err != nil {
 		return nil, err
 	}
