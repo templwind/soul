@@ -165,60 +165,60 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 
 	// set the files to rename
 	builder.WithRenameFiles(map[string]string{
-		"air.toml":     "air.toml",
-		"env":          ".env",
-		"gitignore":    ".gitignore",
-		"dockerignore": ".dockerignore",
-		"main.go":      strings.ToLower(siteSpec.Name) + ".go",
+		// "app/air.toml":     "app/.air.toml",
+		// "env":              ".env",
+		// "app/gitignore":    "app/.gitignore",
+		// "app/dockerignore": "app/.dockerignore",
+		"app/main.go": "app/" + strings.ToLower(siteSpec.Name) + ".go",
 	})
 
 	// ignore the whole internal/logic directory
-	builder.WithIgnorePath("internal/logic")
-	builder.WithIgnorePath("internal/handler")
-	builder.WithIgnoreFile("internal/types/loginvalidation.go")
-	builder.WithIgnoreFile("internal/types/registervalidation.go")
+	builder.WithIgnorePath("app/internal/logic")
+	builder.WithIgnorePath("app/internal/handler")
+	builder.WithIgnoreFile("app/internal/types/loginvalidation.go")
+	builder.WithIgnoreFile("app/internal/types/registervalidation.go")
 
 	// main.go
-	builder.WithCustomFunc("main.go", buildMain)
+	builder.WithCustomFunc("app/main.go", buildMain)
 
 	// etc/etc.yaml
-	builder.WithCustomFunc("etc/config.yaml", buildEtc)
-	builder.WithRenameFile("etc/config.yaml", "etc/"+moduleName+".yaml")
+	builder.WithCustomFunc("app/etc/config.yaml", buildEtc)
+	builder.WithRenameFile("app/etc/config.yaml", "app/etc/"+moduleName+".yaml")
 
 	// internal/config/config.go
-	builder.WithIgnorePath("internal/config")
-	builder.WithCustomFunc("internal/config/config.go", buildConfig)
-	builder.WithCustomFunc("internal/config/menus.go", buildMenus)
+	builder.WithIgnorePath("app/internal/config")
+	builder.WithCustomFunc("app/internal/config/config.go", buildConfig)
+	builder.WithCustomFunc("app/internal/config/menus.go", buildMenus)
 
 	// internal/handler/*.go
-	builder.WithCustomFunc("internal/handler/handler.go", buildHandlers)
+	builder.WithCustomFunc("app/internal/handler/handler.go", buildHandlers)
 
 	// internal/handler/routes.go
-	builder.WithCustomFunc("internal/handler/routes.go", buildRoutes)
+	builder.WithCustomFunc("app/internal/handler/routes.go", buildRoutes)
 
 	// internal/logic/*.go
-	builder.WithCustomFunc("internal/logic/logic.go", buildLogic)
+	builder.WithCustomFunc("app/internal/logic/logic.go", buildLogic)
 
 	// internal/middleware/*.go
-	builder.WithIgnoreFile("internal/middleware/template.tpl")
-	builder.WithCustomFunc("internal/middleware/template.tpl", buildMiddleware)
+	builder.WithIgnoreFile("app/internal/middleware/template.go.tpl")
+	builder.WithCustomFunc("app/internal/middleware/template.go.tpl", buildMiddleware)
 
 	// internal/svc/servicecontext.go
-	builder.WithCustomFunc("internal/svc/servicecontext.go", buildServiceContext)
+	builder.WithCustomFunc("app/internal/svc/servicecontext.go", buildServiceContext)
 
 	// internal/types/types.go
-	builder.WithCustomFunc("internal/types/types.go", buildTypes)
+	builder.WithCustomFunc("app/internal/types/types.go", buildTypes)
 
 	// ignore the src/api files (interfaces.ts and functions.ts)
-	builder.WithIgnoreFile("src/api/endpoints.ts")
-	builder.WithIgnoreFile("src/api/models.ts")
-	builder.WithCustomFunc("src/api/models.ts", buildApi)
+	builder.WithIgnoreFile("app/src/api/endpoints.ts")
+	builder.WithIgnoreFile("app/src/api/models.ts")
+	builder.WithCustomFunc("app/src/api/models.ts", buildApi)
 
 	builder.Execute()
 
 	// make sure the assets and static directories are created
-	_ = os.MkdirAll(path.Join(dir, "assets"), os.ModePerm)
-	_ = os.MkdirAll(path.Join(dir, "static"), os.ModePerm)
+	_ = os.MkdirAll(path.Join(dir, "app/assets"), os.ModePerm)
+	_ = os.MkdirAll(path.Join(dir, "app/static"), os.ModePerm)
 
 	if err := backupAndSweep(siteFile); err != nil {
 		return err
@@ -229,14 +229,10 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 	// }
 
 	// Save the current working directory
+	// Save the current working directory
 	originalDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get current directory failed: %w", err)
-	}
-
-	// Change directory to the target directory before running 'go mod tidy'
-	if err := os.Chdir(dir); err != nil {
-		return fmt.Errorf("change directory to %s failed: %w", dir, err)
 	}
 
 	type cmdStruct struct {
@@ -244,6 +240,7 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 		condition   func() bool
 		asGoRoutine bool
 		delay       time.Duration
+		dir         string // New field to specify the directory for each command
 	}
 
 	commands := []cmdStruct{
@@ -251,62 +248,65 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 			args: []string{"go", "mod", "init", moduleName},
 			condition: func() bool {
 				// Only run this command if go.mod does not exist
-				if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
+				if _, err := os.Stat(path.Join(dir, "app", "go.mod")); os.IsNotExist(err) {
 					return true
 				}
-
 				return false
 			},
+			dir: path.Join(dir, "app"),
 		},
 		{
 			args: []string{"go", "mod", "tidy"},
 			condition: func() bool {
 				return true // Always run this command
 			},
+			dir: path.Join(dir, "app"),
 		},
-		// // run templ generate
-		// {
-		// 	args: []string{"templ", "generate"},
-		// 	condition: func() bool {
-		// 		return true // Always run this command
-		// 	},
-		// },
 		{
 			args: []string{"npm", "i", "-g", "pnpm@latest", "--force"},
 			condition: func() bool {
 				return true // Always run this command
 			},
+			dir: path.Join(dir, "app"),
 		},
 		{
 			args: []string{"pnpm", "i", "--force"},
 			condition: func() bool {
 				return true // Always run this command
 			},
+			dir: path.Join(dir, "app"),
 		},
 		{
 			args: []string{"git", "init"},
 			condition: func() bool {
 				// Only run this command if .git directory does not exist
-				if _, err := os.Stat(".git"); os.IsNotExist(err) {
+				if _, err := os.Stat(path.Join(dir, "app", ".git")); os.IsNotExist(err) {
 					return true
 				}
 				return false
 			},
+			dir: path.Join(dir, "app"),
 		},
-		// {
-		// 	args: []string{"air"},
-		// 	condition: func() bool {
-		// 		// runCmd(exec.Command("make", "xo"))
-		// 		return true
-		// 	},
-		// 	asGoRoutine: true,
-		// 	delay:       10 * time.Second,
-		// },
+		{
+			args: []string{"git", "init"},
+			condition: func() bool {
+				// Only run this command if .git directory does not exist
+				if _, err := os.Stat(path.Join(dir, "db", ".git")); os.IsNotExist(err) {
+					return true
+				}
+				return false
+			},
+			dir: path.Join(dir, "db"),
+		},
 	}
 
 	for _, command := range commands {
 		if command.condition() {
-			// fmt.Println(color.Green.Sprintf("Running command: %s", strings.Join(command.args, " ")))
+			// Change to the command's directory
+			if err := os.Chdir(command.dir); err != nil {
+				return fmt.Errorf("change directory to %s failed: %w", command.dir, err)
+			}
+
 			cmd := exec.Command(command.args[0], command.args[1:]...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
@@ -325,12 +325,12 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 			} else {
 				run(cmd, command)
 			}
-		}
-	}
 
-	// Change back to the original directory
-	if err := os.Chdir(originalDir); err != nil {
-		return fmt.Errorf("change directory back to %s failed: %w", originalDir, err)
+			// Change back to the original directory
+			if err := os.Chdir(originalDir); err != nil {
+				return fmt.Errorf("change directory back to %s failed: %w", originalDir, err)
+			}
+		}
 	}
 
 	// Open the browser to the correct URL and port

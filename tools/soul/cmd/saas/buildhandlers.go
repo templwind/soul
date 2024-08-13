@@ -75,7 +75,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	}
 
 	subDir := getHandlerFolderPath(server)
-	handlerFile := path.Join(builder.Dir, subDir, filename+".go")
+	handlerFile := path.Join(builder.Dir, "app", subDir, filename+".go")
 	if _, err := os.Stat(handlerFile); err == nil {
 		if err := os.Remove(handlerFile); err != nil {
 			fmt.Println("error removing file", handlerFile, err)
@@ -192,6 +192,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 
 	// b, _ := json.MarshalIndent(methods, "", "  ")
 	// fmt.Println("methods", string(b))
+	fmt.Println("handler.Name:", handler.Name)
 
 	if handler.Name == "notfound" {
 		imports := genHandlerImports(server, handler, builder.ModuleName, true)
@@ -200,11 +201,13 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 		builder.Data["Imports"] = imports
 		builder.Data["Methods"] = methods
 
-		builder.WithOverwriteFile(filepath.Join(subDir, "404handler.go"))
-		builder.WithRenameFile(filepath.Join(subDir, "404handler.go"), filepath.Join(subDir, "notfoundhandler.go"))
+		builder.WithOverwriteFile(filepath.Join("app", subDir, "404handler.go"))
+		builder.WithRenameFile(filepath.Join("app", subDir, "404handler.go"), filepath.Join("app", subDir, "notfoundhandler.go"))
+
+		fmt.Println("notfound subDir:", subDir)
 		if err := builder.genFile(fileGenConfig{
-			subdir:       subDir,
-			templateFile: "templates/internal/handler/404handler.go.tpl",
+			subdir:       path.Join("app", subDir),
+			templateFile: "templates/app/internal/handler/404handler.go.tpl",
 			data:         builder.Data,
 		}); err != nil {
 			return err
@@ -218,12 +221,14 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	builder.Data["Imports"] = imports
 	builder.Data["Methods"] = methods
 
-	builder.WithOverwriteFile(filepath.Join(subDir, filename+".go"))
-	builder.WithRenameFile(filepath.Join(subDir, "handler.go"), filepath.Join(subDir, filename+".go"))
+	builder.WithOverwriteFile(filepath.Join("app", subDir, filename+".go"))
+	builder.WithRenameFile(filepath.Join("app", subDir, "handler.go"), filepath.Join("app", subDir, filename+".go"))
+
+	// fmt.Println("handler file:", path.Join("app", subDir))
 	// builder.WithRenameFile("internal/handler/handler.go", filepath.Join(subDir, filename+".go"))
 	return builder.genFile(fileGenConfig{
-		subdir:       subDir,
-		templateFile: "templates/internal/handler/handler.go.tpl",
+		subdir:       path.Join("app", subDir),
+		templateFile: "templates/app/internal/handler/handler.go.tpl",
 		data:         builder.Data,
 	})
 }

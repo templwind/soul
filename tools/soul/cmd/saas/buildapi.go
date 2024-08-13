@@ -68,7 +68,7 @@ func buildApi(builder *SaaSBuilder) error {
 	// Generate the endpoints.ts file
 	if err := builder.genFile(fileGenConfig{
 		subdir:       path.Join(types.SrcDir, "api"),
-		templateFile: "templates/src/api/endpoints.ts.tpl",
+		templateFile: "templates/app/src/api/endpoints.ts.tpl",
 		data:         builder.Data,
 	}); err != nil {
 		fmt.Println(util.WrapErr(err, "endpoints.ts generate error"))
@@ -207,7 +207,7 @@ func genApiTypes(builder *SaaSBuilder, allowedTypes map[string]bool) error {
 	// Generate the models.ts file
 	if err := builder.genFile(fileGenConfig{
 		subdir:       path.Join(types.SrcDir, "api"),
-		templateFile: "templates/src/api/models.ts.tpl",
+		templateFile: "templates/app/src/api/models.ts.tpl",
 		data:         builder.Data,
 	}); err != nil {
 		fmt.Println(util.WrapErr(err, "models.ts generate error"))

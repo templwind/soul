@@ -26,8 +26,8 @@ func buildMenus(builder *SaaSBuilder) error {
 
 	builder.Data["menus"] = builder.Spec.Menus
 	return builder.genFile(fileGenConfig{
-		subdir:       "internal/config",
-		templateFile: "templates/internal/config/menus.go.tpl",
+		subdir:       "app/internal/config",
+		templateFile: "templates/app/internal/config/menus.go.tpl",
 		data:         builder.Data,
 	})
 }

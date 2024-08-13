@@ -22,6 +22,15 @@ POSTGRES_HOST=postgres
 POSTGRES_SSL_MODE=disable
 {{- end }}
 
+# DigitalOcean configuration
+DO_REGION=sfo3
+DO_ACCESS_KEY_ID=DOXXXX
+DO_SECRET_ACCESS_KEY=XXXX
+DO_BUCKET_NAME=goshare
+DO_ENDPOINT=https://goshare.sfo3.digitaloceanspaces.com
+DO_TOKEN=dop_v1_XXXX
+
+
 # OpenAI configuration
 OPENAI_ORG_ID=
 OPENAI_API_KEY=

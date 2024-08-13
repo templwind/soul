@@ -33,6 +33,7 @@ func buildMiddleware(builder *SaaSBuilder) error {
 
 		builder.WithRenameFile(
 			filepath.Join(
+				"app",
 				types.MiddlewareDir,
 				"template"),
 			filepath.Join(
@@ -50,8 +51,9 @@ func buildMiddleware(builder *SaaSBuilder) error {
 			subdir: types.MiddlewareDir,
 			templateFile: filepath.Join(
 				"templates",
+				"app",
 				types.MiddlewareDir,
-				"template.tpl",
+				"template.go.tpl",
 			),
 			data: builder.Data,
 		})

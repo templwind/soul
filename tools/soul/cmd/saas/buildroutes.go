@@ -74,7 +74,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 		return err
 	}
 
-	routeFilename := path.Join(builder.Dir, types.HandlerDir, "routes.go")
+	routeFilename := path.Join(builder.Dir, "app", types.HandlerDir, "routes.go")
 
 	var hasTimeout bool
 	var jwtEnabled bool
@@ -147,8 +147,8 @@ func buildRoutes(builder *SaaSBuilder) error {
 	builder.Data["routesAdditions"] = strings.TrimSpace(routesAdditionsBuilder.String())
 
 	return builder.genFile(fileGenConfig{
-		subdir:       types.HandlerDir,
-		templateFile: "templates/internal/handler/routes.go.tpl",
+		subdir:       path.Join("app", types.HandlerDir),
+		templateFile: "templates/app/internal/handler/routes.go.tpl",
 		data:         builder.Data,
 	})
 }

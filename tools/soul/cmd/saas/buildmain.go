@@ -12,6 +12,7 @@ func buildMain(builder *SaaSBuilder) error {
 	var iOptFuncs = make([]imports.OptFunc, 0)
 	iOptFuncs = append(iOptFuncs, imports.WithImport("flag"))
 	iOptFuncs = append(iOptFuncs, imports.WithImport("fmt"))
+	iOptFuncs = append(iOptFuncs, imports.WithImport("embed"))
 	iOptFuncs = append(iOptFuncs, imports.WithImport("net/http"))
 	iOptFuncs = append(iOptFuncs, imports.WithSpacer())
 	iOptFuncs = append(iOptFuncs, imports.WithImport(path.Join([]string{
@@ -45,8 +46,8 @@ func buildMain(builder *SaaSBuilder) error {
 	builder.Data["imports"] = imports.New(iOptFuncs...)
 
 	return builder.genFile(fileGenConfig{
-		subdir:       "",
-		templateFile: "templates/main.go.tpl",
+		subdir:       "app/",
+		templateFile: "templates/app/main.go.tpl",
 		data:         builder.Data,
 	})
 }
