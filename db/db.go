@@ -116,9 +116,10 @@ func connect(opts *DBConfig) (*sqlx.DB, error) {
 			return nil, err
 		}
 		dbConn = sqlx.NewDb(conn, u.Driver)
-		if dbConn == nil {
-			return nil, fmt.Errorf("failed to connect to database")
-		}
+	}
+
+	if dbConn == nil {
+		return nil, fmt.Errorf("failed to connect to database")
 	}
 
 	return dbConn, nil
