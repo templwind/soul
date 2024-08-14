@@ -35,10 +35,10 @@ func Layout(svcCtx *svc.ServiceContext, content templ.Component) []templwind.Opt
 			head.WithSiteTitle(svcCtx.Config.Site.Title),
 			head.WithIsHome(true),
 			head.WithCSS(
-				svcCtx.Config.Assets.Main.CSS...,
+				svcCtx.Config.Assets.{{- .assetGroup -}}.CSS...,
 			),
 			head.WithJS(
-				svcCtx.Config.Assets.Main.JS...,
+				svcCtx.Config.Assets.{{- .assetGroup -}}.JS...,
 			),
 		)),
 		baseof.WithHeader(header.New(
@@ -66,7 +66,7 @@ func Error5xLayout(svcCtx *svc.ServiceContext) []templwind.OptFunc[baseof.Props]
 			head.WithSiteTitle(svcCtx.Config.Site.Title),
 			head.WithIsHome(true),
 			head.WithCSS(
-				svcCtx.Config.Assets.Main.CSS...,
+				svcCtx.Config.Assets.{{- .assetGroup -}}.CSS...,
 			),
 		)),
 		baseof.WithContent(error5x.New(
@@ -91,7 +91,7 @@ func Error4xLayout(svcCtx *svc.ServiceContext) []templwind.OptFunc[baseof.Props]
         baseof.WithHead(head.New(
             head.WithSiteTitle(svcCtx.Config.Site.Title),
             head.WithIsHome(true),
-            head.WithCSS(svcCtx.Config.Assets.Main.CSS...),
+            head.WithCSS(svcCtx.Config.Assets.{{- .assetGroup -}}.CSS...),
         )),
         baseof.WithHeader(header.New(
             header.WithBrandName(svcCtx.Config.Site.Title),

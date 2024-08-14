@@ -19,7 +19,7 @@ func buildServiceContext(builder *SaaSBuilder) error {
 
 	// read all the files in the middleware directory
 	contents, err := readFilesInDirectory(
-		path.Join(builder.Dir, types.MiddlewareDir),
+		path.Join(builder.Dir, "app", types.MiddlewareDir),
 	)
 	if err != nil {
 		fmt.Println("error reading files in middleware directory")

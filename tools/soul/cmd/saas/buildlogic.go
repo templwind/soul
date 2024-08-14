@@ -114,7 +114,7 @@ func genNotFoundLayout(builder *SaaSBuilder) error {
 	// fmt.Println("layoutPath", layoutPath)
 
 	return builder.genFile(fileGenConfig{
-		subdir:       path.Join("app", layoutPath),
+		subdir:       layoutPath,
 		templateFile: "templates/app/internal/logic/layout.go.tpl",
 		data:         builder.Data,
 	})
@@ -137,9 +137,16 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 	builder.Data["pkgName"] = layoutPath[strings.LastIndex(layoutPath, "/")+1:]
 	builder.Data["theme"] = "templwind"
 	builder.Data["notNotFound"] = true
+	builder.Data["assetGroup"] = "Main"
 	theme := server.GetAnnotation("theme")
 	if len(theme) > 0 {
 		builder.Data["theme"] = theme
+	}
+
+	// get the assetGroup
+	assetGroup := server.GetAnnotation("assetGroup")
+	if len(assetGroup) > 0 {
+		builder.Data["assetGroup"] = util.ToTitle(assetGroup)
 	}
 
 	// layoutFile := path.Join(builder.Dir, layoutPath, "layout.go")
@@ -359,7 +366,7 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 	if fileExists {
 		return addMissingMethods(methods,
 			builder.Dir,
-			path.Join("app", subDir),
+			subDir,
 			strings.ToLower(handler.Name)+".go")
 	}
 
@@ -408,6 +415,8 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 	builder.Data["hasSocket"] = hasSocket
 
 	builder.WithRenameFile(filepath.Join("app", subDir, "logic.go"), filepath.Join("app", subDir, strings.ToLower(util.ToCamel(handler.Name))+".go"))
+	fmt.Println("logic subDir", subDir)
+
 	return builder.genFile(fileGenConfig{
 		subdir:       path.Join("app", subDir),
 		templateFile: "templates/app/internal/logic/logic.go.tpl",

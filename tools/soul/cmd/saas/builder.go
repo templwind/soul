@@ -122,7 +122,7 @@ func (sb *SaaSBuilder) shouldIgnore(path string) bool {
 	}
 
 	for ignoreFile := range sb.IgnoreFiles {
-		// fmt.Println("Checking", path, "against", ignoreFile)
+		// fmt.Println("Ignore Check", path, "against", ignoreFile, strings.HasPrefix(path, ignoreFile))
 		if strings.HasPrefix(path, ignoreFile) {
 			return true
 		}
@@ -271,7 +271,6 @@ func (sb *SaaSBuilder) processFiles() error {
 		}
 
 		if sb.shouldIgnore(path) {
-			// fmt.Println("Ignoring path", path)
 			return nil // Ignore the file if it matches the ignore criteria
 		}
 

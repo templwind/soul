@@ -27,7 +27,7 @@ DO_REGION=sfo3
 DO_ACCESS_KEY_ID=DOXXXX
 DO_SECRET_ACCESS_KEY=XXXX
 DO_BUCKET_NAME=goshare
-DO_ENDPOINT=https://goshare.sfo3.digitaloceanspaces.com
+DO_ENDPOINT=https://XXXX.sfo3.digitaloceanspaces.com
 DO_TOKEN=dop_v1_XXXX
 
 
