@@ -3,6 +3,7 @@ package saas
 import (
 	_ "embed"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -22,7 +23,6 @@ func buildMiddleware(builder *SaaSBuilder) error {
 	}...)
 
 	for _, item := range middlewares {
-
 		noCache := false
 		if strings.EqualFold(item, "nocache") {
 			noCache = true
@@ -31,12 +31,19 @@ func buildMiddleware(builder *SaaSBuilder) error {
 		middlewareFilename := strings.TrimSuffix(strings.ToLower(item), "middleware")
 		// fmt.Println("generating middleware:", middlewareFilename)
 
+		// fmt.Println("generating middleware:", filepath.Join(
+		// 	"app",
+		// 	types.MiddlewareDir,
+		// 	middlewareFilename+".go",
+		// ))
+
 		builder.WithRenameFile(
 			filepath.Join(
 				"app",
 				types.MiddlewareDir,
-				"template"),
+				"template.go"),
 			filepath.Join(
+				"app",
 				types.MiddlewareDir,
 				middlewareFilename+".go",
 			))
@@ -48,7 +55,7 @@ func buildMiddleware(builder *SaaSBuilder) error {
 		builder.Data["isNoCache"] = noCache
 
 		err := builder.genFile(fileGenConfig{
-			subdir: types.MiddlewareDir,
+			subdir: path.Join("app", types.MiddlewareDir),
 			templateFile: filepath.Join(
 				"templates",
 				"app",

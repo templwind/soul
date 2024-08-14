@@ -12,7 +12,7 @@ import (
 
 func buildMenus(builder *SaaSBuilder) error {
 
-	handlerFile := path.Join(builder.Dir, types.ConfigDir, "menus.go")
+	handlerFile := path.Join(builder.Dir, "app", types.ConfigDir, "menus.go")
 	if _, err := os.Stat(handlerFile); err == nil {
 		if err := os.Remove(handlerFile); err != nil {
 			fmt.Println("error removing file", handlerFile, err)

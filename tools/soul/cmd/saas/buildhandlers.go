@@ -192,7 +192,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 
 	// b, _ := json.MarshalIndent(methods, "", "  ")
 	// fmt.Println("methods", string(b))
-	fmt.Println("handler.Name:", handler.Name)
+	// fmt.Println("handler.Name:", handler.Name)
 
 	if handler.Name == "notfound" {
 		imports := genHandlerImports(server, handler, builder.ModuleName, true)
@@ -204,7 +204,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 		builder.WithOverwriteFile(filepath.Join("app", subDir, "404handler.go"))
 		builder.WithRenameFile(filepath.Join("app", subDir, "404handler.go"), filepath.Join("app", subDir, "notfoundhandler.go"))
 
-		fmt.Println("notfound subDir:", subDir)
+		// fmt.Println("notfound subDir:", subDir)
 		if err := builder.genFile(fileGenConfig{
 			subdir:       path.Join("app", subDir),
 			templateFile: "templates/app/internal/handler/404handler.go.tpl",

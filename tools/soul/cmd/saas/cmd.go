@@ -200,8 +200,8 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 	builder.WithCustomFunc("app/internal/logic/logic.go", buildLogic)
 
 	// internal/middleware/*.go
-	builder.WithIgnoreFile("app/internal/middleware/template.go.tpl")
-	builder.WithCustomFunc("app/internal/middleware/template.go.tpl", buildMiddleware)
+	builder.WithIgnoreFile("app/internal/middleware/template.go")
+	builder.WithCustomFunc("app/internal/middleware/template.go", buildMiddleware)
 
 	// internal/svc/servicecontext.go
 	builder.WithCustomFunc("app/internal/svc/servicecontext.go", buildServiceContext)

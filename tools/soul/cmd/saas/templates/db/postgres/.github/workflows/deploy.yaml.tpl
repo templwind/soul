@@ -26,16 +26,12 @@ jobs:
         run: doctl registry login --access-token {{ `${{ secrets.DO_ACCESS_TOKEN }}` }}
 
       - name: Docker Build for DB
-        run: |
-          cd db
-          make docker-build
+        run: make docker-build
         env:
           TIMESTAMP: {{ `${{ env.TIMESTAMP }}` }}
 
       - name: Docker Push for DB
-        run: |
-          cd db
-          make docker-push
+        run: make docker-push
         env:
           DOCKER_REGISTRY: registry.digitalocean.com/{{.serviceName}}
           DOCKER_REPO: migrations
