@@ -118,7 +118,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			}
 			return templwind.Render(c, http.StatusInternalServerError,
 				baseof.New(
-					pageLayout.Error5xLayout(svcCtx)...,
+					pageLayout.Error5xLayout(c, svcCtx)...,
 				),
 			)
 			{{- end}}
@@ -132,7 +132,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		return templwind.Render(c, http.StatusOK,
 			{{- if .HasBaseProps}}
 			baseof.New(
-				append(pageLayout.Layout(svcCtx, resp), baseProps...)...,
+				append(pageLayout.Layout(c, svcCtx, resp), baseProps...)...,
 			),
 			{{- else}}
 			baseof.New(
@@ -214,7 +214,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			}
 			return templwind.Render(c, http.StatusInternalServerError,
 				baseof.New(
-					pageLayout.Error5xLayout(svcCtx)...,
+					pageLayout.Error5xLayout(c, svcCtx)...,
 				),
 			)
 			{{- else}}
@@ -231,7 +231,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		return templwind.Render(c, http.StatusOK,
 			{{- if .HasBaseProps}}
 			baseof.New(
-				append(pageLayout.Layout(svcCtx, resp), baseProps...)...,
+				append(pageLayout.Layout(c, svcCtx, resp), baseProps...)...,
 			),
 			{{- else}}
 			baseof.New(
@@ -278,7 +278,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			}
 			return templwind.Render(c, http.StatusInternalServerError,
 				baseof.New(
-					pageLayout.Error5xLayout(svcCtx)...,
+					pageLayout.Error5xLayout(c, svcCtx)...,
 				),
 			)
 		}
@@ -291,7 +291,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		return templwind.Render(c, http.StatusOK,
 			{{- if .HasBaseProps}}
 			baseof.New(
-				append(pageLayout.Layout(svcCtx, resp), baseProps...)...,
+				append(pageLayout.Layout(c, svcCtx, resp), baseProps...)...,
 			),
 			{{- else}}
 			baseof.New(
