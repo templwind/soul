@@ -13,7 +13,7 @@ func NotFoundHandler(svcCtx *svc.ServiceContext) echo.HandlerFunc {
 
 		// intercept htmx requests and just return the error
 		if htmx.IsHtmxRequest(c.Request()) {
-			return templwind.Render(c, http.StatusOK,
+			return soul.Render(c, http.StatusOK,
 				error4x.New(
 					error4x.WithErrors("Page Not Found"),
 				),
@@ -21,7 +21,7 @@ func NotFoundHandler(svcCtx *svc.ServiceContext) echo.HandlerFunc {
 		}
 
 		// Render HTML 404 page
-		return templwind.Render(c, http.StatusNotFound,
+		return soul.Render(c, http.StatusNotFound,
 			baseof.New(
 				pageLayout.Error4xLayout(c, svcCtx)...,
 			),

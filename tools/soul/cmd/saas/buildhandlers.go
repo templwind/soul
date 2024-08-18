@@ -256,7 +256,7 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 			i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
 			i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
 			i.AddExternalImport("github.com/templwind/soul/htmx")
-			i.AddExternalImport("github.com/templwind/templwind")
+			i.AddExternalImport("github.com/templwind/soul")
 		} else {
 			i.AddProjectImport(path.Join(moduleName, getLogicFolderPath(server, handler)))
 		}
@@ -301,7 +301,7 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 			i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
 
 			i.AddExternalImport("github.com/templwind/soul/htmx")
-			i.AddExternalImport("github.com/templwind/templwind")
+			i.AddExternalImport("github.com/templwind/soul")
 			if method.IsStatic {
 				i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
 			}
@@ -309,7 +309,7 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 
 		if method.ReturnsPartial {
 			i.AddNativeImport("net/http")
-			i.AddExternalImport("github.com/templwind/templwind")
+			i.AddExternalImport("github.com/templwind/soul")
 		}
 
 		if method.HasRequestType || method.HasResponseType {
