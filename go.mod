@@ -13,6 +13,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/sijms/go-ora v1.3.2
 	github.com/xo/dburl v0.23.2
+	github.com/yuin/goldmark v1.7.4
 	github.com/zeromicro/go-zero v1.6.6
 	golang.org/x/text v0.16.0
 	gopkg.in/yaml.v2 v2.4.0

@@ -23,7 +23,7 @@ func NotFoundHandler(svcCtx *svc.ServiceContext) echo.HandlerFunc {
 		// Render HTML 404 page
 		return templwind.Render(c, http.StatusNotFound,
 			baseof.New(
-				pageLayout.Error4xLayout(svcCtx)...,
+				pageLayout.Error4xLayout(c, svcCtx)...,
 			),
 		)
 	}
