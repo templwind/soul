@@ -94,7 +94,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
 		{{end}}
 		{{- if .IsFullHTMLPage}}
-		baseProps := []templwind.OptFunc[baseof.Props]{}
+		baseProps := []soul.OptFunc[baseof.Props]{}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
 		{{- end}}
 		if err != nil {
@@ -107,7 +107,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			{{- end }}
 			{{- if or (.IsFullHTMLPage) (.ReturnsPartial) }}
 			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
-				return templwind.Render(c, http.StatusOK,
+				return soul.Render(c, http.StatusOK,
 					error5x.New(
 						error5x.WithErrors(
 							"Internal Server Error",
@@ -116,7 +116,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 					),
 				)
 			}
-			return templwind.Render(c, http.StatusInternalServerError,
+			return soul.Render(c, http.StatusInternalServerError,
 				baseof.New(
 					pageLayout.Error5xLayout(c, svcCtx)...,
 				),
@@ -125,11 +125,11 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		}
 		{{- if .IsFullHTMLPage}}
 		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
-			return templwind.Render(c, http.StatusOK,
+			return soul.Render(c, http.StatusOK,
 				resp,
 			)
 		}
-		return templwind.Render(c, http.StatusOK,
+		return soul.Render(c, http.StatusOK,
 			{{- if .HasBaseProps}}
 			baseof.New(
 				append(pageLayout.Layout(c, svcCtx, resp), baseProps...)...,
@@ -167,7 +167,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
 		{{- end}}
 		{{- if .IsFullHTMLPage}}
-		baseProps := []templwind.OptFunc[baseof.Props]{}
+		baseProps := []soul.OptFunc[baseof.Props]{}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
 		{{- end}}
 		if err != nil {
@@ -194,7 +194,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		
 		{{ template "instance" . }}
 		{{- if .IsFullHTMLPage}}
-		baseProps := []templwind.OptFunc[baseof.Props]{}
+		baseProps := []soul.OptFunc[baseof.Props]{}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
 		{{- else}}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
@@ -203,7 +203,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			c.Logger().Error(err)
 			{{- if .IsFullHTMLPage}}
 			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
-				return templwind.Render(c, http.StatusOK,
+				return soul.Render(c, http.StatusOK,
 					error5x.New(
 						error5x.WithErrors(
 							"Internal Server Error",
@@ -212,7 +212,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 					),
 				)
 			}
-			return templwind.Render(c, http.StatusInternalServerError,
+			return soul.Render(c, http.StatusInternalServerError,
 				baseof.New(
 					pageLayout.Error5xLayout(c, svcCtx)...,
 				),
@@ -224,11 +224,11 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 
 		{{- if .IsFullHTMLPage}}
 		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
-			return templwind.Render(c, http.StatusOK,
+			return soul.Render(c, http.StatusOK,
 				resp,
 			)
 		}
-		return templwind.Render(c, http.StatusOK,
+		return soul.Render(c, http.StatusOK,
 			{{- if .HasBaseProps}}
 			baseof.New(
 				append(pageLayout.Layout(c, svcCtx, resp), baseProps...)...,
@@ -241,7 +241,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		)
 		{{- else}}
 		if resp != nil {
-			return templwind.Render(c, http.StatusOK,
+			return soul.Render(c, http.StatusOK,
 				resp,
 			)
 		} else {
@@ -262,12 +262,12 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		}
 		{{end -}}
 		{{ template "instance" . }}
-		baseProps := []templwind.OptFunc[baseof.Props]{}
+		baseProps := []soul.OptFunc[baseof.Props]{}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
 		if err != nil {
 			c.Logger().Error(err)
 			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
-				return templwind.Render(c, http.StatusOK,
+				return soul.Render(c, http.StatusOK,
 					error5x.New(
 						error5x.WithErrors(
 							"Internal Server Error",
@@ -276,7 +276,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 					),
 				)
 			}
-			return templwind.Render(c, http.StatusInternalServerError,
+			return soul.Render(c, http.StatusInternalServerError,
 				baseof.New(
 					pageLayout.Error5xLayout(c, svcCtx)...,
 				),
@@ -284,11 +284,11 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		}
 
 		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
-			return templwind.Render(c, http.StatusOK,
+			return soul.Render(c, http.StatusOK,
 				resp,
 			)
 		}
-		return templwind.Render(c, http.StatusOK,
+		return soul.Render(c, http.StatusOK,
 			{{- if .HasBaseProps}}
 			baseof.New(
 				append(pageLayout.Layout(c, svcCtx, resp), baseProps...)...,
@@ -306,7 +306,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		var req types.{{.RequestType}}
 		if err := httpx.Parse(c.Request(), &req, path); err != nil {
 			c.Logger().Error(err)
-			return templwind.Render(c, http.StatusOK,
+			return soul.Render(c, http.StatusOK,
 				error5x.New(
 					error5x.WithErrors(
 						"Internal Server Error",

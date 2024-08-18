@@ -35,6 +35,10 @@ func Parse(r *http.Request, v any, pattern string) error {
 		return err
 	}
 
+	if err := ParseQuery(r, v); err != nil {
+		return err
+	}
+
 	if err := ParseForm(r, v); err != nil {
 		return err
 	}
@@ -188,6 +192,64 @@ func ParsePath(r *http.Request, v any, pattern string) error {
 		}
 	}
 
+	return nil
+}
+
+func ParseQuery(r *http.Request, v any) error {
+	queryParams := r.URL.Query()
+	val := reflect.ValueOf(v).Elem()
+	typ := val.Type()
+
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+		fieldType := typ.Field(i)
+		queryTag := fieldType.Tag.Get("query")
+
+		if queryTag != "" {
+			queryValue := queryParams.Get(queryTag)
+			if queryValue != "" {
+				if err := setFieldValue(field, queryValue); err != nil {
+					return fmt.Errorf("error setting query parameter %s: %w", queryTag, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// setFieldValue sets the value of a field based on its type.
+func setFieldValue(field reflect.Value, value string) error {
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(value)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		intValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return err
+		}
+		field.SetInt(intValue)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		uintValue, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return err
+		}
+		field.SetUint(uintValue)
+	case reflect.Float32, reflect.Float64:
+		floatValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return err
+		}
+		field.SetFloat(floatValue)
+	case reflect.Bool:
+		boolValue, err := strconv.ParseBool(value)
+		if err != nil {
+			return err
+		}
+		field.SetBool(boolValue)
+	default:
+		return fmt.Errorf("unsupported field type: %s", field.Kind().String())
+	}
 	return nil
 }
 

@@ -19,17 +19,17 @@ import (
 	"github.com/a-h/templ"
 	{{ end -}}
 	"github.com/labstack/echo/v4"
-	"github.com/templwind/templwind"
+	"github.com/templwind/soul"
 )
 
 {{- if .notNotFound }}
-func Layout(c echo.Context, svcCtx *svc.ServiceContext, content templ.Component) []templwind.OptFunc[baseof.Props] {
+func Layout(c echo.Context, svcCtx *svc.ServiceContext, content templ.Component) []soul.OptFunc[baseof.Props] {
 	loginUrl := "/auth/login"
 	if menu, ok := svcCtx.Config.Menus["login"]; ok && len(menu) > 0 {
 		loginUrl = menu[0].URL
 	}
 
-	return []templwind.OptFunc[baseof.Props]{
+	return []soul.OptFunc[baseof.Props]{
 		baseof.WithLTRDir("ltr"),
 		baseof.WithLangCode("en"),
 		baseof.WithHead(head.New(
@@ -59,8 +59,8 @@ func Layout(c echo.Context, svcCtx *svc.ServiceContext, content templ.Component)
 	}
 }
 
-func Error5xLayout(c echo.Context, svcCtx *svc.ServiceContext) []templwind.OptFunc[baseof.Props] {
-	return []templwind.OptFunc[baseof.Props]{
+func Error5xLayout(c echo.Context, svcCtx *svc.ServiceContext) []soul.OptFunc[baseof.Props] {
+	return []soul.OptFunc[baseof.Props]{
 		baseof.WithLTRDir("ltr"),
 		baseof.WithLangCode("en"),
 		baseof.WithHead(head.New(
@@ -78,7 +78,7 @@ func Error5xLayout(c echo.Context, svcCtx *svc.ServiceContext) []templwind.OptFu
 	}
 }
 {{else}}
-func Error4xLayout(c echo.Context, svcCtx *svc.ServiceContext) []templwind.OptFunc[baseof.Props] {
+func Error4xLayout(c echo.Context, svcCtx *svc.ServiceContext) []soul.OptFunc[baseof.Props] {
 	loginUrl := "/auth/login"
     loginTitle := "Log in"
 	if menu, ok := svcCtx.Config.Menus["login"]; ok && len(menu) > 0 {
@@ -86,7 +86,7 @@ func Error4xLayout(c echo.Context, svcCtx *svc.ServiceContext) []templwind.OptFu
         loginTitle = menu[0].Title
 	}
     
-    return []templwind.OptFunc[baseof.Props]{
+    return []soul.OptFunc[baseof.Props]{
 		baseof.WithLTRDir("ltr"),
         baseof.WithLangCode("en"),
         baseof.WithHead(head.New(
