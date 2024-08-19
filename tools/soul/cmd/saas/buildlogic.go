@@ -326,7 +326,7 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 
 				if method.Method == "GET" &&
 					(method.IsFullHTMLPage || method.ReturnsPartial) {
-					rParts = append(rParts, "baseProps *[]templwind.OptFunc[baseof.Props]")
+					rParts = append(rParts, "baseProps *[]soul.OptFunc[baseof.Props]")
 				}
 
 				return strings.Join(rParts, ", ")
@@ -442,7 +442,7 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 	for _, method := range handler.Methods {
 		if method.IsFullHTMLPage || method.ReturnsPartial {
 			i.AddExternalImport("github.com/a-h/templ")
-			i.AddExternalImport("github.com/templwind/templwind")
+			i.AddExternalImport("github.com/templwind/soul")
 			i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
 		}
 
