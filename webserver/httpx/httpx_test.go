@@ -232,6 +232,8 @@ func TestParsePasswordMismatch(t *testing.T) {
 // TestExtractPathVarsWithEmbeddedParam tests extraction of path variables with embedded parameters.
 func TestExtractPathVarsWithEmbeddedParam(t *testing.T) {
 	e := echo.New()
+
+	// Test case with a direct match
 	req := httptest.NewRequest(http.MethodGet, "/fashion-beauty-influencers-winter", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -241,6 +243,7 @@ func TestExtractPathVarsWithEmbeddedParam(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "winter", vars["suffix"])
 
+	// Test case with another direct match
 	req = httptest.NewRequest(http.MethodGet, "/fashion-beauty-influencers-2022", nil)
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
@@ -249,4 +252,14 @@ func TestExtractPathVarsWithEmbeddedParam(t *testing.T) {
 	vars, err = extractPathVars(c, "/fashion-beauty-influencers-:suffix")
 	assert.NoError(t, err)
 	assert.Equal(t, "2022", vars["suffix"])
+
+	// Test case with an additional segment before the pattern
+	req = httptest.NewRequest(http.MethodGet, "/discover/fashion-beauty-influencers-abcd", nil)
+	rec = httptest.NewRecorder()
+	c = e.NewContext(req, rec)
+	c.SetPath("/discover/fashion-beauty-influencers-:suffix")
+
+	vars, err = extractPathVars(c, "/fashion-beauty-influencers-:suffix")
+	assert.NoError(t, err)
+	assert.Equal(t, "abcd", vars["suffix"])
 }
