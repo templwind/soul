@@ -163,7 +163,7 @@ func extractPathVars(c echo.Context, pattern string) (map[string]string, error) 
 	}
 
 	for i, part := range patternParts {
-		if strings.HasPrefix(part, ":") {
+		if strings.Contains(part, ":") {
 			// This is a parameter, already handled by Echo
 			continue
 		} else if part != actualParts[i] {

@@ -81,7 +81,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 {{ define "static"}}
 		{{- if .HasRequestType -}}
 		var req types.{{.RequestType}}
-		if err := httpx.Parse(c.Request(), &req, path); err != nil {
+		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 				"error": "Internal Server Error",
@@ -154,7 +154,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 {{ define "json" }}
 		{{- if .HasRequestType -}}
 		var req types.{{.RequestType}}
-		if err := httpx.Parse(c.Request(), &req, path); err != nil {
+		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 				"error": "Internal Server Error",
@@ -183,7 +183,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 {{ define "partial" }}
 		{{- if .HasRequestType -}}
 		var req types.{{.RequestType}}
-		if err := httpx.Parse(c.Request(), &req, path); err != nil {
+		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 				"error": "Internal Server Error",
@@ -253,7 +253,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 {{ define "fullHTML" }}
 		{{- if .HasRequestType -}}
 		var req types.{{.RequestType}}
-		if err := httpx.Parse(c.Request(), &req, path); err != nil {
+		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 				"error": "Internal Server Error",
@@ -304,7 +304,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 {{ define "default" }}
 		{{- if .HasRequestType -}}
 		var req types.{{.RequestType}}
-		if err := httpx.Parse(c.Request(), &req, path); err != nil {
+		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return soul.Render(c, http.StatusOK,
 				error5x.New(
@@ -401,7 +401,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 					go func() { 
 						{{- if .HasReqType -}}
 						var req types.{{.RequestType}}
-						if err := httpx.Parse(c.Request(), &req, path); err != nil {
+						if err := httpx.Parse(c, &req, path); err != nil {
 							c.Logger().Error(err)
 						}
 						{{end -}}
