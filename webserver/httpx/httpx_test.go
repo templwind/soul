@@ -1,82 +1,230 @@
 package httpx
 
 import (
+	"bytes"
+	"errors"
+	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 )
 
-type EmailEventRequest struct {
-	Email       string `query:"email"`                        // The recipient's email address
-	EmailID     string `path:"emailID" optional:"true"`       // Unique identifier for the email
-	Event       string `path:"event" optional:"true"`         // Type of event (e.g., open, click)
-	URL         string `query:"url" optional:"true"`          // The original URL that was clicked (optional)
-	RecipientID string `query:"recipient_id" optional:"true"` // Unique identifier for the recipient
-	CampaignID  string `query:"campaign_id" optional:"true"`  // Unique identifier for the email campaign
-	TrackingID  string `query:"tracking_id" optional:"true"`  // Unique identifier for tracking this email instance
-	LinkID      string `query:"link_id" optional:"true"`      // Identifier for the specific link within the email
-	Timestamp   int64  `query:"timestamp" optional:"true"`    // Unix timestamp of the event
-	Referrer    string `query:"referrer" optional:"true"`     // The source or context of the email
-	UserAgent   string `query:"user_agent" optional:"true"`   // User agent string (optional)
+// TestStruct is a sample struct for testing.
+type TestStruct struct {
+	PublicID        string `path:"publicID"`
+	Email           string `query:"email" validate:"required,email"`
+	Password        string `form:"password" json:"password" validate:"required,min=6,max=32"`
+	ConfirmPassword string `form:"confirm_password" json:"confirm_password" validate:"required,min=6,max=32"`
+	HeaderValue     string `header:"X-Custom-Header" validate:"required"`
 }
 
-func TestEmailEventRequest_Parse(t *testing.T) {
-	form := url.Values{}
-	// Include the email in the form data or as part of the URL if it should be parsed that way
-	form.Add("email", "test@example.com")
+// TestValidator is a mock validator to test the custom validation.
+type TestValidator struct{}
 
-	req := httptest.NewRequest("POST", "/track/abc123/open?email=test@example.com&url=https://example.com&recipient_id=recipient-xyz&campaign_id=campaign-abc&tracking_id=track-123&link_id=link-456&timestamp=1627891234&referrer=referrer-info&user_agent=Mozilla/5.0", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+func (v *TestValidator) Validate(c echo.Context, data any) error {
+	if ts, ok := data.(*TestStruct); ok {
+		if ts.Password != ts.ConfirmPassword {
+			return errors.New("passwords do not match")
+		}
+	}
+	return nil
+}
 
-	params := &EmailEventRequest{}
+func init() {
+	// Set the custom validator.
+	SetValidator(&TestValidator{})
+}
 
-	err := Parse(req, params, "/track/:emailID/:event")
+// TestParseSuccess tests the successful parsing of all parameters.
+func TestParseSuccess(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/users/123?email=test@example.com", strings.NewReader("password=strongpass&confirm_password=strongpass"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set("X-Custom-Header", "HeaderValue")
+
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/users/:publicID")
+	c.SetParamNames("publicID")
+	c.SetParamValues("123")
+
+	ts := new(TestStruct)
+	err := Parse(c, ts, "/users/:publicID")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "123", ts.PublicID)
+	assert.Equal(t, "test@example.com", ts.Email)
+	assert.Equal(t, "strongpass", ts.Password)
+	assert.Equal(t, "strongpass", ts.ConfirmPassword)
+	assert.Equal(t, "HeaderValue", ts.HeaderValue)
+}
+
+// TestParseJsonSuccess tests the successful parsing of all parameters using JSON body.
+func TestParseJsonSuccess(t *testing.T) {
+	e := echo.New()
+	jsonBody := `{"password": "strongpass", "confirm_password": "strongpass"}`
+	req := httptest.NewRequest(http.MethodPost, "/users/123?email=test@example.com", bytes.NewReader([]byte(jsonBody)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("X-Custom-Header", "HeaderValue")
+
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/users/:publicID")
+	c.SetParamNames("publicID")
+	c.SetParamValues("123")
+
+	ts := new(TestStruct)
+	err := Parse(c, ts, "/users/:publicID")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "123", ts.PublicID)
+	assert.Equal(t, "test@example.com", ts.Email)
+	assert.Equal(t, "strongpass", ts.Password)
+	assert.Equal(t, "strongpass", ts.ConfirmPassword)
+	assert.Equal(t, "HeaderValue", ts.HeaderValue)
+}
+
+// TestParseMixingJsonAndFormData tests that mixing JSON and form data in the same struct is not allowed.
+func TestParseMixingJsonAndFormData(t *testing.T) {
+	e := echo.New()
+
+	// Prepare a request with form data
+	formData := "password=strongpass&confirm_password=strongpass"
+	req := httptest.NewRequest(http.MethodPost, "/users/123?email=test@example.com", strings.NewReader(formData))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set("X-Custom-Header", "HeaderValue")
+
+	// Parse the form data
+	err := req.ParseForm()
+	assert.NoError(t, err)
+
+	// Now add JSON content type, which should cause a conflict
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/users/:publicID")
+	c.SetParamNames("publicID")
+	c.SetParamValues("123")
+
+	ts := new(TestStruct)
+	err = Parse(c, ts, "/users/:publicID")
+
+	assert.Error(t, err)
 	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+		assert.Contains(t, err.Error(), "cannot mix form and json data")
 	}
+}
 
-	if params.EmailID != "abc123" {
-		t.Errorf("expected emailID to be 'abc123', got '%s'", params.EmailID)
+// TestParseMissingHeader tests missing header validation.
+func TestParseMissingHeader(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/users/123?email=test@example.com", strings.NewReader("password=strongpass&confirm_password=strongpass"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/users/:publicID")
+	c.SetParamNames("publicID")
+	c.SetParamValues("123")
+
+	ts := new(TestStruct)
+	err := Parse(c, ts, "/users/:publicID")
+
+	assert.Error(t, err)
+	assert.Equal(t, "field HeaderValue: is required", err.Error())
+}
+
+// TestParseJsonBody tests parsing JSON body.
+func TestParseJsonBody(t *testing.T) {
+	e := echo.New()
+	jsonBody := `{"password": "strongpass", "confirm_password": "strongpass"}`
+	req := httptest.NewRequest(http.MethodPost, "/users/123?email=test@example.com", bytes.NewReader([]byte(jsonBody)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("X-Custom-Header", "HeaderValue")
+
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/users/:publicID")
+	c.SetParamNames("publicID")
+	c.SetParamValues("123")
+
+	ts := new(TestStruct)
+	err := Parse(c, ts, "/users/:publicID")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "123", ts.PublicID)
+	assert.Equal(t, "test@example.com", ts.Email)
+	assert.Equal(t, "strongpass", ts.Password)
+	assert.Equal(t, "strongpass", ts.ConfirmPassword)
+	assert.Equal(t, "HeaderValue", ts.HeaderValue)
+}
+
+// TestParseInvalidEmail tests validation of invalid email.
+func TestParseInvalidEmail(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/users/123?email=invalid-email", strings.NewReader("password=strongpass&confirm_password=strongpass"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set("X-Custom-Header", "HeaderValue")
+
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/users/:publicID")
+	c.SetParamNames("publicID")
+	c.SetParamValues("123")
+
+	ts := new(TestStruct)
+	err := Parse(c, ts, "/users/:publicID")
+
+	assert.Error(t, err)
+	if err != nil {
+		assert.Contains(t, err.Error(), "field Email: invalid-email does not validate as email")
 	}
+}
 
-	if params.Event != "open" {
-		t.Errorf("expected event to be 'open', got '%s'", params.Event)
+// TestParsePathMismatch tests path mismatch error.
+func TestParsePathMismatch(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/mismatch/123", strings.NewReader("password=strongpass&confirm_password=strongpass"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set("X-Custom-Header", "HeaderValue")
+
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/mismatch/:publicID")
+	c.SetParamNames("publicID")
+	c.SetParamValues("123")
+
+	ts := new(TestStruct)
+	err := Parse(c, ts, "/users/:publicID")
+
+	assert.Error(t, err)
+	if err != nil {
+		assert.Contains(t, err.Error(), "path does not match pattern")
 	}
+}
 
-	if params.URL != "https://example.com" {
-		t.Errorf("expected url to be 'https://example.com', got '%s'", params.URL)
-	}
+// TestParsePasswordMismatch tests custom validation logic.
+func TestParsePasswordMismatch(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/users/123?email=test@example.com", strings.NewReader("password=password1&confirm_password=password2"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set("X-Custom-Header", "HeaderValue")
 
-	if params.RecipientID != "recipient-xyz" {
-		t.Errorf("expected recipient_id to be 'recipient-xyz', got '%s'", params.RecipientID)
-	}
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/users/:publicID")
+	c.SetParamNames("publicID")
+	c.SetParamValues("123")
 
-	if params.CampaignID != "campaign-abc" {
-		t.Errorf("expected campaign_id to be 'campaign-abc', got '%s'", params.CampaignID)
-	}
+	ts := new(TestStruct)
+	err := Parse(c, ts, "/users/:publicID")
 
-	if params.TrackingID != "track-123" {
-		t.Errorf("expected tracking_id to be 'track-123', got '%s'", params.TrackingID)
-	}
-
-	if params.LinkID != "link-456" {
-		t.Errorf("expected link_id to be 'link-456', got '%s'", params.LinkID)
-	}
-
-	if params.Timestamp != 1627891234 {
-		t.Errorf("expected timestamp to be 1627891234, got %d", params.Timestamp)
-	}
-
-	if params.Referrer != "referrer-info" {
-		t.Errorf("expected referrer to be 'referrer-info', got '%s'", params.Referrer)
-	}
-
-	if params.UserAgent != "Mozilla/5.0" {
-		t.Errorf("expected user_agent to be 'Mozilla/5.0', got '%s'", params.UserAgent)
-	}
-
-	if params.Email != "test@example.com" {
-		t.Errorf("expected email to be 'test@example.com', got '%s'", params.Email)
+	assert.Error(t, err)
+	if err != nil {
+		assert.Equal(t, "passwords do not match", err.Error())
 	}
 }

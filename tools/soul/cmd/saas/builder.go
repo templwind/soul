@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -248,6 +249,9 @@ func (sb *SaaSBuilder) processFiles() error {
 	dbKeywords := []string{"postgres", "mysql", "sqlite", "oracle", "sqlserver"}
 	routerKeywords := []string{"echo", "chi", "gin", "native"}
 
+	// Define the pattern for migration files
+	migrationPattern := regexp.MustCompile(`^[0-9]+_.*\.sql$`)
+
 	var files []fileGenConfig
 
 	// Traverse the entire templates directory
@@ -260,6 +264,40 @@ func (sb *SaaSBuilder) processFiles() error {
 		for _, keyword := range dbKeywords {
 			if strings.Contains(path, "/"+keyword) && sb.DB.String() != keyword {
 				return nil
+			}
+
+			// Check the destination directory for the db keyword
+			dest := strings.TrimPrefix(filepath.Dir(path), "templates")
+			if strings.Contains(dest, keyword) {
+				destinationDir := filepath.Join(sb.Dir, dest)
+
+				// strip the keyword from the destination directory
+				destinationDir = strings.Replace(destinationDir, "/"+keyword, "", 1)
+
+				// Check if we're in the migrations directory
+				if strings.Contains(strings.ToLower(destinationDir), "migrations") {
+					// Get the base name of the current file
+					baseName := filepath.Base(path)
+
+					// Check if the current file matches the migration pattern
+					if migrationPattern.MatchString(baseName) {
+
+						files, _ := os.ReadDir(destinationDir)
+
+						// Check if there's already a file with the same numeric prefix
+						currentPrefix := strings.SplitN(baseName, "_", 2)[0]
+						for _, file := range files {
+							fmt.Println("Looking at file", file.Name(), currentPrefix)
+
+							if migrationPattern.MatchString(file.Name()) {
+								existingPrefix := strings.SplitN(file.Name(), "_", 2)[0]
+								if currentPrefix == existingPrefix {
+									return nil
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 
