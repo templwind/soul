@@ -163,9 +163,18 @@ func extractPathVars(c echo.Context, pattern string) (map[string]string, error) 
 	}
 
 	for i, part := range patternParts {
-		if strings.Contains(part, ":") {
+		if strings.HasPrefix(part, ":") {
 			// This is a parameter, already handled by Echo
 			continue
+		} else if strings.Contains(part, ":") {
+			// Handle embedded parameters in the pattern
+			paramName := strings.TrimPrefix(part[strings.Index(part, ":"):], ":")
+			prefix := part[:strings.Index(part, ":")]
+			if strings.HasPrefix(actualParts[i], prefix) {
+				vars[paramName] = strings.TrimPrefix(actualParts[i], prefix)
+			} else {
+				return nil, fmt.Errorf("path does not match pattern: expected %s, got %s", pattern, actualPath)
+			}
 		} else if part != actualParts[i] {
 			return nil, fmt.Errorf("path does not match pattern: expected %s, got %s", pattern, actualPath)
 		}
