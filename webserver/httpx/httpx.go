@@ -158,11 +158,15 @@ func extractPathVars(c echo.Context, pattern string) (map[string]string, error) 
 	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
 	actualParts := strings.Split(strings.Trim(actualPath, "/"), "/")
 
-	if len(patternParts) != len(actualParts) {
+	// Find where the pattern starts in the actual path
+	offset := len(actualParts) - len(patternParts)
+	if offset < 0 {
 		return nil, fmt.Errorf("path does not match pattern: expected %s, got %s", pattern, actualPath)
 	}
 
 	for i, part := range patternParts {
+		actualIndex := i + offset
+
 		if strings.HasPrefix(part, ":") {
 			// This is a parameter, already handled by Echo
 			continue
@@ -170,12 +174,12 @@ func extractPathVars(c echo.Context, pattern string) (map[string]string, error) 
 			// Handle embedded parameters in the pattern
 			paramName := strings.TrimPrefix(part[strings.Index(part, ":"):], ":")
 			prefix := part[:strings.Index(part, ":")]
-			if strings.HasPrefix(actualParts[i], prefix) {
-				vars[paramName] = strings.TrimPrefix(actualParts[i], prefix)
+			if strings.HasPrefix(actualParts[actualIndex], prefix) {
+				vars[paramName] = strings.TrimPrefix(actualParts[actualIndex], prefix)
 			} else {
 				return nil, fmt.Errorf("path does not match pattern: expected %s, got %s", pattern, actualPath)
 			}
-		} else if part != actualParts[i] {
+		} else if part != actualParts[actualIndex] {
 			return nil, fmt.Errorf("path does not match pattern: expected %s, got %s", pattern, actualPath)
 		}
 	}
