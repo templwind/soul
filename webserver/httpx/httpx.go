@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+
+	"github.com/labstack/echo/v4"
 )
 
 const (
-	formKey           = "form"
-	pathKey           = "path"
 	maxMemory         = 32 << 20 // 32MB
 	maxBodyLen        = 8 << 20  // 8MB
 	separator         = ";"
@@ -23,171 +23,92 @@ const (
 
 // Validator defines the interface for validating the request.
 type Validator interface {
-	// Validate validates the request and parsed data.
-	Validate(r *http.Request, data any) error
+	Validate(c echo.Context, data any) error
 }
 
 var validator atomic.Value
 
 // Parse parses the request.
-func Parse(r *http.Request, v any, pattern string) error {
-	if err := ParsePath(r, v, pattern); err != nil {
-		return err
+func Parse(c echo.Context, v any, pattern string) error {
+	// Check if we have both JSON and form data
+	contentType := c.Request().Header.Get(echo.HeaderContentType)
+	if strings.Contains(contentType, echo.MIMEApplicationJSON) && len(c.Request().PostForm) > 0 {
+		return errors.New("cannot mix form and json data")
 	}
 
-	if err := ParseQuery(r, v); err != nil {
-		return err
+	parsers := []func(c echo.Context, v any) error{
+		func(c echo.Context, v any) error { return ParsePath(c, v, pattern) },
+		ParseQuery,
+		ParseForm,
+		ParseHeaders,
+		ParseJsonBody,
+		ValidateStruct,
 	}
 
-	if err := ParseForm(r, v); err != nil {
-		return err
-	}
-
-	if err := ParseHeaders(r, v); err != nil {
-		return err
-	}
-
-	if err := ParseJsonBody(r, v); err != nil {
-		return err
-	}
-
-	if err := ValidateStruct(v); err != nil {
-		return err
+	for _, parse := range parsers {
+		if err := parse(c, v); err != nil {
+			return err
+		}
 	}
 
 	if valid, ok := v.(Validator); ok {
-		return valid.Validate(r, v)
+		return valid.Validate(c, v)
 	} else if val := validator.Load(); val != nil {
-		return val.(Validator).Validate(r, v)
+		return val.(Validator).Validate(c, v)
 	}
 
 	return nil
 }
 
 // ParseHeaders parses the headers request.
-func ParseHeaders(r *http.Request, v any) error {
-	headers := r.Header
-	val := reflect.ValueOf(v).Elem()
-	typ := val.Type()
-
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Field(i)
-		fieldType := typ.Field(i)
-		headerTag := fieldType.Tag.Get("header")
-
-		if headerTag != "" {
-			headerValue := headers.Get(headerTag)
-			if headerValue != "" {
-				field.SetString(headerValue)
-			}
-		}
-	}
-
-	return nil
+func ParseHeaders(c echo.Context, v any) error {
+	return parseTags(c.Request().Header.Get, "header", v)
 }
 
 // ParseForm parses the form request.
-func ParseForm(r *http.Request, v any) error {
-	if err := r.ParseForm(); err != nil {
+func ParseForm(c echo.Context, v any) error {
+	if err := c.Request().ParseForm(); err != nil {
 		return err
 	}
-
-	val := reflect.ValueOf(v).Elem()
-	typ := val.Type()
-
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Field(i)
-		fieldType := typ.Field(i)
-		formTag := fieldType.Tag.Get("form")
-
-		if formTag != "" {
-			formValue := r.FormValue(formTag)
-			if formValue != "" {
-				if field.Kind() == reflect.String {
-					field.SetString(formValue)
-				} else {
-					return fmt.Errorf("unsupported field type: %s", field.Kind().String())
-				}
-				// fmt.Printf("Set field %s to value %s\n", fieldType.Name, formValue)
-			}
-			// else {
-			// 	fmt.Printf("Form value for tag %s is empty\n", formTag)
-			// }
-		}
-	}
-
-	return nil
+	return parseTags(c.FormValue, "form", v)
 }
 
-// ParseHeader parses the request header and returns a map.
-func ParseHeader(headerValue string) map[string]string {
-	ret := make(map[string]string)
-	fields := strings.Split(headerValue, separator)
-
-	for _, field := range fields {
-		field = strings.TrimSpace(field)
-		if len(field) == 0 {
-			continue
-		}
-
-		kv := strings.SplitN(field, "=", tokensInAttribute)
-		if len(kv) != tokensInAttribute {
-			continue
-		}
-
-		ret[kv[0]] = kv[1]
-	}
-
-	return ret
-}
-
-// ParseJsonBody parses the post request which contains json in body.
-func ParseJsonBody(r *http.Request, v any) error {
-	if withJsonBody(r) {
-		reader := io.LimitReader(r.Body, maxBodyLen)
-		return json.NewDecoder(reader).Decode(v)
-	}
-
-	return nil
+// ParseQuery parses the query parameters.
+func ParseQuery(c echo.Context, v any) error {
+	return parseTags(c.QueryParam, "query", v)
 }
 
 // ParsePath parses the symbols residing in the URL path.
-func ParsePath(r *http.Request, v any, pattern string) error {
-	path := r.URL.Path
+func ParsePath(c echo.Context, v any, pattern string) error {
+	pathVars, err := extractPathVars(c, pattern)
+	if err != nil {
+		return err
+	}
+	return setFieldValues(pathVars, "path", v)
+}
+
+// ParseJsonBody parses the post request which contains json in the body.
+func ParseJsonBody(c echo.Context, v any) error {
+	if withJsonBody(c.Request()) {
+		reader := io.LimitReader(c.Request().Body, maxBodyLen)
+		return json.NewDecoder(reader).Decode(v)
+	}
+	return nil
+}
+
+// ValidateStruct validates the struct fields based on the `validate` tag.
+func ValidateStruct(c echo.Context, v any) error {
 	val := reflect.ValueOf(v).Elem()
 	typ := val.Type()
-
-	parts := strings.Split(path, "/")
-	patternParts := strings.Split(pattern, "/")
-
-	// fmt.Println("        PARTS:", parts)
-	// fmt.Println("PATTERN PARTS:", patternParts)
-
-	// Align from the end of the path and the pattern
-	vars := map[string]string{}
-	partsLen := len(parts)
-	patternLen := len(patternParts)
-
-	if partsLen < patternLen {
-		return errors.New("path does not match pattern")
-	}
-
-	for i := 0; i < patternLen; i++ {
-		part := patternParts[patternLen-i-1]
-		if strings.HasPrefix(part, ":") {
-			varName := part[1:]
-			vars[varName] = parts[partsLen-i-1]
-		}
-	}
 
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
 		fieldType := typ.Field(i)
-		pathTag := fieldType.Tag.Get("path")
+		tagValue := fieldType.Tag.Get("validate")
 
-		if pathTag != "" {
-			if pathValue, ok := vars[pathTag]; ok {
-				field.SetString(pathValue)
+		if tagValue != "" {
+			if err := validateField(field, tagValue); err != nil {
+				return fmt.Errorf("field %s: %w", fieldType.Name, err)
 			}
 		}
 	}
@@ -195,21 +116,77 @@ func ParsePath(r *http.Request, v any, pattern string) error {
 	return nil
 }
 
-func ParseQuery(r *http.Request, v any) error {
-	queryParams := r.URL.Query()
+// Utility functions
+
+func parseTags(getValue func(string) string, tagKey string, v any) error {
 	val := reflect.ValueOf(v).Elem()
 	typ := val.Type()
 
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
 		fieldType := typ.Field(i)
-		queryTag := fieldType.Tag.Get("query")
+		tagValue := fieldType.Tag.Get(tagKey)
 
-		if queryTag != "" {
-			queryValue := queryParams.Get(queryTag)
-			if queryValue != "" {
-				if err := setFieldValue(field, queryValue); err != nil {
-					return fmt.Errorf("error setting query parameter %s: %w", queryTag, err)
+		if tagValue != "" && getValue != nil {
+			val := getValue(tagValue)
+			if val != "" {
+				if err := setFieldValue(field, val); err != nil {
+					return fmt.Errorf("error setting %s %s: %w", tagKey, tagValue, err)
+				}
+			}
+		} else if tagKey == "validate" {
+			// Validate field based on `validate` tag
+			if err := validateField(field, tagValue); err != nil {
+				return fmt.Errorf("field %s: %w", fieldType.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func extractPathVars(c echo.Context, pattern string) (map[string]string, error) {
+	vars := map[string]string{}
+
+	// Extract the named parameters from the path
+	for _, param := range c.ParamNames() {
+		vars[param] = c.Param(param)
+	}
+
+	// Check if the actual path matches the expected pattern
+	actualPath := c.Request().URL.Path
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	actualParts := strings.Split(strings.Trim(actualPath, "/"), "/")
+
+	if len(patternParts) != len(actualParts) {
+		return nil, fmt.Errorf("path does not match pattern: expected %s, got %s", pattern, actualPath)
+	}
+
+	for i, part := range patternParts {
+		if strings.HasPrefix(part, ":") {
+			// This is a parameter, already handled by Echo
+			continue
+		} else if part != actualParts[i] {
+			return nil, fmt.Errorf("path does not match pattern: expected %s, got %s", pattern, actualPath)
+		}
+	}
+
+	return vars, nil
+}
+
+func setFieldValues(vars map[string]string, tagKey string, v any) error {
+	val := reflect.ValueOf(v).Elem()
+	typ := val.Type()
+
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+		fieldType := typ.Field(i)
+		tagValue := fieldType.Tag.Get(tagKey)
+
+		if tagValue != "" {
+			if pathValue, ok := vars[tagValue]; ok {
+				if err := setFieldValue(field, pathValue); err != nil {
+					return fmt.Errorf("error setting path parameter %s: %w", tagValue, err)
 				}
 			}
 		}
@@ -253,39 +230,8 @@ func setFieldValue(field reflect.Value, value string) error {
 	return nil
 }
 
-// SetValidator sets the validator.
-// The validator is used to validate the request, only called in Parse,
-// not in ParseHeaders, ParseForm, ParseHeader, ParseJsonBody, ParsePath.
-func SetValidator(val Validator) {
-	validator.Store(val)
-}
-
 func withJsonBody(r *http.Request) bool {
 	return r.ContentLength > 0 && strings.Contains(r.Header.Get("Content-Type"), "application/json")
-}
-
-// ValidateStruct validates the struct fields based on the `validate` tag.
-func ValidateStruct(v any) error {
-	val := reflect.ValueOf(v).Elem()
-	typ := val.Type()
-
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Field(i)
-		fieldType := typ.Field(i)
-		validateTag := fieldType.Tag.Get("validate")
-		optionalTag := fieldType.Tag.Get("optional")
-
-		if optionalTag == "" {
-			// Required by default if no `optional` tag is present
-			validateTag = "required," + validateTag
-		}
-
-		if err := validateField(field, validateTag); err != nil {
-			return fmt.Errorf("field %s: %w", fieldType.Name, err)
-		}
-	}
-
-	return nil
 }
 
 // validateField validates a single field based on the `validate` tag.
@@ -295,6 +241,12 @@ func validateField(field reflect.Value, tag string) error {
 	for _, t := range tags {
 		if t == "required" && isEmpty(field) {
 			return errors.New("is required")
+		}
+
+		if t == "email" {
+			if !isValidEmail(field.String()) {
+				return fmt.Errorf("%s does not validate as email", field.String())
+			}
 		}
 
 		if strings.HasPrefix(t, "min=") {
@@ -323,6 +275,11 @@ func validateField(field reflect.Value, tag string) error {
 	return nil
 }
 
+func isValidEmail(email string) bool {
+	// This is a simple check. For production use, consider using a more robust regex or a dedicated email validation library.
+	return strings.Contains(email, "@") && strings.Contains(email, ".")
+}
+
 // isEmpty checks if a value is considered empty.
 func isEmpty(field reflect.Value) bool {
 	switch field.Kind() {
@@ -340,4 +297,9 @@ func isEmpty(field reflect.Value) bool {
 		return field.IsNil()
 	}
 	return false
+}
+
+// SetValidator sets the validator.
+func SetValidator(val Validator) {
+	validator.Store(val)
 }
