@@ -187,6 +187,12 @@ func extractPathVars(c echo.Context, pattern string) (map[string]string, error) 
 	for _, param := range c.ParamNames() {
 		vars[param] = c.Param(param)
 	}
+
+	// If pattern is empty, we don't need to do any further checking
+	if pattern == "" {
+		return vars, nil
+	}
+
 	// Check if the actual path matches the expected pattern
 	actualPath := c.Request().URL.Path
 	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
