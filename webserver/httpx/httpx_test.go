@@ -229,37 +229,110 @@ func TestParsePasswordMismatch(t *testing.T) {
 	}
 }
 
-// TestExtractPathVarsWithEmbeddedParam tests extraction of path variables with embedded parameters.
-func TestExtractPathVarsWithEmbeddedParam(t *testing.T) {
+func TestParsePathWithEmbeddedParams(t *testing.T) {
 	e := echo.New()
 
-	// Test case with a direct match
-	req := httptest.NewRequest(http.MethodGet, "/fashion-beauty-influencers-winter", nil)
+	type TestStruct struct {
+		Suffix string `path:"suffix"`
+		Year   string `path:"year"`
+	}
+
+	testCases := []struct {
+		name           string
+		requestPath    string
+		patternPath    string
+		expectedSuffix string
+		expectedYear   string
+		expectError    bool
+	}{
+		{
+			name:           "Direct match",
+			requestPath:    "/fashion-beauty-influencers-winter",
+			patternPath:    "/fashion-beauty-influencers-:suffix",
+			expectedSuffix: "winter",
+			expectedYear:   "",
+			expectError:    false,
+		},
+		{
+			name:           "Another direct match",
+			requestPath:    "/fashion-beauty-influencers-2022",
+			patternPath:    "/fashion-beauty-influencers-:suffix",
+			expectedSuffix: "2022",
+			expectedYear:   "",
+			expectError:    false,
+		},
+		{
+			name:           "Additional segment before pattern",
+			requestPath:    "/discover/fashion-beauty-influencers-abcd",
+			patternPath:    "/discover/fashion-beauty-influencers-:suffix",
+			expectedSuffix: "abcd",
+			expectedYear:   "",
+			expectError:    false,
+		},
+		{
+			name:           "Mismatch in pattern",
+			requestPath:    "/mismatch/fashion-beauty-influencers-xyz",
+			patternPath:    "/discover/fashion-beauty-influencers-:suffix",
+			expectedSuffix: "",
+			expectedYear:   "",
+			expectError:    true,
+		},
+		{
+			name:           "Multiple embedded parameters",
+			requestPath:    "/fashion-beauty-influencers-winter-2023",
+			patternPath:    "/fashion-beauty-influencers-:suffix-:year",
+			expectedSuffix: "winter",
+			expectedYear:   "2023",
+			expectError:    false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.requestPath, nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetPath(tc.patternPath)
+
+			ts := new(TestStruct)
+			err := ParsePath(c, ts, tc.patternPath)
+
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedSuffix, ts.Suffix)
+				assert.Equal(t, tc.expectedYear, ts.Year)
+			}
+		})
+	}
+}
+
+// FormDataStruct is a struct for testing form data parsing.
+type FormDataStruct struct {
+	Password        string `form:"password" validate:"required,min=6,max=32"`
+	ConfirmPassword string `form:"confirm_password" validate:"required,min=6,max=32"`
+}
+
+// TestPostFormWithoutAdditionalPath tests the POST form handling without additional parts to the path.
+func TestPostFormWithoutAdditionalPath(t *testing.T) {
+	e := echo.New()
+
+	// Prepare a request with form data
+	formData := "password=strongpass&confirm_password=strongpass"
+	req := httptest.NewRequest(http.MethodPost, "/onboarding/checkout", strings.NewReader(formData))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set("X-Custom-Header", "HeaderValue")
+
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetPath("/fashion-beauty-influencers-:suffix")
+	c.SetPath("/onboarding/checkout")
 
-	vars, err := extractPathVars(c, "/fashion-beauty-influencers-:suffix")
+	// Use the new FormDataStruct
+	fds := new(FormDataStruct)
+	err := Parse(c, fds, "/onboarding/checkout")
+
 	assert.NoError(t, err)
-	assert.Equal(t, "winter", vars["suffix"])
-
-	// Test case with another direct match
-	req = httptest.NewRequest(http.MethodGet, "/fashion-beauty-influencers-2022", nil)
-	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec)
-	c.SetPath("/fashion-beauty-influencers-:suffix")
-
-	vars, err = extractPathVars(c, "/fashion-beauty-influencers-:suffix")
-	assert.NoError(t, err)
-	assert.Equal(t, "2022", vars["suffix"])
-
-	// Test case with an additional segment before the pattern
-	req = httptest.NewRequest(http.MethodGet, "/discover/fashion-beauty-influencers-abcd", nil)
-	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec)
-	c.SetPath("/discover/fashion-beauty-influencers-:suffix")
-
-	vars, err = extractPathVars(c, "/fashion-beauty-influencers-:suffix")
-	assert.NoError(t, err)
-	assert.Equal(t, "abcd", vars["suffix"])
+	assert.Equal(t, "strongpass", fds.Password)
+	assert.Equal(t, "strongpass", fds.ConfirmPassword)
 }
