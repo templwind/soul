@@ -245,6 +245,15 @@ func TestParsePathWithEmbeddedParams(t *testing.T) {
 		expectedYear   string
 		expectError    bool
 	}{
+		// test with no embedded parameters
+		{
+			name:           "No embedded parameters",
+			requestPath:    "/fashion-beauty-influencers",
+			patternPath:    "/fashion-beauty-influencers",
+			expectedSuffix: "",
+			expectedYear:   "",
+			expectError:    false,
+		},
 		{
 			name:           "Direct match",
 			requestPath:    "/fashion-beauty-influencers-winter",
