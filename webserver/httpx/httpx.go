@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -111,12 +112,22 @@ func ParseForm(c echo.Context, v any) error {
 		formTag := fieldType.Tag.Get("form")
 
 		if formTag != "" {
-			formValue := c.FormValue(formTag)
-			if formValue != "" {
-				if field.Kind() == reflect.String {
-					field.SetString(formValue)
+			formValues := c.Request().Form[formTag]
+			if len(formValues) > 0 {
+				if field.Kind() == reflect.Slice {
+					slice := reflect.MakeSlice(field.Type(), 0, len(formValues))
+					for _, formValue := range formValues {
+						newElem := reflect.New(field.Type().Elem()).Elem()
+						if err := setFieldValue(newElem, formValue); err != nil {
+							return fmt.Errorf("error setting form value %s: %w", formTag, err)
+						}
+						slice = reflect.Append(slice, newElem)
+					}
+					field.Set(slice)
 				} else {
-					return fmt.Errorf("unsupported field type: %s", field.Kind().String())
+					if err := setFieldValue(field, formValues[0]); err != nil {
+						return fmt.Errorf("error setting form value %s: %w", formTag, err)
+					}
 				}
 			}
 		}
@@ -172,8 +183,17 @@ func ParsePath(c echo.Context, v any, pattern string) error {
 		pathTag := fieldType.Tag.Get("path")
 
 		if pathTag != "" {
-			if paramValue, ok := vars[pathTag]; ok {
-				field.SetString(paramValue)
+			var paramValue string
+			if value, ok := vars[pathTag]; ok {
+				paramValue = value
+			} else {
+				paramValue = c.Param(pathTag)
+			}
+
+			if paramValue != "" {
+				if err := setFieldValue(field, paramValue); err != nil {
+					return fmt.Errorf("error setting path parameter %s: %w", pathTag, err)
+				}
 			}
 		}
 	}
@@ -254,52 +274,6 @@ func extractParamNames(part string) []string {
 	return paramNames
 }
 
-// func ParsePath(c echo.Context, v any, pattern string) error {
-// 	path := c.Request().URL.Path
-// 	val := reflect.ValueOf(v).Elem()
-// 	typ := val.Type()
-
-// 	parts := strings.Split(path, "/")
-// 	patternParts := strings.Split(pattern, "/")
-
-// 	// Check if the number of parts matches
-// 	if len(parts) != len(patternParts) {
-// 		return errors.New("path does not match pattern")
-// 	}
-
-// 	vars := map[string]string{}
-
-// // extract variables from the Params in c echo.Context
-// for _, param := range c.ParamNames() {
-// 	vars[param] = c.Param(param)
-// }
-
-// 	for i, part := range patternParts {
-// 		if strings.HasPrefix(part, ":") {
-// 			varName := part[1:]
-// 			vars[varName] = parts[i]
-// 		} else if part != parts[i] {
-// 			return errors.New("path does not match pattern")
-// 		}
-// 	}
-
-// 	for i := 0; i < val.NumField(); i++ {
-// 		field := val.Field(i)
-// 		fieldType := typ.Field(i)
-// 		pathTag := fieldType.Tag.Get("path")
-
-// 		if pathTag != "" {
-// 			if pathValue, ok := vars[pathTag]; ok {
-// 				field.SetString(pathValue)
-// 			} else {
-// 				return fmt.Errorf("path variable %s not found", pathTag)
-// 			}
-// 		}
-// 	}
-
-// 	return nil
-// }
-
 func ParseQuery(c echo.Context, v any) error {
 	queryParams := c.QueryParams()
 	val := reflect.ValueOf(v).Elem()
@@ -323,7 +297,7 @@ func ParseQuery(c echo.Context, v any) error {
 	return nil
 }
 
-// setFieldValue sets the value of a field based on its type.
+// Add support for time.Time in setFieldValue
 func setFieldValue(field reflect.Value, value string) error {
 	switch field.Kind() {
 	case reflect.String:
@@ -352,6 +326,39 @@ func setFieldValue(field reflect.Value, value string) error {
 			return err
 		}
 		field.SetBool(boolValue)
+	case reflect.Struct:
+		if field.Type() == reflect.TypeOf(time.Time{}) {
+			timeValue, err := time.Parse(time.RFC3339, value)
+			if err != nil {
+				return err
+			}
+			field.Set(reflect.ValueOf(timeValue))
+		} else {
+			return fmt.Errorf("unsupported struct type: %s", field.Type().String())
+		}
+	case reflect.Slice:
+		// Handle slice types (assuming string slice for now)
+		if field.Type().Elem().Kind() == reflect.String {
+			values := strings.Split(value, ",")
+			slice := reflect.MakeSlice(field.Type(), len(values), len(values))
+			for i, v := range values {
+				slice.Index(i).SetString(v)
+			}
+			field.Set(slice)
+		} else {
+			return fmt.Errorf("unsupported slice type: %s", field.Type().Elem().String())
+		}
+	case reflect.Map:
+		// Handle map types (assuming string to string map for now)
+		if field.Type().Key().Kind() == reflect.String && field.Type().Elem().Kind() == reflect.String {
+			var mapValue map[string]string
+			if err := json.Unmarshal([]byte(value), &mapValue); err != nil {
+				return err
+			}
+			field.Set(reflect.ValueOf(mapValue))
+		} else {
+			return fmt.Errorf("unsupported map type: %s", field.Type().String())
+		}
 	default:
 		return fmt.Errorf("unsupported field type: %s", field.Kind().String())
 	}
