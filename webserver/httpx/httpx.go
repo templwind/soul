@@ -285,11 +285,17 @@ func ParseQuery(c echo.Context, v any) error {
 		queryTag := fieldType.Tag.Get("query")
 
 		if queryTag != "" {
-			queryValue := queryParams.Get(queryTag)
+			tagParts := strings.Split(queryTag, ",")
+			queryName := tagParts[0]
+			isOptional := len(tagParts) > 1 && tagParts[1] == "optional"
+
+			queryValue := queryParams.Get(queryName)
 			if queryValue != "" {
 				if err := setFieldValue(field, queryValue); err != nil {
-					return fmt.Errorf("error setting query parameter %s: %w", queryTag, err)
+					return fmt.Errorf("error setting query parameter %s: %w", queryName, err)
 				}
+			} else if !isOptional {
+				return fmt.Errorf("missing required query parameter: %s", queryName)
 			}
 		}
 	}

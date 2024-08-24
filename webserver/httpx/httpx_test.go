@@ -558,3 +558,59 @@ func TestComprehensiveJSONParse(t *testing.T) {
 	assert.Equal(t, "nested value", jps.StructField.NestedField)
 	assert.Equal(t, []interface{}{"any", "type", "of", "data"}, jps.InterfaceField)
 }
+
+type UsersSearchRequest struct {
+	Search string `query:"search,optional"`
+	Page   int64  `query:"page,optional"`
+}
+
+func TestOptionalQueryParams(t *testing.T) {
+	e := echo.New()
+
+	testCases := []struct {
+		name           string
+		queryString    string
+		expectedSearch string
+		expectedPage   int64
+	}{
+		{
+			name:           "No query parameters",
+			queryString:    "",
+			expectedSearch: "",
+			expectedPage:   0,
+		},
+		{
+			name:           "Only search parameter",
+			queryString:    "?search=john",
+			expectedSearch: "john",
+			expectedPage:   0,
+		},
+		{
+			name:           "Only page parameter",
+			queryString:    "?page=2",
+			expectedSearch: "",
+			expectedPage:   2,
+		},
+		{
+			name:           "Both parameters",
+			queryString:    "?search=jane&page=3",
+			expectedSearch: "jane",
+			expectedPage:   3,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/users"+tc.queryString, nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			usr := new(UsersSearchRequest)
+			err := Parse(c, usr, "/users")
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedSearch, usr.Search)
+			assert.Equal(t, tc.expectedPage, usr.Page)
+		})
+	}
+}
