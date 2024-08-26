@@ -66,7 +66,7 @@ func buildApi(builder *SaaSBuilder) error {
 
 	builder.Data["Endpoints"] = strings.TrimSpace(endpointBuilder.String())
 
-	fmt.Println(builder.Data["Endpoints"])
+	// fmt.Println(builder.Data["Endpoints"])
 
 	filename := path.Join(builder.Dir, types.SrcDir, "api", "endpoints.ts")
 	os.Remove(filename)
