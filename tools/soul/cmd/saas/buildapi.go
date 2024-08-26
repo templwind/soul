@@ -30,6 +30,10 @@ func buildApi(builder *SaaSBuilder) error {
 			for _, h := range srv.Handlers {
 			outerLoop:
 				for _, m := range h.Methods {
+					// if m.RequestType != nil {
+					// 	fmt.Println("Method:", m.RequestType.GetName(), m.GetName(), m.ReturnsJson)
+					// }
+
 					if m.ReturnsJson {
 
 						var requestType spec.Type
@@ -38,7 +42,8 @@ func buildApi(builder *SaaSBuilder) error {
 						if m.RequestType != nil {
 							requestType = findTypeByName(builder.Spec.Types, m.RequestType.GetName())
 							for _, field := range requestType.GetFields() {
-								if strings.Contains(field.Tag, "form:") {
+								// fmt.Println("Field:", field.Name, field.Tag)
+								if strings.Contains(field.Tag, "form:") && !strings.Contains(field.Tag, "json:") {
 									continue outerLoop
 								}
 							}
@@ -61,7 +66,7 @@ func buildApi(builder *SaaSBuilder) error {
 
 	builder.Data["Endpoints"] = strings.TrimSpace(endpointBuilder.String())
 
-	// fmt.Println(builder.Data["Endpoints"])
+	fmt.Println(builder.Data["Endpoints"])
 
 	filename := path.Join(builder.Dir, types.SrcDir, "api", "endpoints.ts")
 	os.Remove(filename)
@@ -229,7 +234,13 @@ func writeApiEndpoint(endpointBuilder io.Writer, requestType, responseType spec.
 			// fmt.Println("Tag:", field.Tag)
 			if strings.Contains(field.Tag, "path:") {
 				totalFields--
-				reqParams = append(reqParams, fmt.Sprintf("%s: %s", util.FirstToLower(field.Name), field.Type))
+				var fieldName string
+				if len(field.Name) > 3 {
+					fieldName = util.FirstToLower(field.Name)
+				} else {
+					fieldName = strings.ToLower(field.Name)
+				}
+				reqParams = append(reqParams, fmt.Sprintf("%s: %s", fieldName, ConvertToTypeScriptType(field.Type)))
 			}
 		}
 		if totalFields > 0 {
