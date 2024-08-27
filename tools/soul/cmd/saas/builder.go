@@ -287,7 +287,7 @@ func (sb *SaaSBuilder) processFiles() error {
 						// Check if there's already a file with the same numeric prefix
 						currentPrefix := strings.SplitN(baseName, "_", 2)[0]
 						for _, file := range files {
-							fmt.Println("Looking at file", file.Name(), currentPrefix)
+							// fmt.Println("Looking at file", file.Name(), currentPrefix)
 
 							if migrationPattern.MatchString(file.Name()) {
 								existingPrefix := strings.SplitN(file.Name(), "_", 2)[0]

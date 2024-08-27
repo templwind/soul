@@ -44,7 +44,7 @@ func buildHandlers(builder *SaaSBuilder) error {
 func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) error {
 	handlerName := getHandlerName(handler, nil, true)
 	handlerPath := getHandlerFolderPath(server)
-	pkgName := strings.ToLower(handlerPath[strings.LastIndex(handlerPath, "/")+1:])
+	pkgName := toPrefix(strings.ToLower(handlerPath[strings.LastIndex(handlerPath, "/")+1:]))
 	// layoutPath := getLogicLayoutPath(server)
 
 	// logicName := defaultLogicPackage
