@@ -82,6 +82,8 @@ func buildRoutes(builder *SaaSBuilder) error {
 	for _, g := range groups {
 		var routesBuilder strings.Builder
 		for _, r := range g.routes {
+			// fmt.Println("Handler", r.handler)
+
 			if len(r.doc) > 0 {
 				routesBuilder.WriteString(fmt.Sprintf("\n%s\n", util.GetDoc(r.doc)))
 			}
@@ -199,6 +201,8 @@ func getRoutes(site *spec.SiteSpec) ([]group, error) {
 	for _, server := range site.Servers {
 		var groupedRoutes group
 		folder := strings.ToLower(server.GetAnnotation(types.GroupProperty))
+		// fmt.Println("folder", folder)
+
 		// last part of the folder name but it may not include "/"
 		groupedRoutes.name = folder[strings.LastIndex(folder, "/")+1:]
 		for _, s := range server.Services {
@@ -217,6 +221,8 @@ func getRoutes(site *spec.SiteSpec) ([]group, error) {
 					// fmt.Println("handlerName", handlerName)
 
 					mRoute := strings.TrimSuffix(m.Route, "/")
+
+					// fmt.Println("mRoute", mRoute)
 
 					handlerName = handlerName + fmt.Sprintf(`(svcCtx, "%s")`, mRoute)
 
@@ -275,5 +281,7 @@ func getRoutes(site *spec.SiteSpec) ([]group, error) {
 }
 
 func toPrefix(folder string) string {
-	return strings.ReplaceAll(folder, "/", "")
+	replacer := strings.NewReplacer("/", "", "-", "")
+	return replacer.Replace(folder)
+	// return strings.ReplaceAll(folder, "/", "")
 }
