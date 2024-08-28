@@ -9,7 +9,7 @@ import (
 	{{.Doc}}
 {{end}}
 
-{{if true }}
+{{if false }}
 // HasRequestType:  {{if .HasRequestType}}true{{else}}false{{end}} 
 // HasResponseType: {{if .HasResponseType}}true{{else}}false{{end}}
 // HasPage:         {{if .HasPage}}true{{else}}false{{end}}        
@@ -395,15 +395,26 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 					break
 				}
 
+				// Create a new request with the payload as the body
+				req, err := http.NewRequest("POST", path, bytes.NewReader(msg.Payload))
+				if err != nil {
+					return err
+				}
+				req.Header.Set("Content-Type", "application/json")
+
+				// Create a new echo.Context with the modified request
+				echoCtx := echo.New().NewContext(req, nil)
+
 				switch msg.Topic {
 				{{range .TopicsFromClient}}
 				case types.{{.Topic}}:
 					go func() { 
 						{{- if .HasReqType -}}
 						var req types.{{.RequestType}}
-						if err := httpx.Parse(c, &req, path); err != nil {
+						if err := httpx.Parse(echoCtx, &req, path); err != nil {
 							c.Logger().Error(err)
 						}
+						echoCtx = nil
 						{{end -}}
 						if resp, err := l.{{.LogicFunc}}({{if .HasReqType}}&req{{end}}); err != nil {
 							c.Logger().Error(err)
@@ -412,8 +423,21 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 							if err != nil {
 								c.Logger().Error(err)
 							}
-							if err := wsutil.WriteServerMessage(conn, gobwasWs.OpText, resp); err != nil {
-								c.Logger().Error(err)
+
+							if resp != nil {
+								msg.Payload = json.RawMessage(resp)
+								{{- if .ResponseTopic}}
+								msg.Topic = types.{{.ResponseTopic}}
+								{{- end}}
+								
+								responseMessage, err := json.Marshal(msg)
+								if err != nil {
+									c.Logger().Error(err)
+								}
+
+								if err := wsutil.WriteServerMessage(conn, gobwasWs.OpText, responseMessage); err != nil {
+									c.Logger().Error(err)
+								}
 							}
 						}
 					}()

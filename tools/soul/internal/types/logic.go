@@ -4,6 +4,7 @@ import "github.com/templwind/soul/tools/soul/pkg/site/spec"
 
 type Topic struct {
 	Topic             string
+	ResponseTopic     string
 	RawTopic          string
 	Name              string
 	Const             string
