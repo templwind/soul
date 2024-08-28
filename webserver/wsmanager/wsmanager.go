@@ -3,30 +3,17 @@ package wsmanager
 import (
 	"encoding/json"
 	"log"
-	"net"
 	"sync"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 )
 
-type Connection struct {
-	conn net.Conn
-	mu   sync.Mutex
-}
-
 type ConnectionManager struct {
 	mu            sync.Mutex
 	clients       map[*Connection]bool
 	subscriptions map[string]map[*Connection]bool
 	broadcast     chan Message
-}
-
-type Message struct {
-	Topic     string          `json:"topic"`
-	Payload   json.RawMessage `json:"payload"`
-	Sender    *Connection     `json:"-"`
-	Recipient *Connection     `json:"-"`
 }
 
 var instance *ConnectionManager
@@ -39,22 +26,16 @@ func NewConnectionManager() *ConnectionManager {
 			subscriptions: make(map[string]map[*Connection]bool),
 			broadcast:     make(chan Message),
 		}
-		// go instance.handleBroadcasts() // disable broadcasting for now
+		// go instance.handleBroadcasts()
 	})
 	return instance
-}
-
-func NewConnection(conn net.Conn) *Connection {
-	return &Connection{
-		conn: conn,
-	}
 }
 
 func (cm *ConnectionManager) AddClient(conn *Connection) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.clients[conn] = true
-	log.Printf("Client added: %v", conn)
+	log.Println("Client added:", conn)
 }
 
 func (cm *ConnectionManager) RemoveClient(conn *Connection) {
@@ -67,7 +48,7 @@ func (cm *ConnectionManager) RemoveClient(conn *Connection) {
 			delete(cm.subscriptions, topic)
 		}
 	}
-	log.Printf("Client removed: %v", conn)
+	log.Println("Client removed:", conn)
 }
 
 func (cm *ConnectionManager) Subscribe(conn *Connection, topic string) {
@@ -80,7 +61,8 @@ func (cm *ConnectionManager) Subscribe(conn *Connection, topic string) {
 	log.Printf("Client subscribed to topic %s: %v", topic, conn)
 }
 
-func (cm *ConnectionManager) Broadcast(msg Message) {
+func (cm *ConnectionManager) Broadcast(msg Message, sender *Connection) {
+	msg.Sender = sender
 	log.Printf("Broadcasting message: %v", msg)
 	cm.broadcast <- msg
 }
@@ -89,43 +71,37 @@ func (cm *ConnectionManager) handleBroadcasts() {
 	for {
 		msg := <-cm.broadcast
 		cm.mu.Lock()
-		if msg.Recipient != nil {
-			// Direct message to a specific recipient
+		topicPayload := struct {
+			Topic   string          `json:"topic"`
+			Payload json.RawMessage `json:"payload"`
+		}{}
+		if err := json.Unmarshal(msg.Payload, &topicPayload); err != nil {
+			log.Printf("Error unmarshaling broadcast payload: %v", err)
+			cm.mu.Unlock()
+			continue
+		}
+		subscribers, exists := cm.subscriptions[topicPayload.Topic]
+		if !exists {
+			log.Printf("No subscribers for topic %s", topicPayload.Topic)
+		} else {
+			log.Printf("Found %d subscribers for topic %s", len(subscribers), topicPayload.Topic)
+		}
+		for client := range subscribers {
+			if client == msg.Sender {
+				continue // Skip the sender
+			}
 			go func(client *Connection) {
 				client.mu.Lock()
 				defer client.mu.Unlock()
-				err := wsutil.WriteServerMessage(client.conn, ws.OpText, msg.Payload)
+				err := wsutil.WriteServerMessage(client.conn, ws.OpText, topicPayload.Payload)
 				if err != nil {
-					log.Printf("Error sending message to recipient client: %v", err)
+					log.Printf("Error sending message to client: %v", err)
 					client.conn.Close()
+					// Depending on your policy, you might want to retry, log, or handle the error differently
 				} else {
-					log.Printf("Message sent to recipient client: %v", client)
+					log.Printf("Message sent to client: %v", client)
 				}
-			}(msg.Recipient)
-		} else {
-			// Check for subscriptions and broadcast only if there are subscribers
-			subscribers, exists := cm.subscriptions[msg.Topic]
-			if !exists || len(subscribers) == 0 {
-				log.Printf("No subscribers for topic %s; message will not be broadcasted.", msg.Topic)
-			} else {
-				log.Printf("Broadcasting to %d subscribers for topic %s", len(subscribers), msg.Topic)
-				for client := range subscribers {
-					if client == msg.Sender {
-						continue // Skip the sender
-					}
-					go func(client *Connection) {
-						client.mu.Lock()
-						defer client.mu.Unlock()
-						err := wsutil.WriteServerMessage(client.conn, ws.OpText, msg.Payload)
-						if err != nil {
-							log.Printf("Error sending message to client: %v", err)
-							client.conn.Close()
-						} else {
-							log.Printf("Message sent to client: %v", client)
-						}
-					}(client)
-				}
-			}
+			}(client)
 		}
 		cm.mu.Unlock()
 	}
