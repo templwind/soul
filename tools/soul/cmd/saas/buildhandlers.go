@@ -45,8 +45,9 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	handlerName := getHandlerName(handler, nil, true)
 	handlerPath := getHandlerFolderPath(server)
 	pkgName := toPrefix(strings.ToLower(handlerPath[strings.LastIndex(handlerPath, "/")+1:]))
-	// layoutPath := getLogicLayoutPath(server)
 
+	hasSocket := false // layoutPath := getLogicLayoutPath(server)
+	socketServerTopics := make(map[string]string)
 	// logicName := defaultLogicPackage
 	if handlerPath != types.HandlerDir {
 		handlerName = util.ToPascal(handlerName)
@@ -127,6 +128,8 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 		topicsFromClient := []types.Topic{}
 		topicsFromServer := []types.Topic{}
 		if method.IsSocket {
+			hasSocket = true
+
 			for _, topic := range method.SocketNode.Topics {
 				var reqType, resType string
 				var hasReqType, hasResType bool
@@ -140,7 +143,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 				}
 
 				if !topic.InitiatedByClient {
-					fmt.Println("SERVER topic.Topic:", topic.Topic, topic.ResponseTopic)
+					// fmt.Println("SERVER topic.Topic:", topic.Topic, topic.ResponseTopic)
 					topicsFromServer = append(topicsFromServer, types.Topic{
 						RawTopic:     strings.TrimSpace(topic.Topic),
 						Topic:        "Topic" + util.ToPascal(topic.Topic),
@@ -151,8 +154,10 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 						HasRespType:  hasResType,
 						LogicFunc:    util.ToPascal(util.ToTitle(topic.Topic)),
 					})
+
+					socketServerTopics[topic.GetName()] = "Topic" + util.ToPascal(topic.Topic)
 				} else {
-					fmt.Println("CLIENT topic.Topic:", topic.Topic, topic.ResponseTopic)
+					// fmt.Println("CLIENT topic.Topic:", topic.Topic, topic.ResponseTopic)
 					var responseTopic string
 					if topic.ResponseTopic != "" {
 						responseTopic = "Topic" + util.ToPascal(topic.ResponseTopic)
@@ -228,6 +233,10 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	builder.Data["PkgName"] = pkgName
 	builder.Data["Imports"] = imports
 	builder.Data["Methods"] = methods
+	builder.Data["SocketServerTopics"] = socketServerTopics
+	builder.Data["HasSocket"] = hasSocket
+	fmt.Println("socketServerTopics:", socketServerTopics)
+	fmt.Println("hasSocket:", hasSocket)
 
 	builder.WithOverwriteFile(filepath.Join("app", subDir, filename+".go"))
 	builder.WithRenameFile(filepath.Join("app", subDir, "handler.go"), filepath.Join("app", subDir, filename+".go"))
@@ -286,7 +295,9 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 			i.AddNativeImport("context")
 			i.AddNativeImport("encoding/json")
 			i.AddNativeImport("log")
+			i.AddNativeImport("net")
 			i.AddNativeImport("net/http")
+			i.AddNativeImport("sync")
 			i.AddProjectImport(path.Join(moduleName, types.EventsDir))
 			i.AddExternalImport("github.com/google/uuid")
 			i.AddExternalImport("github.com/templwind/soul/webserver/wsmanager")
