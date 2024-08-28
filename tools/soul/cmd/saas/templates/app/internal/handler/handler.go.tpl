@@ -4,6 +4,48 @@ import (
 	{{.Imports}}
 )
 
+
+{{ if .HasSocket }}
+var manager = wsmanager.NewConnectionManager()
+var subscriptions = make(map[string]events.Subscription)
+var subscriptionMutex sync.RWMutex
+
+func init() {
+	// Initialize subscriptions for known topics
+	{{ range .SocketServerTopics }}
+		// Subscribe to {{.}} event
+		addSubscription(types.{{.}})
+	{{ end}}
+}
+
+func addSubscription(topic string) {
+	subscriptionMutex.Lock()
+	defer subscriptionMutex.Unlock()
+
+	if _, exists := subscriptions[topic]; !exists {
+		subscriptions[topic] = events.Subscribe(topic, func(ctx context.Context, resp any, connection net.Conn) error {
+			payload, err := json.Marshal(resp)
+			if err != nil {
+				return err
+			}
+
+			var msg wsmanager.Message
+			msg.Topic = topic
+			msg.Payload = json.RawMessage(payload)
+			msg.ID = uuid.New().String()
+
+			out, err := json.Marshal(msg)
+			if err != nil {
+				return err
+			}
+
+			return wsutil.WriteServerMessage(connection, gobwasWs.OpText, out)
+		})
+	}
+}
+{{ end }}
+
+
 {{- range .Methods}}
 {{if .HasDoc}}
 	{{.Doc}}
@@ -25,10 +67,6 @@ import (
 {{ end }}    
 
 func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc {
-	{{if .IsSocket}}
-	var manager = wsmanager.NewConnectionManager()
-	{{end -}}
-
 	return func(c echo.Context) error {
 		{{- if .IsStatic -}}
 			{{ template "static" . }}
@@ -339,29 +377,6 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			c.Logger().Error(err)
 			return err
 		}
-
-		{{range .TopicsFromServer}}
-		// Subscribe to {{.RawTopic}} event
-		defer events.Unsubscribe(
-			events.Subscribe(types.{{.Topic}}, func(ctx context.Context, resp any) error {
-				payload, err := json.Marshal(resp)
-				if err != nil {
-					return err
-				}
-
-				var msg wsmanager.Message
-				msg.Topic = types.{{.Topic}}
-				msg.Payload = json.RawMessage(payload)
-				msg.ID = uuid.New().String()
-
-				out, err := json.Marshal(msg)
-				if err != nil {
-					return err
-				}
-				return wsutil.WriteServerMessage(conn, gobwasWs.OpText, out)
-			}),
-		)
-		{{end}}
 
 		// Handle incoming messages
 		for {
