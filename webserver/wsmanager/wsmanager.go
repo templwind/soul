@@ -23,9 +23,10 @@ type ConnectionManager struct {
 }
 
 type Message struct {
-	Topic   string          `json:"topic"`
-	Payload json.RawMessage `json:"payload"`
-	Sender  *Connection     `json:"-"`
+	Topic     string          `json:"topic"`
+	Payload   json.RawMessage `json:"payload"`
+	Sender    *Connection     `json:"-"`
+	Recipient *Connection     `json:"-"`
 }
 
 var instance *ConnectionManager
@@ -38,7 +39,7 @@ func NewConnectionManager() *ConnectionManager {
 			subscriptions: make(map[string]map[*Connection]bool),
 			broadcast:     make(chan Message),
 		}
-		go instance.handleBroadcasts()
+		// go instance.handleBroadcasts() // disable broadcasting for now
 	})
 	return instance
 }
@@ -88,27 +89,43 @@ func (cm *ConnectionManager) handleBroadcasts() {
 	for {
 		msg := <-cm.broadcast
 		cm.mu.Lock()
-		subscribers, exists := cm.subscriptions[msg.Topic]
-		if !exists {
-			log.Printf("No subscribers for topic %s", msg.Topic)
-		} else {
-			log.Printf("Found %d subscribers for topic %s", len(subscribers), msg.Topic)
-		}
-		for client := range subscribers {
-			if client == msg.Sender {
-				continue // Skip the sender
-			}
+		if msg.Recipient != nil {
+			// Direct message to a specific recipient
 			go func(client *Connection) {
 				client.mu.Lock()
 				defer client.mu.Unlock()
 				err := wsutil.WriteServerMessage(client.conn, ws.OpText, msg.Payload)
 				if err != nil {
-					log.Printf("Error sending message to client: %v", err)
+					log.Printf("Error sending message to recipient client: %v", err)
 					client.conn.Close()
 				} else {
-					log.Printf("Message sent to client: %v", client)
+					log.Printf("Message sent to recipient client: %v", client)
 				}
-			}(client)
+			}(msg.Recipient)
+		} else {
+			// Check for subscriptions and broadcast only if there are subscribers
+			subscribers, exists := cm.subscriptions[msg.Topic]
+			if !exists || len(subscribers) == 0 {
+				log.Printf("No subscribers for topic %s; message will not be broadcasted.", msg.Topic)
+			} else {
+				log.Printf("Broadcasting to %d subscribers for topic %s", len(subscribers), msg.Topic)
+				for client := range subscribers {
+					if client == msg.Sender {
+						continue // Skip the sender
+					}
+					go func(client *Connection) {
+						client.mu.Lock()
+						defer client.mu.Unlock()
+						err := wsutil.WriteServerMessage(client.conn, ws.OpText, msg.Payload)
+						if err != nil {
+							log.Printf("Error sending message to client: %v", err)
+							client.conn.Close()
+						} else {
+							log.Printf("Message sent to client: %v", client)
+						}
+					}(client)
+				}
+			}
 		}
 		cm.mu.Unlock()
 	}
