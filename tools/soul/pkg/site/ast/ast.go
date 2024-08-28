@@ -87,6 +87,7 @@ type SocketNode struct {
 type TopicNode struct {
 	BaseNode
 	Topic             string
+	ResponseTopic     string
 	InitiatedByClient bool
 	RequestType       interface{}
 	ResponseType      interface{}
@@ -247,7 +248,7 @@ func NewSocketNode(method, route string, topics []TopicNode) *SocketNode {
 	}
 }
 
-func NewTopicNode(topic string, requestType, responseType interface{}, initiatedByClient bool) TopicNode {
+func NewTopicNode(topic, responseTopic string, requestType, responseType interface{}, initiatedByClient bool) TopicNode {
 	return TopicNode{
 		BaseNode: BaseNode{
 			Type: NodeTypeMethod,
@@ -257,5 +258,6 @@ func NewTopicNode(topic string, requestType, responseType interface{}, initiated
 		ResponseType:      responseType,
 		InitiatedByClient: initiatedByClient,
 		Topic:             topic,
+		ResponseTopic:     responseTopic,
 	}
 }

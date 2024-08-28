@@ -45,7 +45,7 @@ func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasS
 {{.Doc}}
 {{- end}}
 {{- if .IsSocket}}
-func {{ if .Topic.InitiatedByClient -}}(l *{{.LogicType}}) {{end}}{{.LogicFunc}}({{.Request}}) {{.ResponseType}} {
+func (l *{{.LogicType}}) {{.LogicFunc}}({{.Request}}) {{.ResponseType}} {
 {{else}}
 func (l *{{.LogicType}}) {{.LogicFunc}}({{.Request}}) {{.ResponseType}} {
 {{- end}}

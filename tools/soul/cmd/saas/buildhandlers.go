@@ -140,6 +140,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 				}
 
 				if !topic.InitiatedByClient {
+					fmt.Println("SERVER topic.Topic:", topic.Topic, topic.ResponseTopic)
 					topicsFromServer = append(topicsFromServer, types.Topic{
 						RawTopic:     strings.TrimSpace(topic.Topic),
 						Topic:        "Topic" + util.ToPascal(topic.Topic),
@@ -151,15 +152,22 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 						LogicFunc:    util.ToPascal(util.ToTitle(topic.Topic)),
 					})
 				} else {
+					fmt.Println("CLIENT topic.Topic:", topic.Topic, topic.ResponseTopic)
+					var responseTopic string
+					if topic.ResponseTopic != "" {
+						responseTopic = "Topic" + util.ToPascal(topic.ResponseTopic)
+					}
+
 					topicsFromClient = append(topicsFromClient, types.Topic{
-						RawTopic:     strings.TrimSpace(topic.Topic),
-						Topic:        "Topic" + util.ToPascal(topic.Topic),
-						Name:         topic.GetName(),
-						RequestType:  reqType,
-						HasReqType:   hasReqType,
-						ResponseType: resType,
-						HasRespType:  hasResType,
-						LogicFunc:    util.ToPascal(util.ToTitle(topic.Topic)),
+						RawTopic:      strings.TrimSpace(topic.Topic),
+						Topic:         "Topic" + util.ToPascal(topic.Topic),
+						ResponseTopic: responseTopic,
+						Name:          topic.GetName(),
+						RequestType:   reqType,
+						HasReqType:    hasReqType,
+						ResponseType:  resType,
+						HasRespType:   hasResType,
+						LogicFunc:     util.ToPascal(util.ToTitle(topic.Topic)),
 					})
 				}
 			}
@@ -274,9 +282,11 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 				}
 			}
 
+			i.AddNativeImport("bytes")
 			i.AddNativeImport("context")
 			i.AddNativeImport("encoding/json")
 			i.AddNativeImport("log")
+			i.AddNativeImport("net/http")
 			i.AddProjectImport(path.Join(moduleName, types.EventsDir))
 			i.AddExternalImport("github.com/google/uuid")
 			i.AddExternalImport("github.com/templwind/soul/webserver/wsmanager")

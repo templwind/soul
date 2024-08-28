@@ -383,6 +383,52 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 	// fmt.Println(string(json))
 }
 
+func (p *Parser) parseBidirectionalString(input string) (requestTopic string, requestType interface{}, responseTopic string, responseType interface{}, err error) {
+	parts := strings.Split(input, "<<>>")
+	if len(parts) != 2 {
+		return "", nil, "", nil, fmt.Errorf("invalid input format")
+	}
+
+	request := strings.TrimSpace(parts[0])
+	response := strings.TrimSpace(parts[1])
+
+	requestParts := strings.SplitN(request, " ", 2)
+	if len(requestParts) != 2 {
+		return "", nil, "", nil, fmt.Errorf("invalid request format")
+	}
+	requestTopic = requestParts[0]
+	requestTypeStr := strings.Trim(requestParts[1], "()")
+
+	responseParts := strings.SplitN(response, " ", 2)
+	if len(responseParts) != 2 {
+		return "", nil, "", nil, fmt.Errorf("invalid response format")
+	}
+	responseTopic = responseParts[0]
+	responseTypeStr := strings.Trim(responseParts[1], "()")
+
+	// Convert request type to structured type
+	if strings.Contains(requestTypeStr, "[]") {
+		requestTypeStr = strings.Replace(requestTypeStr, "[]", "", -1)
+		requestType = spec.NewArrayType(
+			spec.NewStructType(strings.TrimSpace(requestTypeStr), nil, nil, nil),
+		)
+	} else {
+		requestType = spec.NewStructType(strings.TrimSpace(requestTypeStr), nil, nil, nil)
+	}
+
+	// Convert response type to structured type
+	if strings.Contains(responseTypeStr, "[]") {
+		responseTypeStr = strings.Replace(responseTypeStr, "[]", "", -1)
+		responseType = spec.NewArrayType(
+			spec.NewStructType(strings.TrimSpace(responseTypeStr), nil, nil, nil),
+		)
+	} else {
+		responseType = spec.NewStructType(strings.TrimSpace(responseTypeStr), nil, nil, nil)
+	}
+
+	return
+}
+
 func (p *Parser) parseSocketMethod(method *ast.MethodNode) {
 	topics := []ast.TopicNode{}
 
@@ -397,59 +443,89 @@ func (p *Parser) parseSocketMethod(method *ast.MethodNode) {
 		re := regexp.MustCompile(`\s+`)
 		literal = re.ReplaceAllString(literal, " ")
 
-		// split into sections
-		isClientInitiated := strings.Contains(literal, ">>")
-		// replace the >> and << with \u00A7
-		literal = strings.ReplaceAll(literal, "<<", "\u00A7")
-		literal = strings.ReplaceAll(literal, ">>", "\u00A7")
+		// check if the topic is bidirectional
+		// client:write-magnet (WriteMagnetRequest) <<>> server:write-magnet-line (WriteMagnetResponse)
 
-		sections := strings.Split(literal, "\u00A7")
+		bidirectional := strings.Contains(literal, "<<>>")
+		if bidirectional {
+			// let's parse the request and response types
+			// this is our string client:write-magnet (WriteMagnetRequest) <<>> server:write-magnet-line (WriteMagnetResponse)
+			// we need to split the string into the topic and the types
 
-		var (
-			topic        string
-			requestType  interface{}
-			responseType interface{}
-		)
-
-		requestParts := strings.Split(strings.TrimSpace(sections[0]), " ")
-		if len(requestParts) > 0 {
-			topic = strings.TrimSpace(requestParts[0])
-		}
-		if len(requestParts) > 1 {
-			rType := strings.Replace(requestParts[1], "(", "", -1)
-			rType = strings.Replace(rType, ")", "", -1)
-			if strings.Contains(rType, "[]") {
-				rType = strings.Replace(rType, "[]", "", -1)
-				requestType = spec.NewArrayType(
-					spec.NewStructType(strings.TrimSpace(rType), nil, nil, nil),
-				)
-			} else {
-				requestType = spec.NewStructType(strings.TrimSpace(rType), nil, nil, nil)
+			requestTopic, requestType, responseTopic, responseType, err := p.parseBidirectionalString(literal)
+			if err != nil {
+				fmt.Println("ERROR: Cannot parse bidirectional socket method", err)
 			}
-		}
 
-		responseParts := strings.Split(strings.TrimSpace(sections[1]), " ")
-		// fmt.Println("RESPONSE PARTS", responseParts)
-		if len(responseParts) > 0 {
-			rType := strings.Replace(responseParts[0], "(", "", -1)
-			rType = strings.Replace(rType, ")", "", -1)
-			if strings.Contains(rType, "[]") {
-				rType = strings.Replace(rType, "[]", "", -1)
-				responseType = spec.NewArrayType(
-					spec.NewStructType(strings.TrimSpace(rType), nil, nil, nil),
-				)
-			} else {
-				responseType = spec.NewStructType(strings.TrimSpace(rType), nil, nil, nil)
+			topics = append(topics, ast.NewTopicNode(requestTopic, responseTopic, requestType, responseType, true))
+			topics = append(topics, ast.NewTopicNode(responseTopic, "", responseType, requestType, false))
+
+		} else {
+			// split into sections
+			isClientInitiated := strings.Contains(literal, ">>")
+			// replace the >> and << with \u00A7
+			literal = strings.ReplaceAll(literal, "<<", "\u00A7")
+			literal = strings.ReplaceAll(literal, ">>", "\u00A7")
+
+			sections := strings.Split(literal, "\u00A7")
+
+			var (
+				topic        string
+				requestType  interface{}
+				responseType interface{}
+			)
+
+			requestParts := strings.Split(strings.TrimSpace(sections[0]), " ")
+			if len(requestParts) > 0 {
+				topic = strings.TrimSpace(requestParts[0])
 			}
+			if len(requestParts) > 1 {
+				rType := strings.Replace(requestParts[1], "(", "", -1)
+				rType = strings.Replace(rType, ")", "", -1)
+				if strings.Contains(rType, "[]") {
+					rType = strings.Replace(rType, "[]", "", -1)
+					requestType = spec.NewArrayType(
+						spec.NewStructType(strings.TrimSpace(rType), nil, nil, nil),
+					)
+				} else {
+					requestType = spec.NewStructType(strings.TrimSpace(rType), nil, nil, nil)
+				}
+			}
+
+			responseParts := strings.Split(strings.TrimSpace(sections[1]), " ")
+			// fmt.Println("RESPONSE PARTS", responseParts)
+			if len(responseParts) > 0 {
+				rType := strings.Replace(responseParts[0], "(", "", -1)
+				rType = strings.Replace(rType, ")", "", -1)
+				if strings.Contains(rType, "[]") {
+					rType = strings.Replace(rType, "[]", "", -1)
+					responseType = spec.NewArrayType(
+						spec.NewStructType(strings.TrimSpace(rType), nil, nil, nil),
+					)
+				} else {
+					responseType = spec.NewStructType(strings.TrimSpace(rType), nil, nil, nil)
+				}
+			}
+
+			topics = append(topics, ast.NewTopicNode(topic, topic, requestType, responseType, isClientInitiated))
 		}
-
-		topics = append(topics, ast.NewTopicNode(topic, requestType, responseType, isClientInitiated))
-
 		p.nextToken()
 	}
 
 	// add the topics to the method
-	method.SocketNode = ast.NewSocketNode(method.Method, method.Route, topics)
+	// make sure the topics are unique
+	uniqueTopics := []ast.TopicNode{}
+	topicMap := make(map[string]bool)
+	for _, topic := range topics {
+		key := fmt.Sprintf("%s-%v", topic.Topic, topic.InitiatedByClient)
+		if !topicMap[key] {
+			uniqueTopics = append(uniqueTopics, topic)
+			topicMap[key] = true
+		} else {
+			fmt.Println("ERROR: Duplicate topic", key)
+		}
+	}
+	method.SocketNode = ast.NewSocketNode(method.Method, method.Route, uniqueTopics)
 }
 
 func (p *Parser) parsePage() *ast.PageNode {

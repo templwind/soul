@@ -3,17 +3,29 @@ package wsmanager
 import (
 	"encoding/json"
 	"log"
+	"net"
 	"sync"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 )
 
+type Connection struct {
+	conn net.Conn
+	mu   sync.Mutex
+}
+
 type ConnectionManager struct {
 	mu            sync.Mutex
 	clients       map[*Connection]bool
 	subscriptions map[string]map[*Connection]bool
 	broadcast     chan Message
+}
+
+type Message struct {
+	Topic   string          `json:"topic"`
+	Payload json.RawMessage `json:"payload"`
+	Sender  *Connection     `json:"-"`
 }
 
 var instance *ConnectionManager
@@ -31,11 +43,17 @@ func NewConnectionManager() *ConnectionManager {
 	return instance
 }
 
+func NewConnection(conn net.Conn) *Connection {
+	return &Connection{
+		conn: conn,
+	}
+}
+
 func (cm *ConnectionManager) AddClient(conn *Connection) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.clients[conn] = true
-	log.Println("Client added:", conn)
+	log.Printf("Client added: %v", conn)
 }
 
 func (cm *ConnectionManager) RemoveClient(conn *Connection) {
@@ -48,7 +66,7 @@ func (cm *ConnectionManager) RemoveClient(conn *Connection) {
 			delete(cm.subscriptions, topic)
 		}
 	}
-	log.Println("Client removed:", conn)
+	log.Printf("Client removed: %v", conn)
 }
 
 func (cm *ConnectionManager) Subscribe(conn *Connection, topic string) {
@@ -61,8 +79,7 @@ func (cm *ConnectionManager) Subscribe(conn *Connection, topic string) {
 	log.Printf("Client subscribed to topic %s: %v", topic, conn)
 }
 
-func (cm *ConnectionManager) Broadcast(msg Message, sender *Connection) {
-	msg.Sender = sender
+func (cm *ConnectionManager) Broadcast(msg Message) {
 	log.Printf("Broadcasting message: %v", msg)
 	cm.broadcast <- msg
 }
@@ -71,20 +88,11 @@ func (cm *ConnectionManager) handleBroadcasts() {
 	for {
 		msg := <-cm.broadcast
 		cm.mu.Lock()
-		topicPayload := struct {
-			Topic   string          `json:"topic"`
-			Payload json.RawMessage `json:"payload"`
-		}{}
-		if err := json.Unmarshal(msg.Payload, &topicPayload); err != nil {
-			log.Printf("Error unmarshaling broadcast payload: %v", err)
-			cm.mu.Unlock()
-			continue
-		}
-		subscribers, exists := cm.subscriptions[topicPayload.Topic]
+		subscribers, exists := cm.subscriptions[msg.Topic]
 		if !exists {
-			log.Printf("No subscribers for topic %s", topicPayload.Topic)
+			log.Printf("No subscribers for topic %s", msg.Topic)
 		} else {
-			log.Printf("Found %d subscribers for topic %s", len(subscribers), topicPayload.Topic)
+			log.Printf("Found %d subscribers for topic %s", len(subscribers), msg.Topic)
 		}
 		for client := range subscribers {
 			if client == msg.Sender {
@@ -93,11 +101,10 @@ func (cm *ConnectionManager) handleBroadcasts() {
 			go func(client *Connection) {
 				client.mu.Lock()
 				defer client.mu.Unlock()
-				err := wsutil.WriteServerMessage(client.conn, ws.OpText, topicPayload.Payload)
+				err := wsutil.WriteServerMessage(client.conn, ws.OpText, msg.Payload)
 				if err != nil {
 					log.Printf("Error sending message to client: %v", err)
 					client.conn.Close()
-					// Depending on your policy, you might want to retry, log, or handle the error differently
 				} else {
 					log.Printf("Message sent to client: %v", client)
 				}

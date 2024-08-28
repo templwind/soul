@@ -83,6 +83,7 @@ type (
 
 	TopicNode struct {
 		Topic             string
+		ResponseTopic     string
 		InitiatedByClient bool
 		RequestType       Type
 		ResponseType      Type
@@ -273,7 +274,7 @@ func NewMethod(m ast.MethodNode,
 func NewSocketNode(method, route string, topicNodes []ast.TopicNode) *SocketNode {
 	topics := []TopicNode{}
 	for _, topic := range topicNodes {
-		topics = append(topics, NewTopicNode(topic.Topic, topic.InitiatedByClient, topic.RequestType, topic.ResponseType))
+		topics = append(topics, NewTopicNode(topic.Topic, topic.ResponseTopic, topic.InitiatedByClient, topic.RequestType, topic.ResponseType))
 	}
 
 	return &SocketNode{
@@ -283,7 +284,7 @@ func NewSocketNode(method, route string, topicNodes []ast.TopicNode) *SocketNode
 	}
 }
 
-func NewTopicNode(topic string, initiatedByClient bool, requestType, responseType interface{}) TopicNode {
+func NewTopicNode(topic, responseTopic string, initiatedByClient bool, requestType, responseType interface{}) TopicNode {
 	var (
 		reqType Type
 		resType Type
@@ -299,6 +300,7 @@ func NewTopicNode(topic string, initiatedByClient bool, requestType, responseTyp
 
 	return TopicNode{
 		Topic:             topic,
+		ResponseTopic:     responseTopic,
 		InitiatedByClient: initiatedByClient,
 		RequestType:       reqType,
 		ResponseType:      resType,

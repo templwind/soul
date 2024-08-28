@@ -30,12 +30,26 @@ func buildApi(builder *SaaSBuilder) error {
 			for _, h := range srv.Handlers {
 			outerLoop:
 				for _, m := range h.Methods {
+
+					if m.IsSocket && m.SocketNode != nil {
+						for _, node := range m.SocketNode.Topics {
+							fmt.Println("Socket:", node.GetName(), node.RequestType, node.ResponseType)
+
+							if node.RequestType != nil {
+								allowedTypes[node.RequestType.GetName()] = true
+							}
+							if node.ResponseType != nil {
+								allowedTypes[node.ResponseType.GetName()] = true
+							}
+						}
+						// fmt.Println("Socket:", m.SocketNode)
+					}
+					// fmt.Println("Method:", m.GetName(), m.RequestType, m.ResponseType)
 					// if m.RequestType != nil {
 					// 	fmt.Println("Method:", m.RequestType.GetName(), m.GetName(), m.ReturnsJson)
 					// }
 
 					if m.ReturnsJson {
-
 						var requestType spec.Type
 						var responseType spec.Type
 
@@ -57,7 +71,6 @@ func buildApi(builder *SaaSBuilder) error {
 						}
 
 						writeApiEndpoint(endpointBuilder, requestType, responseType, srv, h, m, routePrefix)
-
 					}
 				}
 			}
@@ -150,7 +163,7 @@ func isPrimitive(tp string) bool {
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
 		"float32", "float64",
-		"bool", "string", "[]byte":
+		"bool", "string", "[]byte", "time.Time", "time.Duration":
 		return true
 	default:
 		return false
@@ -341,6 +354,10 @@ func ConvertToTypeScriptType(goType string) string {
 		return "string"
 	case "[]byte":
 		return "Uint8Array"
+	case "time.Time":
+		return "string"
+	case "time.Duration":
+		return "number"
 	default:
 		// Handle slices and maps
 		if strings.HasPrefix(goType, "[]") {
