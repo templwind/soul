@@ -235,8 +235,8 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	builder.Data["Methods"] = methods
 	builder.Data["SocketServerTopics"] = socketServerTopics
 	builder.Data["HasSocket"] = hasSocket
-	fmt.Println("socketServerTopics:", socketServerTopics)
-	fmt.Println("hasSocket:", hasSocket)
+	// fmt.Println("socketServerTopics:", socketServerTopics)
+	// fmt.Println("hasSocket:", hasSocket)
 
 	builder.WithOverwriteFile(filepath.Join("app", subDir, filename+".go"))
 	builder.WithRenameFile(filepath.Join("app", subDir, "handler.go"), filepath.Join("app", subDir, filename+".go"))

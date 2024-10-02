@@ -33,7 +33,7 @@ func buildApi(builder *SaaSBuilder) error {
 
 					if m.IsSocket && m.SocketNode != nil {
 						for _, node := range m.SocketNode.Topics {
-							fmt.Println("Socket:", node.GetName(), node.RequestType, node.ResponseType)
+							// fmt.Println("Socket:", node.GetName(), node.RequestType, node.ResponseType)
 
 							if node.RequestType != nil {
 								allowedTypes[node.RequestType.GetName()] = true

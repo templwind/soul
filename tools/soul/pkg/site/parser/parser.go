@@ -179,6 +179,8 @@ func (p *Parser) parseHandler(serverNode *ast.ServerNode) ast.HandlerNode {
 				entries := p.siteAST.Menus[name]
 				for _, entry := range activeEntries {
 					url := strings.ReplaceAll(fmt.Sprintf("%s%s", prefix, activeMethod.Route), "//", "/")
+					// strip the trailing slash
+					url = strings.TrimSuffix(url, "/")
 					entry.URL = url
 					if entry.Title == "" && activeMethod.Page != nil && activeMethod.Page.Attrs["title"] != nil {
 						entry.Title = activeMethod.Page.Attrs["title"].(string)
