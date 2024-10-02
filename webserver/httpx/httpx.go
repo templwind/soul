@@ -98,9 +98,19 @@ func ParseHeaders(c echo.Context, v any) error {
 }
 
 // ParseForm parses the form request.
+// ParseForm parses the form request, including multipart form data.
 func ParseForm(c echo.Context, v any) error {
-	if err := c.Request().ParseForm(); err != nil {
-		return err
+	// Check if the request is multipart
+	isMultipart := strings.HasPrefix(c.Request().Header.Get("Content-Type"), "multipart/form-data")
+
+	if isMultipart {
+		if err := c.Request().ParseMultipartForm(maxMemory); err != nil {
+			return fmt.Errorf("failed to parse multipart form: %w", err)
+		}
+	} else {
+		if err := c.Request().ParseForm(); err != nil {
+			return err
+		}
 	}
 
 	val := reflect.ValueOf(v).Elem()
@@ -112,7 +122,13 @@ func ParseForm(c echo.Context, v any) error {
 		formTag := fieldType.Tag.Get("form")
 
 		if formTag != "" {
-			formValues := c.Request().Form[formTag]
+			var formValues []string
+			if isMultipart {
+				formValues = c.Request().MultipartForm.Value[formTag]
+			} else {
+				formValues = c.Request().Form[formTag]
+			}
+
 			if len(formValues) > 0 {
 				if field.Kind() == reflect.Slice {
 					slice := reflect.MakeSlice(field.Type(), 0, len(formValues))
@@ -129,6 +145,22 @@ func ParseForm(c echo.Context, v any) error {
 						return fmt.Errorf("error setting form value %s: %w", formTag, err)
 					}
 				}
+			}
+		}
+	}
+
+	// Handle file metadata if present
+	if isMultipart {
+		fileHeader, err := c.FormFile("file")
+		if err == nil && fileHeader != nil {
+			if filenameField := val.FieldByName("Filename"); filenameField.IsValid() && filenameField.CanSet() {
+				filenameField.SetString(fileHeader.Filename)
+			}
+			if fileSizeField := val.FieldByName("FileSize"); fileSizeField.IsValid() && fileSizeField.CanSet() {
+				fileSizeField.SetInt(fileHeader.Size)
+			}
+			if contentTypeField := val.FieldByName("ContentType"); contentTypeField.IsValid() && contentTypeField.CanSet() {
+				contentTypeField.SetString(fileHeader.Header.Get("Content-Type"))
 			}
 		}
 	}

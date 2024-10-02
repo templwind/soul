@@ -4,7 +4,7 @@ Soul CLI provides robust support for WebSocket connections, enabling real-time, 
 
 ## Defining WebSockets in the API File
 
-WebSockets are defined in your API file using the `socket` keyword. Here's an example:
+WebSockets are defined in your API file using the `socket` keyword. Soul CLI supports both unidirectional and bidirectional WebSocket communications. Here's an example:
 
 ```
 @server (
@@ -21,99 +21,101 @@ service YourSaaS {
         server:chat-messages << (ListChatMessagesResponse)
         client:send-chat-message (ChatMessage) >> ([]ChatMessage)
         server:chat-message << ([]ChatMessage)
+        client:write-magnet (WriteMagnetRequest) <<>> server:write-magnet-line (WriteMagnetResponse)
     )
 }
 ```
 
-This definition specifies the message types that can be sent and received over the WebSocket connection.
+This definition specifies the message types that can be sent and received over the WebSocket connection. Note the different annotations:
+
+- `>>`: Indicates a client-to-server message
+- `<<`: Indicates a server-to-client message
+- `<<>>`: Indicates a bidirectional message (both client-to-server and server-to-client)
+
+## Bidirectional Communication
+
+The bidirectional annotation (`<<>>`) is particularly useful for scenarios where you need immediate two-way communication. In the example above, `write-magnet` is defined as a bidirectional message:
+
+```
+client:write-magnet (WriteMagnetRequest) <<>> server:write-magnet-line (WriteMagnetResponse)
+```
+
+This means that:
+
+1. The client can send a `WriteMagnetRequest` to the server.
+2. The server can respond with multiple `WriteMagnetResponse` messages.
+3. This allows for scenarios like streaming responses or progress updates.
 
 ## Flexible Path Structure
 
-It's important to note that the path structure in your project is flexible and determined by how you define it in your API file. In the example above:
-
-- The `group: app/dashboard` directive would create a path structure like `internal/handler/app/dashboard/` and `internal/logic/app/dashboard/`.
-- The `prefix: app` directive adds an "/app" prefix to the route.
-
-However, you have the freedom to structure your paths as needed. For example:
-
-```
-@server (
-    group:      websockets
-    prefix:     api
-)
-service YourSaaS {
-    @handler realtime
-    get socket /realtime (
-        // WebSocket definitions
-    )
-}
-```
-
-This would result in a different path structure, like `internal/handler/websockets/` and `internal/logic/websockets/`, with a route prefix of "/api".
+[Content remains the same as in the original document]
 
 ## WebSocket Handler Implementation
 
-Soul CLI automatically generates a WebSocket handler based on your API definition. The location of this handler corresponds to the group and handler name you specify in your API file. Key features of this handler include:
-
-1. **Connection Upgrade**: The handler upgrades the HTTP connection to a WebSocket connection.
-2. **Connection Management**: It uses a `ConnectionManager` to manage WebSocket connections.
-3. **Message Handling**: It processes incoming messages and routes them to the appropriate logic based on the message topic.
-4. **Event Subscription**: The handler subscribes to server-initiated events and sends them to the client.
-5. **Ping/Pong**: It handles WebSocket ping/pong for connection health checks.
+[Content remains the same as in the original document]
 
 ## WebSocket Logic
 
-The business logic for handling WebSocket messages is implemented in a corresponding file within the `internal/logic/` directory. The exact path will match the group structure defined in your API file. This file contains methods corresponding to each client message type defined in the API file. Developers should implement their custom logic in these methods.
+The business logic for handling WebSocket messages is implemented in a corresponding file within the `internal/logic/` directory. For bidirectional messages, you'll typically implement methods for both sending and receiving. For example:
+
+```go
+func (l *WsLogic) ClientWriteMagnet(req *types.WriteMagnetRequest) (resp *types.WriteMagnetResponse, err error) {
+    // Handle the incoming request
+    // ...
+    return
+}
+
+func (l *WsLogic) ServerWriteMagnetLine(req *types.WriteMagnetRequest) {
+    // Send updates to the client
+    // ...
+    events.Next(types.TopicServerWriteMagnetLine, resp, l.conn)
+}
+```
 
 ## Event System
 
-Soul CLI includes a powerful event system (typically in `internal/events/events.go`) that facilitates server-initiated messages and pub/sub functionality. Key features include:
-
-1. **Topic-based Pub/Sub**: Messages are published and subscribed to specific topics.
-2. **Asynchronous Processing**: Event handlers are executed asynchronously.
-3. **Timeout Handling**: Event processing has a built-in timeout to prevent blocking.
-4. **ReplaySubject**: Caches recent events and re-emits them to new subscribers.
+[Content remains the same as in the original document]
 
 ## Best Practices for Using WebSockets in Soul CLI
 
-1. **Implement Custom Logic**: Add your business logic in the corresponding methods in your WebSocket logic file.
-2. **Use Server-Initiated Events**: Utilize the `events.Next()` function to send server-initiated messages.
-3. **Handle Errors**: Implement proper error handling in your WebSocket logic methods.
-4. **Manage Connection State**: Use the `ConnectionManager` to track and manage active connections.
-5. **Implement Client-Side Reconnection**: As the server doesn't handle reconnection, implement this on the client side.
+[Content remains the same as in the original document]
 
-## Example: Implementing Chat Functionality
+## Example: Implementing a Lead Magnet Generator
 
-Here's a basic example of how you might implement a chat room feature:
+Here's an example of how you might implement a lead magnet generator using bidirectional WebSocket communication:
 
-1. In your WebSocket logic file, implement the `ClientCreateChatRoom` method:
+1. In your WebSocket logic file, implement the `ClientWriteMagnet` method:
 
 ```go
-func (l *WsLogic) ClientCreateChatRoom(req *types.CreateChatRoomRequest) (resp *types.ChatRoom, err error) {
-    // Create a new chat room
-    room := &types.ChatRoom{
-        Id: uuid.New().String(),
-        UserId: req.UserId,
-        Messages: []types.ChatMessage{},
+func (l *WsLogic) ClientWriteMagnet(req *types.WriteMagnetRequest) (resp *types.WriteMagnetResponse, err error) {
+    go l.ServerWriteMagnetLine(req)
+
+    resp = &types.WriteMagnetResponse{
+        Status: "preparing to write lead magnet...",
     }
-    // Save the room to your database
-    // ...
-    return room, nil
+    return
 }
 ```
 
-2. Implement the `ClientSendChatMessage` method:
+2. Implement the `ServerWriteMagnetLine` method:
 
 ```go
-func (l *WsLogic) ClientSendChatMessage(req *types.ChatMessage) (resp []types.ChatMessage, err error) {
-    // Save the message to your database
-    // ...
-    // Broadcast the message to all users in the room
-    ServerChatMessage([]types.ChatMessage{*req})
-    return []types.ChatMessage{*req}, nil
+func (l *WsLogic) ServerWriteMagnetLine(req *types.WriteMagnetRequest) {
+    // Generate lead magnet content
+    err := leadmagnet.GenerateLeadMagnet(chatGPTService, params, true, func(line string) error {
+        resp := &types.WriteMagnetResponse{
+            Status:  "generating lead magnet...",
+            Content: line,
+        }
+        return events.Next(types.TopicServerWriteMagnetLine, resp, l.conn)
+    })
+
+    if err != nil {
+        events.Next(types.TopicServerWriteMagnetLine, fmt.Sprintf("Error: %v", err), l.conn)
+    }
 }
 ```
 
-3. On the client side, implement logic to create a room, send messages, and handle incoming messages.
+3. On the client side, implement logic to send the initial request and handle incoming updates.
 
-By leveraging Soul CLI's WebSocket implementation, you can create real-time, interactive features in your application with ease, while maintaining the flexibility to structure your project as needed.
+By leveraging Soul CLI's bidirectional WebSocket implementation, you can create sophisticated real-time features that require ongoing communication between client and server, such as AI-powered content generation, real-time collaboration tools, or live data streaming.

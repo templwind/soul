@@ -415,7 +415,7 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 	builder.Data["hasSocket"] = hasSocket
 
 	builder.WithRenameFile(filepath.Join("app", subDir, "logic.go"), filepath.Join("app", subDir, strings.ToLower(util.ToCamel(handler.Name))+".go"))
-	fmt.Println("logic subDir", subDir)
+	// fmt.Println("logic subDir", subDir)
 
 	return builder.genFile(fileGenConfig{
 		subdir:       path.Join("app", subDir),
