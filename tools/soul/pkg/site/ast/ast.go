@@ -62,7 +62,7 @@ type MethodNode struct {
 	Doc             *DocNode
 	HandlerDoc      string
 	SocketNode      *SocketNode
-	PubSubNode      *SocketNode
+	PubSubNode      *PubSubNode
 	HasRequestType  bool
 	HasResponseType bool
 	HasPage         bool
@@ -74,7 +74,7 @@ type MethodNode struct {
 	IsVideoStream   bool
 	IsAudioStream   bool
 	IsUploadFile    bool
-	IsSubTopic      bool
+	IsPubSub        bool
 	IsFullHTMLPage  bool
 	NoOutput        bool
 }
@@ -84,6 +84,13 @@ type SocketNode struct {
 	Method string
 	Route  string
 	Topics []TopicNode
+}
+
+type PubSubNode struct {
+	BaseNode
+	Method string
+	Route  string
+	Topic  TopicNode
 }
 
 type TopicNode struct {
@@ -261,5 +268,17 @@ func NewTopicNode(topic, responseTopic string, requestType, responseType interfa
 		InitiatedByClient: initiatedByClient,
 		Topic:             topic,
 		ResponseTopic:     responseTopic,
+	}
+}
+
+func NewPubSubtNode(method, route string, topic TopicNode) *PubSubNode {
+	return &PubSubNode{
+		BaseNode: BaseNode{
+			Type: NodeTypeMethod,
+			Name: method,
+		},
+		Method: method,
+		Route:  route,
+		Topic:  topic,
 	}
 }

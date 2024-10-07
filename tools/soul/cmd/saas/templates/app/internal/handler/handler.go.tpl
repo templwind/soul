@@ -4,7 +4,6 @@ import (
 	{{.Imports}}
 )
 
-
 {{ if .HasSocket }}
 var manager = wsmanager.NewConnectionManager()
 var subscriptions = make(map[string]events.Subscription)
@@ -64,8 +63,51 @@ func addSubscription(topic string) {
 // IsAudioStream:   {{if .IsAudioStream}}true{{else}}false{{end}}  
 // IsFullHTMLPage:  {{if .IsFullHTMLPage}}true{{else}}false{{end}} 
 // NoOutput:        {{if .NoOutput}}true{{else}}false{{end}}   
+// IsPubSub:        {{if .IsPubSub}}true{{else}}false{{end}}       
 {{ end }}    
 
+{{- if .IsPubSub }}
+func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
+	// subscribe to the topic
+	log.Printf("Subscribing to topic %s", topic)
+	svcCtx.PubSubBroker.Subscribe(topic, group, func(msg []byte) ([]byte, error) {
+		var req types.{{.PubSubTopic.RequestType}}
+		if err := json.Unmarshal(msg, &req); err != nil {
+			log.Printf("Failed to unmarshal message: %v", err)
+			return nil, err
+		}
+
+		// validate the struct
+		if err := httpx.ValidateStruct(req); err != nil {
+			log.Printf("Failed to validate request: %v", err)
+			return nil, err
+		}
+
+		ctx := context.Background()
+		l := notifications.New{{.LogicType}}(ctx, svcCtx)
+		{{ if .HasResponseType }}response, {{ end }}err := l.{{.LogicFunc}}(&req)
+		if err != nil {
+			log.Printf("Failed to process notification: %v", err)
+		}
+		{{ if .HasResponseType }}
+		// Marshal the response to send it back as the acknowledgment response
+		responseData, err := json.Marshal(response)
+		if err != nil {
+			log.Printf("Failed to marshal response: %v", err)
+			return nil, err
+		}
+
+		err = svcCtx.PubSubBroker.Publish("{{.PubSubTopic.ResponseTopic}}", responseData)
+		if err != nil {
+			log.Printf("Failed to publish response to topic %s: %v", "{{.PubSubTopic.ResponseTopic}}", err)
+			return nil, err
+		}
+		log.Printf("Successfully published to topic %s", "{{.PubSubTopic.ResponseTopic}}")
+		{{ end }}
+		return []byte{}, nil
+	})
+}
+{{ else }}
 func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		{{- if .IsStatic -}}
@@ -89,7 +131,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		{{- end}}
 	}
 }
-
+{{ end -}}
 {{end -}}
 
 

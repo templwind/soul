@@ -31,6 +31,7 @@ type MethodConfig struct {
 	HasPage        bool
 	HasPathInReq   bool
 	RequiresSocket bool
+	RequiresPubSub bool
 
 	RequestType      string
 	ResponseType     string
@@ -48,6 +49,8 @@ type MethodConfig struct {
 	TopicsFromClient []Topic
 	TopicsFromServer []Topic
 	SocketType       string
+	IsPubSub         bool
+	PubSubTopic      Topic
 	Topic            Topic
 	AssetGroup       string
 }

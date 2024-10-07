@@ -61,6 +61,7 @@ type (
 		HandlerComment  Doc
 		DocAnnotation   Annotation
 		SocketNode      *SocketNode
+		PubSubNode      *PubSubNode
 		HasRequestType  bool
 		HasResponseType bool
 		HasPage         bool
@@ -68,6 +69,7 @@ type (
 		ReturnsJson     bool
 		IsStatic        bool
 		IsSocket        bool
+		IsPubSub        bool
 		IsSSE           bool
 		IsVideoStream   bool
 		IsAudioStream   bool
@@ -79,6 +81,12 @@ type (
 		Method string
 		Route  string
 		Topics []TopicNode
+	}
+
+	PubSubNode struct {
+		Method string
+		Route  string
+		Topic  TopicNode
 	}
 
 	TopicNode struct {
@@ -234,7 +242,8 @@ func NewHandler(name string, methods []Method) *Handler {
 func NewMethod(m ast.MethodNode,
 	page *Page,
 	doc *DocNode,
-	socketNode *SocketNode) Method {
+	socketNode *SocketNode,
+	pubSubNode *PubSubNode) Method {
 	var (
 		reqType Type
 		resType Type
@@ -257,7 +266,9 @@ func NewMethod(m ast.MethodNode,
 		Doc:             doc,
 		IsStatic:        m.IsStatic,
 		IsSocket:        m.IsSocket,
+		IsPubSub:        m.IsPubSub,
 		SocketNode:      socketNode,
+		PubSubNode:      pubSubNode,
 		ReturnsPartial:  m.ReturnsPartial,
 		HasRequestType:  m.HasRequestType,
 		HasResponseType: m.HasResponseType,
@@ -281,6 +292,16 @@ func NewSocketNode(method, route string, topicNodes []ast.TopicNode) *SocketNode
 		Method: method,
 		Route:  route,
 		Topics: topics,
+	}
+}
+
+func NewPubSubNode(method, route string, topicNode ast.TopicNode) *PubSubNode {
+	topic := NewTopicNode(topicNode.Topic, topicNode.ResponseTopic, topicNode.InitiatedByClient, topicNode.RequestType, topicNode.ResponseType)
+
+	return &PubSubNode{
+		Method: method,
+		Route:  route,
+		Topic:  topic,
 	}
 }
 

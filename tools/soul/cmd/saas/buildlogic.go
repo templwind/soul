@@ -48,6 +48,9 @@ func addMissingMethods(methods []types.MethodConfig, dir, subDir, fileName strin
 
 	for _, method := range methods {
 		if !strings.Contains(fileContent, method.LogicFunc) {
+			if method.IsPubSub {
+				fmt.Println("method.LogicFunc", method.LogicFunc)
+			}
 
 			// Add the method definition to the newMethods slice
 			newMethods = append(newMethods, generateMethodDefinition(method))
@@ -284,7 +287,7 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 				resp := util.ResponseGoTypeName(method, types.TypesPacket)
 				responseString = "(resp " + resp + ", err error)"
 				returnString = "return"
-			} else if method.NoOutput {
+			} else if method.NoOutput || (method.IsPubSub && !method.HasResponseType) {
 				responseString = "(err error)"
 				returnString = "return"
 			} else {
@@ -310,9 +313,17 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 
 			handlerName = util.ToTitle(getHandlerName(handler, &method))
 
-			requestStringParts := []string{
-				"c echo.Context",
-				requestString,
+			var requestStringParts []string
+			if method.IsPubSub {
+				requestStringParts = []string{
+					requestString,
+				}
+			} else {
+
+				requestStringParts = []string{
+					"c echo.Context",
+					requestString,
+				}
 			}
 			// fmt.Println("\n\nBEFORE :: requestString", requestString)
 			requestString = func(parts []string) string {
@@ -335,7 +346,14 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 			// fmt.Println("AFTER :: requestString", method.GetName(), requestString)
 
 			logicName = strings.ToLower(util.ToCamel(handler.Name))
-			logicFunc = util.ToPascal(strings.TrimSuffix(handlerName, "Handler"))
+			// logicFunc = util.ToPascal(strings.TrimSuffix(handlerName, "Handler"))
+			var logicFunc string
+			if !method.IsPubSub {
+				logicFunc = util.ToPascal(getHandlerName(handler, &method))
+			} else {
+				logicFunc = util.ToPascal(method.PubSubNode.Route)
+			}
+			logicFunc = strings.TrimSuffix(logicFunc, "Handler")
 
 			// fmt.Println("handlerName:", handlerName, method.ReturnsPartial)
 			methods = append(methods, types.MethodConfig{
@@ -358,6 +376,7 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 				LogicType:      logicType,
 				LogicFunc:      logicFunc,
 				IsSocket:       method.IsSocket,
+				IsPubSub:       method.IsPubSub,
 				ReturnsPartial: method.ReturnsPartial,
 			})
 		}
@@ -437,9 +456,12 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 	i.AddNativeImport("context")
 	i.AddProjectImport(path.Join(moduleName, types.ContextDir))
 	i.AddExternalImport(path.Join(vars.ProjectOpenSourceURL, "/core/logx"))
-	i.AddExternalImport("github.com/labstack/echo/v4")
 
 	for _, method := range handler.Methods {
+		if !method.IsPubSub {
+			i.AddExternalImport("github.com/labstack/echo/v4")
+		}
+
 		if method.IsFullHTMLPage || method.ReturnsPartial {
 			i.AddExternalImport("github.com/a-h/templ")
 			i.AddExternalImport("github.com/templwind/soul")

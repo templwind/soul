@@ -5,18 +5,19 @@ import (
 )
 
 {{- if false }}
-// HasRequestType:  {{if .HasRequestType}}true{{else}}false{{end}} 
+// HasRequestType:  {{if .HasRequestType}}true{{else}}false{{end}}
 // HasResponseType: {{if .HasResponseType}}true{{else}}false{{end}}
-// HasPage:         {{if .HasPage}}true{{else}}false{{end}}        
-// ReturnsPartial:  {{if .ReturnsPartial}}true{{else}}false{{end}} 
-// ReturnsJson:     {{if .ReturnsJson}}true{{else}}false{{end}}    
-// IsStatic:        {{if .IsStatic}}true{{else}}false{{end}}       
-// IsSocket:        {{if .IsSocket}}true{{else}}false{{end}}       
-// IsSSE:           {{if .IsSSE}}true{{else}}false{{end}}          
-// IsVideoStream:   {{if .IsVideoStream}}true{{else}}false{{end}}  
-// IsAudioStream:   {{if .IsAudioStream}}true{{else}}false{{end}}  
-// IsFullHTMLPage:  {{if .IsFullHTMLPage}}true{{else}}false{{end}} 
-// NoOutput:        {{if .NoOutput}}true{{else}}false{{end}}      
+// HasPage:         {{if .HasPage}}true{{else}}false{{end}}
+// ReturnsPartial:  {{if .ReturnsPartial}}true{{else}}false{{end}}
+// ReturnsJson:     {{if .ReturnsJson}}true{{else}}false{{end}}
+// IsStatic:        {{if .IsStatic}}true{{else}}false{{end}}
+// IsSocket:        {{if .IsSocket}}true{{else}}false{{end}}
+// IsSSE:           {{if .IsSSE}}true{{else}}false{{end}}
+// IsVideoStream:   {{if .IsVideoStream}}true{{else}}false{{end}}
+// IsAudioStream:   {{if .IsAudioStream}}true{{else}}false{{end}}
+// IsFullHTMLPage:  {{if .IsFullHTMLPage}}true{{else}}false{{end}}
+// NoOutput:        {{if .NoOutput}}true{{else}}false{{end}}
+// IsPubSub:        {{if .IsPubSub}}true{{else}}false{{end}} 
 {{- end}}
 
 type {{.LogicType}} struct {
@@ -26,7 +27,7 @@ type {{.LogicType}} struct {
 	{{- if .hasSocket}}
 	conn   net.Conn
 	echoCtx echo.Context
-	{{end -}}
+	{{end }}
 }
 
 func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasSocket}}, conn net.Conn, echoCtx echo.Context{{end}}) *{{.LogicType}} {

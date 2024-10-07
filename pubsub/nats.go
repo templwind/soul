@@ -29,14 +29,16 @@ func MustNewNATSBroker(url string, redisAddr string) *NATSBroker {
 
 // NewNATSBroker initializes the NATS broker and the Redis client
 func NewNATSBroker(url string, redisAddr string) (*NATSBroker, error) {
+	// Connect to NATS
 	nc, err := nats.Connect(url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 
+	// Get JetStream context
 	js, err := nc.JetStream()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get JetStream context: %w", err)
 	}
 
 	// Initialize Redis client
@@ -45,6 +47,13 @@ func NewNATSBroker(url string, redisAddr string) (*NATSBroker, error) {
 	})
 
 	ctx := context.Background()
+
+	// Test Redis connection with Ping
+	pong, err := rdb.Ping(ctx).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+	}
+	fmt.Printf("Redis connected: %v\n", pong)
 
 	return &NATSBroker{
 		conn:  nc,
