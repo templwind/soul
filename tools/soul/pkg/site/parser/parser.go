@@ -150,7 +150,8 @@ func (p *Parser) parseHandler(serverNode *ast.ServerNode) ast.HandlerNode {
 		p.curToken.Type == lexer.AT_POST_METHOD ||
 		p.curToken.Type == lexer.AT_PUT_METHOD ||
 		p.curToken.Type == lexer.AT_DELETE_METHOD ||
-		p.curToken.Type == lexer.AT_PATCH_METHOD {
+		p.curToken.Type == lexer.AT_PATCH_METHOD ||
+		p.curToken.Type == lexer.AT_SUB_TOPIC {
 
 		if p.curToken.Type == lexer.AT_PAGE {
 			// fmt.Println("PAGE", p.curToken.Literal, p.peekToken.Literal, p.curToken.Type)
@@ -169,7 +170,8 @@ func (p *Parser) parseHandler(serverNode *ast.ServerNode) ast.HandlerNode {
 			p.curToken.Type == lexer.AT_POST_METHOD ||
 			p.curToken.Type == lexer.AT_PUT_METHOD ||
 			p.curToken.Type == lexer.AT_DELETE_METHOD ||
-			p.curToken.Type == lexer.AT_PATCH_METHOD {
+			p.curToken.Type == lexer.AT_PATCH_METHOD ||
+			p.curToken.Type == lexer.AT_SUB_TOPIC {
 
 			p.parseMethod(&activeMethod)
 			methods = append(methods, activeMethod)
@@ -196,6 +198,7 @@ func (p *Parser) parseHandler(serverNode *ast.ServerNode) ast.HandlerNode {
 
 			// fmt.Println("TOKEN", p.curToken.Literal, p.curToken.Type)
 
+			// RESET THE ACTIVE METHOD AND MENU ENTRIES
 			activeMethod = ast.MethodNode{}
 			activeMenuEntries = make(map[string][]*ast.MenuEntry)
 		}
@@ -222,6 +225,8 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 		method.Method = "DELETE"
 	case lexer.AT_PATCH_METHOD:
 		method.Method = "PATCH"
+	case lexer.AT_SUB_TOPIC:
+		method.Method = "SUB"
 	default:
 		return
 	}
@@ -295,6 +300,10 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 					} else {
 						panic("File paths (post file /path) can only be used with a POST method")
 					}
+				case "sub":
+					method.Method = "SUB"
+					method.IsSubTopic = true
+					continue
 				}
 			}
 		}
@@ -355,12 +364,17 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 		p.parseSocketMethod(method)
 	}
 
+	if method.IsSubTopic {
+		p.parseSubTopic(method)
+	}
+
 	if method.Method == "GET" &&
 		(!method.IsSocket &&
 			!method.IsSSE &&
 			!method.IsVideoStream &&
 			!method.IsAudioStream &&
-			!method.ReturnsJson) {
+			!method.ReturnsJson &&
+			!method.IsSubTopic) {
 		method.IsFullHTMLPage = true
 	}
 
@@ -375,6 +389,7 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 		!method.ReturnsPartial &&
 		!method.ReturnsJson &&
 		!method.IsSocket &&
+		!method.IsSubTopic &&
 		!method.IsSSE &&
 		!method.IsVideoStream &&
 		!method.IsAudioStream {
@@ -431,6 +446,131 @@ func (p *Parser) parseBidirectionalString(input string) (requestTopic string, re
 	return
 }
 
+func (p *Parser) parsePubSubString(input string) (subscriptionTopic string, requestType interface{}, publishTopic string, responseType interface{}, err error) {
+	parts := strings.Split(input, " pub ")
+	if len(parts) != 2 {
+		return "", nil, "", nil, fmt.Errorf("invalid input format")
+	}
+
+	subscription := strings.TrimSpace(parts[0])
+	publication := strings.TrimSpace(parts[1])
+
+	// Parse subscription part
+	subParts := strings.SplitN(subscription, " ", 3)
+	if len(subParts) != 3 || subParts[0] != "sub" {
+		return "", nil, "", nil, fmt.Errorf("invalid subscription format")
+	}
+	subscriptionTopic = subParts[1]
+	requestTypeStr := strings.Trim(subParts[2], "()")
+
+	// Parse publication part
+	pubParts := strings.SplitN(publication, " ", 2)
+	if len(pubParts) != 2 {
+		return "", nil, "", nil, fmt.Errorf("invalid publication format")
+	}
+	publishTopic = pubParts[0]
+	responseTypeStr := strings.Trim(pubParts[1], "()")
+
+	// Convert request type to structured type
+	if strings.Contains(requestTypeStr, "[]") {
+		requestTypeStr = strings.Replace(requestTypeStr, "[]", "", -1)
+		requestType = spec.NewArrayType(
+			spec.NewStructType(strings.TrimSpace(requestTypeStr), nil, nil, nil),
+		)
+	} else {
+		requestType = spec.NewStructType(strings.TrimSpace(requestTypeStr), nil, nil, nil)
+	}
+
+	// Convert response type to structured type
+	if strings.Contains(responseTypeStr, "[]") {
+		responseTypeStr = strings.Replace(responseTypeStr, "[]", "", -1)
+		responseType = spec.NewArrayType(
+			spec.NewStructType(strings.TrimSpace(responseTypeStr), nil, nil, nil),
+		)
+	} else {
+		responseType = spec.NewStructType(strings.TrimSpace(responseTypeStr), nil, nil, nil)
+	}
+
+	return
+}
+
+// parse pubsub methods
+func (p *Parser) parseSubTopic(method *ast.MethodNode) {
+	// these are the patterns
+	// a subscribe without a resulting publish
+	// sub subscribed.topic (TopicRequest)
+	// a subscribe with a resulting publish
+	// sub subscribed.topic  (TopicRequest) pub published.topic (TopicResponse)
+
+	topics := []ast.TopicNode{}
+
+	// fmt.Println("SOCKET METHOD", p.curToken.Literal, p.curToken.Type)
+
+	p.nextToken()
+	for p.curToken.Type != lexer.CLOSE_PAREN {
+		// fmt.Println("TOKEN", p.curToken.Literal, p.curToken.Type)
+		// Split the line into parts by spaces
+		literal := p.curToken.Literal
+		literal = strings.ReplaceAll(literal, "(", " (")
+		re := regexp.MustCompile(`\s+`)
+		literal = re.ReplaceAllString(literal, " ")
+
+		// check if the topic has an ending publication
+		// sub subscribed.topic  (TopicRequest) pub published.topic (TopicResponse)
+
+		if strings.Contains(literal, " pub ") {
+			// let's parse the request and response types
+			requestTopic, requestType, responseTopic, responseType, err := p.parsePubSubString(literal)
+			if err != nil {
+				fmt.Println("ERROR: Cannot parse pubsub method", err)
+			}
+
+			topics = append(topics, ast.NewTopicNode(requestTopic, responseTopic, requestType, responseType, true))
+			topics = append(topics, ast.NewTopicNode(responseTopic, "", responseType, requestType, false))
+		} else {
+			// Handle the case: sub subscribed.topic (TopicRequest)
+			parts := strings.SplitN(literal, " ", 3)
+			if len(parts) != 3 {
+				fmt.Println("ERROR: Invalid sub topic format")
+				p.nextToken()
+				continue
+			}
+
+			topic := parts[1]
+			requestTypeStr := strings.Trim(parts[2], "()")
+			var requestType interface{}
+
+			if strings.Contains(requestTypeStr, "[]") {
+				requestTypeStr = strings.Replace(requestTypeStr, "[]", "", -1)
+				requestType = spec.NewArrayType(
+					spec.NewStructType(strings.TrimSpace(requestTypeStr), nil, nil, nil),
+				)
+			} else {
+				requestType = spec.NewStructType(strings.TrimSpace(requestTypeStr), nil, nil, nil)
+			}
+
+			topics = append(topics, ast.NewTopicNode(topic, "", requestType, nil, true))
+		}
+		p.nextToken()
+	}
+
+	// add the topics to the method
+	// make sure the topics are unique
+	uniqueTopics := []ast.TopicNode{}
+	topicMap := make(map[string]bool)
+	for _, topic := range topics {
+		key := fmt.Sprintf("%s-%v", topic.Topic, topic.InitiatedByClient)
+		if !topicMap[key] {
+			uniqueTopics = append(uniqueTopics, topic)
+			topicMap[key] = true
+		} else {
+			fmt.Println("ERROR: Duplicate topic", key)
+		}
+	}
+	method.PubSubNode = ast.NewSocketNode(method.Method, method.Route, uniqueTopics)
+}
+
+// parse web socket methods
 func (p *Parser) parseSocketMethod(method *ast.MethodNode) {
 	topics := []ast.TopicNode{}
 
