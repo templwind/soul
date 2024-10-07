@@ -18,6 +18,15 @@ type NATSBroker struct {
 	ctx   context.Context
 }
 
+// MustNewNATSBroker creates a new NATS broker and panics if there's an error
+func MustNewNATSBroker(url string, redisAddr string) *NATSBroker {
+	broker, err := NewNATSBroker(url, redisAddr)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create NATS broker: %v", err))
+	}
+	return broker
+}
+
 // NewNATSBroker initializes the NATS broker and the Redis client
 func NewNATSBroker(url string, redisAddr string) (*NATSBroker, error) {
 	nc, err := nats.Connect(url)
