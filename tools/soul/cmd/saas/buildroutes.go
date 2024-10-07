@@ -18,6 +18,10 @@ import (
 
 const (
 	routesAdditionTemplate = `
+	{{ if .isPubSub }}
+	// pubsub routes
+	{{.routes}}
+	{{ else }}
 	{{.groupName}} := server.Group(
 		"{{.prefix}}",{{if .middlewares}}
 		[]echo.MiddlewareFunc{
@@ -26,7 +30,8 @@ const (
 	)
 
 	{{.routes}}
-`
+	{{ end }}
+	`
 	timeoutThreshold = time.Millisecond
 )
 
@@ -57,13 +62,15 @@ type (
 		maxBytes         string
 	}
 	route struct {
-		method   string
-		route    string
-		handler  string
-		doc      map[string]interface{}
-		isStatic bool
-		isSocket bool
-		topics   []spec.TopicNode
+		method      string
+		route       string
+		handler     string
+		doc         map[string]interface{}
+		isStatic    bool
+		isSocket    bool
+		isPubSub    bool
+		topics      []spec.TopicNode
+		pubSubTopic spec.TopicNode
 	}
 )
 
@@ -78,15 +85,21 @@ func buildRoutes(builder *SaaSBuilder) error {
 
 	var hasTimeout bool
 	var jwtEnabled bool
+	var isPubSub bool
 	gt := template.Must(template.New("groupTemplate").Parse(routesAdditionTemplate))
 	for _, g := range groups {
 		var routesBuilder strings.Builder
 		for _, r := range g.routes {
+
+			if r.isPubSub {
+				isPubSub = true
+			}
 			// fmt.Println("Handler", r.handler)
 
 			if len(r.doc) > 0 {
 				routesBuilder.WriteString(fmt.Sprintf("\n%s\n", util.GetDoc(r.doc)))
 			}
+
 			if r.isStatic {
 				routesBuilder.WriteString(fmt.Sprintf(
 					`%s.Static("%s", "%s")
@@ -94,6 +107,12 @@ func buildRoutes(builder *SaaSBuilder) error {
 					util.ToCamel(g.name)+"Group",
 					r.route,
 					"public"+r.route,
+				))
+			} else if isPubSub {
+				routesBuilder.WriteString(fmt.Sprintf(
+					`%s
+	`,
+					r.handler,
 				))
 			} else {
 				routesBuilder.WriteString(fmt.Sprintf(
@@ -107,7 +126,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 			}
 		}
 
-		for i, _ := range g.middlewares {
+		for i := range g.middlewares {
 			g.middlewares[i] = "svcCtx." + util.ToTitle(g.middlewares[i]) + ","
 		}
 
@@ -132,7 +151,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 		builder.Data["middlewares"] = strings.Join(g.middlewares, "\n\t\t\t")
 		builder.Data["routes"] = routesBuilder.String()
 		builder.Data["prefix"] = g.prefix
-
+		builder.Data["isPubSub"] = isPubSub
 		if err := gt.Execute(&routesAdditionsBuilder, builder.Data); err != nil {
 			return err
 		}
@@ -213,7 +232,17 @@ func getRoutes(site *spec.SiteSpec) ([]group, error) {
 				for _, m := range r.Methods {
 					// fmt.Println("m", m)
 					// if m.RequestType != nil {
-					handlerName := util.ToTitle(getHandlerName(r, &m))
+					var handlerName string
+					if !m.IsPubSub {
+						handlerName = util.ToTitle(getHandlerName(r, &m))
+					} else {
+						baseName, err := getHandlerBaseName(r)
+						if err != nil {
+							panic(err)
+						}
+						handlerName = util.ToPascal(baseName) + util.ToPascal(m.PubSubNode.Route)
+					}
+
 					if len(folder) > 0 {
 						handlerName = toPrefix(folder) + "." + util.ToPascal(handlerName)
 					}
@@ -224,7 +253,12 @@ func getRoutes(site *spec.SiteSpec) ([]group, error) {
 
 					// fmt.Println("mRoute", mRoute)
 
-					handlerName = handlerName + fmt.Sprintf(`(svcCtx, "%s")`, mRoute)
+					if m.IsPubSub {
+						// "go " +
+						handlerName = "go " + handlerName + fmt.Sprintf(`(svcCtx, "%s", "%s")`, mRoute, r.Name)
+					} else {
+						handlerName = handlerName + fmt.Sprintf(`(svcCtx, "%s")`, mRoute)
+					}
 
 					routeObj := route{
 						method:   mapping[strings.ToLower(m.Method)],
@@ -233,12 +267,18 @@ func getRoutes(site *spec.SiteSpec) ([]group, error) {
 						doc:      m.DocAnnotation.Properties,
 						isStatic: m.IsStatic,
 						isSocket: m.IsSocket,
+						isPubSub: m.IsPubSub,
 					}
 
 					if m.IsSocket && m.SocketNode != nil {
 						routeObj.topics = m.SocketNode.Topics
 					}
-					// fmt.Println("handlerName", handlerName)
+
+					if m.IsPubSub && m.PubSubNode != nil {
+						routeObj.pubSubTopic = m.PubSubNode.Topic
+					}
+					// // fmt.Println("handlerName", handlerName)
+					// fmt.Println("routeObj.isPubSub", routeObj.isPubSub)
 
 					groupedRoutes.routes = append(groupedRoutes.routes, routeObj)
 					// }

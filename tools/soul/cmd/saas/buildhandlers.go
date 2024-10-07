@@ -48,6 +48,15 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 
 	hasSocket := false // layoutPath := getLogicLayoutPath(server)
 	socketServerTopics := make(map[string]string)
+
+	// pubsub
+	// hasPubSub := false
+	// pubSubTopics := make(map[string]string)
+
+	// for _, method := range handler.Methods {
+	// 	fmt.Println("method:", method.Method, method.Route)
+	// }
+
 	// logicName := defaultLogicPackage
 	if handlerPath != types.HandlerDir {
 		handlerName = util.ToPascal(handlerName)
@@ -87,9 +96,15 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	uniqueMethods := []string{}
 	for _, method := range handler.Methods {
 		handlerName := util.ToPascal(getHandlerName(handler, &method))
+		if method.IsPubSub {
+			baseName, err := getHandlerBaseName(handler)
+			if err != nil {
+				panic(err)
+			}
+			handlerName = util.ToPascal(baseName) + util.ToPascal(method.PubSubNode.Route)
+		}
 
 		// fmt.Println("handlerName", handlerName)
-
 		if util.Contains(uniqueMethods, handlerName) {
 			continue
 		}
@@ -122,8 +137,31 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 		}
 
 		uniqueMethods = append(uniqueMethods, handlerName)
-		logicFunc := util.ToPascal(getHandlerName(handler, &method))
+		var logicFunc string
+		if !method.IsPubSub {
+			logicFunc = util.ToPascal(getHandlerName(handler, &method))
+		} else {
+			logicFunc = util.ToPascal(method.PubSubNode.Route)
+		}
 		logicFunc = strings.TrimSuffix(logicFunc, "Handler")
+
+		// fmt.Println("method:", method.Method, method.Route)
+
+		pubSubTopic := types.Topic{}
+		if method.IsPubSub {
+			// hasPubSub = true
+			topic := method.PubSubNode.Topic
+			if topic.RequestType != nil && len(topic.RequestType.GetName()) > 0 {
+				pubSubTopic.HasReqType = true
+				pubSubTopic.RequestType = util.ToTitle(topic.RequestType.GetName())
+			}
+			if topic.ResponseType != nil && len(topic.ResponseType.GetName()) > 0 {
+				pubSubTopic.HasRespType = true
+				pubSubTopic.ResponseType = util.ToTitle(topic.ResponseType.GetName())
+				pubSubTopic.ResponseTopic = topic.ResponseTopic
+			}
+		}
+		// fmt.Println("method:", method)
 
 		topicsFromClient := []types.Topic{}
 		topicsFromServer := []types.Topic{}
@@ -200,6 +238,8 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 			ReturnsPartial:   method.ReturnsPartial,
 			AssetGroup:       assetGroup,
 			RequiresSocket:   NewRequiresSocket,
+			IsPubSub:         method.IsPubSub,
+			PubSubTopic:      pubSubTopic,
 		})
 	}
 
@@ -262,7 +302,9 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 
 	// var hasReq, hasResp, hasBaseProps, hasHTMX, hasTypes, requiresEvents, hasSocket, hasView, hasReturnsPartial bool
 	for _, method := range handler.Methods {
-		i.AddExternalImport("github.com/labstack/echo/v4")
+		if !method.IsPubSub {
+			i.AddExternalImport("github.com/labstack/echo/v4")
+		}
 		i.AddProjectImport(path.Join(moduleName, types.ContextDir))
 
 		if handler.Name == "notfound" {
@@ -279,7 +321,16 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 		}
 
 		if method.ReturnsJson {
-			i.AddNativeImport("net/http")
+			if !method.IsPubSub {
+				i.AddNativeImport("net/http")
+			}
+			i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
+		}
+
+		if method.IsPubSub {
+			i.AddNativeImport("context")
+			i.AddNativeImport("encoding/json")
+			i.AddNativeImport("log")
 			i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
 		}
 
