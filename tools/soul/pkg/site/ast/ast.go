@@ -62,6 +62,7 @@ type MethodNode struct {
 	Doc             *DocNode
 	HandlerDoc      string
 	SocketNode      *SocketNode
+	PubSubNode      *SocketNode
 	HasRequestType  bool
 	HasResponseType bool
 	HasPage         bool
@@ -73,6 +74,7 @@ type MethodNode struct {
 	IsVideoStream   bool
 	IsAudioStream   bool
 	IsUploadFile    bool
+	IsSubTopic      bool
 	IsFullHTMLPage  bool
 	NoOutput        bool
 }

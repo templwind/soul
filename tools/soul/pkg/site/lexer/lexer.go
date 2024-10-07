@@ -59,6 +59,7 @@ const (
 	AT_DELETE_METHOD
 	AT_PATCH_METHOD
 	AT_MODULE
+	AT_SUB_TOPIC
 )
 
 // Lexer represents a lexical scanner
@@ -131,6 +132,8 @@ func (l *Lexer) tokenizeLine(line string) Token {
 		return Token{Type: AT_DELETE_METHOD, Literal: l.cleanPrefix(line, "delete")}
 	case strings.HasPrefix(line, "patch"):
 		return Token{Type: AT_PATCH_METHOD, Literal: l.cleanPrefix(line, "patch")}
+	case strings.HasPrefix(line, "sub"):
+		return Token{Type: AT_SUB_TOPIC, Literal: l.cleanPrefix(line, "sub")}
 	case strings.HasPrefix(line, "@menus"):
 		return Token{Type: AT_MENUS, Literal: l.cleanPrefix(line, "@menus")}
 	case strings.HasPrefix(line, "@module"):
