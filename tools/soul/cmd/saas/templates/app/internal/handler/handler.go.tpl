@@ -74,7 +74,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 	var err error
 
 	// Create the stream if it doesn't exist
-	err = svcCtx.PubSubBroker.CreateStream("group", topic, 1*time.Minute)
+	err = svcCtx.PubSubBroker.CreateStream(group, topic, 1*time.Minute)
 	if err != nil {
 		log.Printf("Failed to create stream for topic %s: %v", topic, err)
 		// Note: We continue even if stream creation fails, as it might already exist

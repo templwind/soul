@@ -3,6 +3,10 @@ Host: {{.host}}
 Port: {{.port}}
 DSN: ${DSN}
 EnableWALMode: true
+Nats:
+  URL: nats://nats:4222
+Redis:
+  URL: redis:6379
 {{ .auth -}}
 Email:
   From: ${EMAIL_FROM}
