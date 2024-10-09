@@ -22,3 +22,5 @@ go.work
 go.work.sum
 
 _httpx.go
+
+generate.sh
