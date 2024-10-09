@@ -81,7 +81,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 		return err
 	}
 
-	routeFilename := path.Join(builder.Dir, "app", types.HandlerDir, "routes.go")
+	routeFilename := path.Join(builder.Dir, builder.ServiceName, types.HandlerDir, "routes.go")
 
 	var hasTimeout bool
 	var jwtEnabled bool
@@ -152,6 +152,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 		builder.Data["routes"] = routesBuilder.String()
 		builder.Data["prefix"] = g.prefix
 		builder.Data["isPubSub"] = isPubSub
+		builder.Data["isService"] = builder.IsService
 		if err := gt.Execute(&routesAdditionsBuilder, builder.Data); err != nil {
 			return err
 		}
@@ -164,22 +165,24 @@ func buildRoutes(builder *SaaSBuilder) error {
 	os.Remove(routeFilename)
 
 	builder.Data["hasTimeout"] = hasTimeout
-	builder.Data["imports"] = genRouteImports(builder.ModuleName, builder.Spec)
+	builder.Data["imports"] = genRouteImports(builder, builder.ModuleName, builder.Spec)
 	builder.Data["routesAdditions"] = strings.TrimSpace(routesAdditionsBuilder.String())
 
 	return builder.genFile(fileGenConfig{
-		subdir:       path.Join("app", types.HandlerDir),
+		subdir:       path.Join(builder.ServiceName, types.HandlerDir),
 		templateFile: "templates/app/internal/handler/routes.go.tpl",
 		data:         builder.Data,
 	})
 }
 
-func genRouteImports(parentPkg string, site *spec.SiteSpec) string {
+func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec) string {
 	i := imports.New()
 	hasJwt := false
 	for _, server := range site.Servers {
 		folder := strings.ToLower(server.GetAnnotation(types.GroupProperty))
-		i.AddProjectImport(pathx.JoinPackages(parentPkg, types.HandlerDir, folder), toPrefix(folder))
+		if folder != "" {
+			i.AddProjectImport(pathx.JoinPackages(parentPkg, types.HandlerDir, folder), toPrefix(folder))
+		}
 		jwt := server.GetAnnotation("jwt")
 		if len(jwt) > 0 {
 			hasJwt = true
@@ -189,7 +192,9 @@ func genRouteImports(parentPkg string, site *spec.SiteSpec) string {
 	folder := "notfound"
 
 	i.AddProjectImport(pathx.JoinPackages(parentPkg, types.ContextDir))
-	i.AddProjectImport(pathx.JoinPackages(parentPkg, types.HandlerDir, folder))
+	if !builder.IsService {
+		i.AddProjectImport(pathx.JoinPackages(parentPkg, types.HandlerDir, folder))
+	}
 
 	i.AddExternalImport("github.com/labstack/echo/v4")
 	if hasJwt {

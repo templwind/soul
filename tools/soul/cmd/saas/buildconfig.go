@@ -39,6 +39,8 @@ func buildConfig(builder *SaaSBuilder) error {
 	builder.Data["imports"] = imports.New(
 		imports.WithImport("sort"),
 		imports.WithSpacer(),
+		imports.WithImport(builder.ServiceName+"/internal/settings"),
+		imports.WithSpacer(),
 		imports.WithImport("github.com/biter777/countries"),
 		imports.WithImport("github.com/templwind/soul/db"),
 		imports.WithImport("github.com/templwind/soul/webserver"),
@@ -47,7 +49,7 @@ func buildConfig(builder *SaaSBuilder) error {
 	builder.Data["jwtTrans"] = strings.Join(jwtTransList, "\n")
 
 	return builder.genFile(fileGenConfig{
-		subdir:       "app/internal/config",
+		subdir:       builder.ServiceName + "/internal/config",
 		templateFile: "templates/app/internal/config/config.go.tpl",
 		data:         builder.Data,
 	})

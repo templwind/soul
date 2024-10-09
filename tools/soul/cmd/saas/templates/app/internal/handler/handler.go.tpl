@@ -70,24 +70,28 @@ func addSubscription(topic string) {
 func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 	// subscribe to the topic
 	log.Printf("Subscribing to topic %s", topic)
-	svcCtx.PubSubBroker.Subscribe(topic, group, func(msg []byte) ([]byte, error) {
+
+	var err error
+
+	// Create the stream if it doesn't exist
+	err = svcCtx.PubSubBroker.CreateStream("group", topic, 1*time.Minute)
+	if err != nil {
+		log.Printf("Failed to create stream for topic %s: %v", topic, err)
+		// Note: We continue even if stream creation fails, as it might already exist
+	}
+
+	err = svcCtx.PubSubBroker.Subscribe(topic, group, func(msg []byte) ([]byte, error) {
 		var req types.{{.PubSubTopic.RequestType}}
 		if err := json.Unmarshal(msg, &req); err != nil {
 			log.Printf("Failed to unmarshal message: %v", err)
 			return nil, err
 		}
 
-		// validate the struct
-		if err := httpx.ValidateStruct(req); err != nil {
-			log.Printf("Failed to validate request: %v", err)
-			return nil, err
-		}
-
 		ctx := context.Background()
-		l := notifications.New{{.LogicType}}(ctx, svcCtx)
+		l := {{.LogicName}}.New{{.LogicType}}(ctx, svcCtx)
 		{{ if .HasResponseType }}response, {{ end }}err := l.{{.LogicFunc}}(&req)
 		if err != nil {
-			log.Printf("Failed to process notification: %v", err)
+			log.Printf("Failed to process {{.PubSubTopic.RequestType}}: %v", err)
 		}
 		{{ if .HasResponseType }}
 		// Marshal the response to send it back as the acknowledgment response
@@ -106,6 +110,11 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 		{{ end }}
 		return []byte{}, nil
 	})
+	if err != nil {
+		log.Printf("Failed to subscribe to topic %s: %v", topic, err)
+	} else {
+		log.Printf("Successfully subscribed to topic %s", topic)
+	}
 }
 {{ else }}
 func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc {

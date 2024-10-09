@@ -28,7 +28,7 @@ func Load(file string, v any, opts ...Option) error {
 
 	var content []byte
 	if opt.hasFS {
-		content, err = opt.fs.ReadFile("etc/goshare.yaml")
+		content, err = opt.fs.ReadFile(file)
 		if err != nil {
 			panic(err)
 		}

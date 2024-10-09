@@ -16,6 +16,8 @@ type jwtCustomClaims struct {
 func RegisterHandlers(server *echo.Echo, svcCtx *svc.ServiceContext) {
 	{{.routesAdditions}}
 
+	{{- if not .isService }}
 	// The following code is used to handle the 404 error.
 	server.Any("/*", notfound.NotFoundHandler(svcCtx))
+	{{- end}}
 }

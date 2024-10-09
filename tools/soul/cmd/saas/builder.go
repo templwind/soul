@@ -23,6 +23,7 @@ var templatesFS embed.FS
 type SaaSBuilder struct {
 	Dir            string
 	ModuleName     string
+	ServiceName    string
 	DB             types.DBType
 	Router         types.RouterType
 	Spec           *spec.SiteSpec
@@ -32,23 +33,86 @@ type SaaSBuilder struct {
 	IgnoreFiles    map[string]bool
 	IgnorePaths    map[string]bool
 	OverwriteFiles map[string]bool
+	IsService      bool
 }
 
 type customFunc func(saasBuilder *SaaSBuilder) error
+type optFunc[T any] func(*T)
 
-func NewSaaSBuilder(dir, moduleName string, db types.DBType, router types.RouterType, siteSpec *spec.SiteSpec) *SaaSBuilder {
+func NewSaaSBuilder(opts ...optFunc[SaaSBuilder]) *SaaSBuilder {
+	sb := defaultProps()
+
+	for _, opt := range opts {
+		opt(sb)
+	}
+
+	if sb.Dir == "" {
+		panic("dir is required")
+	}
+	if sb.ModuleName == "" {
+		panic("module name is required")
+	}
+	if sb.ServiceName == "" {
+		panic("service name is required")
+	}
+	if sb.Spec == nil {
+		panic("site spec is required")
+	}
+	return sb
+}
+
+func defaultProps() *SaaSBuilder {
 	return &SaaSBuilder{
-		Dir:            dir,
-		ModuleName:     moduleName,
-		DB:             db,
-		Router:         router,
-		Spec:           siteSpec,
-		Data:           make(map[string]any),
-		CustomFuncs:    make(map[string]customFunc),
-		RenameFiles:    make(map[string]string),
 		IgnoreFiles:    map[string]bool{"handler.go.tpl": true},
 		IgnorePaths:    map[string]bool{"templates/internal/handler/": true},
 		OverwriteFiles: make(map[string]bool),
+		Data:           make(map[string]any),
+		CustomFuncs:    make(map[string]customFunc),
+		RenameFiles:    make(map[string]string),
+		IsService:      false,
+	}
+}
+
+// dir, moduleName, serviceName string, db types.DBType, router types.RouterType, siteSpec *spec.SiteSpec
+func WithDir(dir string) optFunc[SaaSBuilder] {
+	return func(sb *SaaSBuilder) {
+		sb.Dir = dir
+	}
+}
+
+func WithModuleName(moduleName string) optFunc[SaaSBuilder] {
+	return func(sb *SaaSBuilder) {
+		sb.ModuleName = moduleName
+	}
+}
+
+func WithServiceName(serviceName string) optFunc[SaaSBuilder] {
+	return func(sb *SaaSBuilder) {
+		sb.ServiceName = serviceName
+	}
+}
+
+func WithDB(db types.DBType) optFunc[SaaSBuilder] {
+	return func(sb *SaaSBuilder) {
+		sb.DB = db
+	}
+}
+
+func WithRouter(router types.RouterType) optFunc[SaaSBuilder] {
+	return func(sb *SaaSBuilder) {
+		sb.Router = router
+	}
+}
+
+func WithSiteSpec(siteSpec *spec.SiteSpec) optFunc[SaaSBuilder] {
+	return func(sb *SaaSBuilder) {
+		sb.Spec = siteSpec
+	}
+}
+
+func WithIsService(isService bool) optFunc[SaaSBuilder] {
+	return func(sb *SaaSBuilder) {
+		sb.IsService = isService
 	}
 }
 
@@ -116,6 +180,7 @@ func (sb *SaaSBuilder) shouldIgnore(path string) bool {
 	for ignorePath := range sb.IgnorePaths {
 		// fmt.Println("Checking", path, "against", ignorePath)
 		ignorePath = strings.TrimPrefix(ignorePath, "templates/")
+		fmt.Println("Checking", path, "against", ignorePath, strings.HasPrefix(path, ignorePath))
 		if strings.HasPrefix(path, ignorePath) {
 			// fmt.Println("Ignoring", path)
 			return true
@@ -313,6 +378,10 @@ func (sb *SaaSBuilder) processFiles() error {
 		}
 
 		subdir := strings.TrimPrefix(filepath.Dir(path), "templates")
+		// Replace the "app/" prefix with the ServiceName
+		if strings.HasPrefix(subdir, "/app") {
+			subdir = strings.Replace(subdir, "/app", "/"+sb.ServiceName, 1)
+		}
 
 		// Check and adjust paths for database keyword
 		if strings.Contains(path, sb.DB.String()) {
@@ -328,6 +397,7 @@ func (sb *SaaSBuilder) processFiles() error {
 
 		// Determine if there is a custom logic function for this file
 		customFuncName := sb.destFile(subdir, fileName)
+		// fmt.Println("customFuncName::", customFuncName)
 		// var custom customFunc
 		if _, exists := sb.CustomFuncs[customFuncName]; exists {
 			// custom = fn
@@ -348,6 +418,8 @@ func (sb *SaaSBuilder) processFiles() error {
 	}
 
 	for _, fileConfig := range files {
+		// fmt.Println("Generating file", fileConfig.subdir)
+
 		if err := sb.genFile(fileConfig); err != nil {
 			fmt.Println(err.Error())
 		}
@@ -363,6 +435,7 @@ func (sb *SaaSBuilder) destFile(subdir, tplFileName string) string {
 	if filename[0] == '/' {
 		filename = filename[1:]
 	}
+
 	// strip the .tpl extension
 	return strings.TrimSuffix(filename, ".tpl")
 

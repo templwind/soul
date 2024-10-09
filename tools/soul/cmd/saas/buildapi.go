@@ -80,16 +80,17 @@ func buildApi(builder *SaaSBuilder) error {
 	builder.Data["Endpoints"] = strings.TrimSpace(endpointBuilder.String())
 
 	// fmt.Println(builder.Data["Endpoints"])
-
-	filename := path.Join(builder.Dir, types.SrcDir, "api", "endpoints.ts")
-	os.Remove(filename)
-	// Generate the endpoints.ts file
-	if err := builder.genFile(fileGenConfig{
-		subdir:       path.Join(types.SrcDir, "api"),
-		templateFile: "templates/app/src/api/endpoints.ts.tpl",
-		data:         builder.Data,
-	}); err != nil {
-		fmt.Println(util.WrapErr(err, "endpoints.ts generate error"))
+	if !builder.IsService {
+		filename := path.Join(builder.Dir, types.SrcDir, "api", "endpoints.ts")
+		os.Remove(filename)
+		// Generate the endpoints.ts file
+		if err := builder.genFile(fileGenConfig{
+			subdir:       builder.ServiceName + "/" + path.Join(types.SrcDir, "api"),
+			templateFile: "templates/app/src/api/endpoints.ts.tpl",
+			data:         builder.Data,
+		}); err != nil {
+			fmt.Println(util.WrapErr(err, "endpoints.ts generate error"))
+		}
 	}
 
 	// Recursively add all necessary types
@@ -100,10 +101,12 @@ func buildApi(builder *SaaSBuilder) error {
 		}
 	}
 
-	// Generate TypeScript models for identified types
-	err := genApiTypes(builder, allowedTypes)
-	if err != nil {
-		return err
+	if !builder.IsService {
+		// Generate TypeScript models for identified types
+		err := genApiTypes(builder, allowedTypes)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

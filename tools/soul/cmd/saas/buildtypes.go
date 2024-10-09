@@ -39,7 +39,7 @@ func buildTypes(builder *SaaSBuilder) error {
 		}
 	}
 
-	filename := path.Join(builder.Dir, path.Join("app", types.TypesDir), "types.go")
+	filename := path.Join(builder.Dir, path.Join(builder.ServiceName, types.TypesDir), "types.go")
 	os.Remove(filename)
 
 	builder.Data["Types"] = val
@@ -48,7 +48,7 @@ func buildTypes(builder *SaaSBuilder) error {
 	builder.Data["HasConsts"] = len(consts) > 0
 
 	return builder.genFile(fileGenConfig{
-		subdir:       path.Join("app", types.TypesDir),
+		subdir:       path.Join(builder.ServiceName, types.TypesDir),
 		templateFile: "templates/app/internal/types/types.go.tpl",
 		data:         builder.Data,
 	})
