@@ -1,7 +1,7 @@
 package types
 
 const (
-	SrcDir          = "app/src/"
+	SrcDir          = "src/"
 	SrcComponentDir = SrcDir + "components"
 	DbDir           = "db"
 	MigrationDir    = "db/migrations"

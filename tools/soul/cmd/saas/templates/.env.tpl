@@ -26,7 +26,7 @@ POSTGRES_SSL_MODE=disable
 DO_REGION=sfo3
 DO_ACCESS_KEY_ID=DOXXXX
 DO_SECRET_ACCESS_KEY=XXXX
-DO_BUCKET_NAME=goshare
+DO_BUCKET_NAME=XXXX
 DO_ENDPOINT=https://XXXX.sfo3.digitaloceanspaces.com
 ***REMOVED***=dop_v1_XXXX
 
@@ -42,25 +42,69 @@ TEMPORAL_UI_VERSION=2.26.2
 POSTGRESQL_VERSION=16
 
 # XO configuration
-XO_INCLUDES="accounts \
-user_types \
-users \
-user_accounts \
-products \
-subscriptions \
-payment_methods \
-invoices \
-payment_attempts \
-oauth_states \
-posts \
-comments \
-tags \
-reviews \
-audit_logs \
-roles \
-permissions \
-role_permissions \
-user_roles \
-notifications \
-settings \
-attachments"
+XO_INCLUDES=""
+# XO_INCLUDES="accounts \
+# user_types \
+# users \
+# user_accounts \
+# products \
+# subscriptions \
+# payment_methods \
+# invoices \
+# payment_attempts \
+# oauth_states \
+# posts \
+# comments \
+# tags \
+# reviews \
+# audit_logs \
+# roles \
+# permissions \
+# role_permissions \
+# user_roles \
+# notifications \
+# settings \
+# email_senders \
+# niches \
+# ai_prompts \
+# optin_emails \
+# funnels \
+# funnel_pages \
+# split_tests \
+# variants \
+# funnel_page_variants \
+# page_views \
+# conversions \
+# daily_funnel_summary \
+# component_tests \
+# email_types \
+# email_campaigns \
+# email_templates \
+# email_recipients \
+# email_sends \
+# email_status_history \
+# email_links \
+# email_clicks \
+# email_opens \
+# email_metrics \
+# email_unsubscribes \
+# referrals \
+# referral_summary \
+# daily_referral_summary \
+# achievements \
+# user_achievements \
+# leaderboards \
+# daily_engagement \
+# user_points \
+# user_profiles \
+# lead_magnet_traffic \
+# lead_magnet_daily_stats \
+# lead_magnet_overall_stats \
+# user_profile_traffic \
+# user_profile_daily_stats \
+# user_profile_overall_stats \
+# endorsements \
+# testimonials \
+# files \
+# buckets \
+# downloads"

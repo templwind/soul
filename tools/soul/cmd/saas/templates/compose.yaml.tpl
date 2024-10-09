@@ -1,4 +1,5 @@
 services:
+  {{ if not .isService -}}
   {{- if eq .dbType "postgres" }}
   # ###############################
   # ## DB                        ##
@@ -61,6 +62,7 @@ services:
     networks:
       - {{.serviceName}}
 
+
   # ###############################
   # ## Temporal                  ##
   # ###############################
@@ -117,13 +119,13 @@ services:
       - 8080:8080
     networks:
       - {{.serviceName}}
-
+  {{- end }}
   # ###############################
   # ## App                       ##
   # ###############################
-  app:
+  {{.serviceName}}:
     build: 
-      context: ./app
+      context: ./{{.serviceName}}
       target: dev
     depends_on:
       - migrations
@@ -145,7 +147,7 @@ services:
     {{- end}}
     privileged: true
     volumes:
-      - ./app:/app
+      - ./{{.serviceName}}:/app
     restart: always
     logging:
       driver: "json-file"

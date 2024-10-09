@@ -25,20 +25,23 @@ func buildHandlers(builder *SaaSBuilder) error {
 		}
 	}
 
-	// generate the 404 handler
-	return genHandler(builder, spec.Server{
-		Annotation: spec.NewAnnotation(map[string]interface{}{
-			types.GroupProperty: "notfound",
-		}),
-	}, spec.Handler{
-		Name: "notfound",
-		Methods: []spec.Method{
-			{
-				Method: "GET",
-				Route:  "/*",
+	if !builder.IsService {
+		// generate the 404 handler
+		return genHandler(builder, spec.Server{
+			Annotation: spec.NewAnnotation(map[string]interface{}{
+				types.GroupProperty: "notfound",
+			}),
+		}, spec.Handler{
+			Name: "notfound",
+			Methods: []spec.Method{
+				{
+					Method: "GET",
+					Route:  "/*",
+				},
 			},
-		},
-	})
+		})
+	}
+	return nil
 }
 
 func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) error {
@@ -85,7 +88,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	}
 
 	subDir := getHandlerFolderPath(server)
-	handlerFile := path.Join(builder.Dir, "app", subDir, filename+".go")
+	handlerFile := path.Join(builder.Dir, builder.ServiceName, subDir, filename+".go")
 	if _, err := os.Stat(handlerFile); err == nil {
 		if err := os.Remove(handlerFile); err != nil {
 			fmt.Println("error removing file", handlerFile, err)
@@ -247,19 +250,19 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	// fmt.Println("methods", string(b))
 	// fmt.Println("handler.Name:", handler.Name)
 
-	if handler.Name == "notfound" {
+	if handler.Name == "notfound" && !builder.IsService {
 		imports := genHandlerImports(server, handler, builder.ModuleName, true)
 
 		builder.Data["PkgName"] = pkgName
 		builder.Data["Imports"] = imports
 		builder.Data["Methods"] = methods
 
-		builder.WithOverwriteFile(filepath.Join("app", subDir, "404handler.go"))
-		builder.WithRenameFile(filepath.Join("app", subDir, "404handler.go"), filepath.Join("app", subDir, "notfoundhandler.go"))
+		builder.WithOverwriteFile(filepath.Join(builder.ServiceName, subDir, "404handler.go"))
+		builder.WithRenameFile(filepath.Join(builder.ServiceName, subDir, "404handler.go"), filepath.Join(builder.ServiceName, subDir, "notfoundhandler.go"))
 
 		// fmt.Println("notfound subDir:", subDir)
 		if err := builder.genFile(fileGenConfig{
-			subdir:       path.Join("app", subDir),
+			subdir:       path.Join(builder.ServiceName, subDir),
 			templateFile: "templates/app/internal/handler/404handler.go.tpl",
 			data:         builder.Data,
 		}); err != nil {
@@ -278,13 +281,13 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	// fmt.Println("socketServerTopics:", socketServerTopics)
 	// fmt.Println("hasSocket:", hasSocket)
 
-	builder.WithOverwriteFile(filepath.Join("app", subDir, filename+".go"))
-	builder.WithRenameFile(filepath.Join("app", subDir, "handler.go"), filepath.Join("app", subDir, filename+".go"))
+	builder.WithOverwriteFile(filepath.Join(builder.ServiceName, subDir, filename+".go"))
+	builder.WithRenameFile(filepath.Join(builder.ServiceName, subDir, "handler.go"), filepath.Join(builder.ServiceName, subDir, filename+".go"))
 
-	// fmt.Println("handler file:", path.Join("app", subDir))
+	// fmt.Println("handler file:", path.Join(builder.ServiceName, subDir))
 	// builder.WithRenameFile("internal/handler/handler.go", filepath.Join(subDir, filename+".go"))
 	return builder.genFile(fileGenConfig{
-		subdir:       path.Join("app", subDir),
+		subdir:       path.Join(builder.ServiceName, subDir),
 		templateFile: "templates/app/internal/handler/handler.go.tpl",
 		data:         builder.Data,
 	})
@@ -323,15 +326,15 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 		if method.ReturnsJson {
 			if !method.IsPubSub {
 				i.AddNativeImport("net/http")
+				i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
 			}
-			i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
 		}
 
 		if method.IsPubSub {
 			i.AddNativeImport("context")
 			i.AddNativeImport("encoding/json")
 			i.AddNativeImport("log")
-			i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
+			i.AddNativeImport("time")
 		}
 
 		if method.IsSocket {
@@ -386,7 +389,9 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 
 		if method.HasRequestType || method.HasResponseType {
 			i.AddProjectImport(path.Join(moduleName, types.TypesDir))
-			i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
+			if !method.IsPubSub {
+				i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
+			}
 		}
 	}
 
@@ -394,9 +399,11 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 }
 
 func getHandlerFolderPath(server spec.Server) string {
+
 	folder := server.GetAnnotation(types.GroupProperty)
 
 	if len(folder) == 0 || folder == "/" {
+
 		return types.HandlerDir
 	}
 

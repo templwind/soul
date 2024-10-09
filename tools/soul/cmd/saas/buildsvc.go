@@ -15,17 +15,22 @@ import (
 func buildServiceContext(builder *SaaSBuilder) error {
 	var middlewareStr string
 	var middlewareAssignment string
-	middlewares := util.GetMiddleware(builder.Spec)
+	var middlewares []string
+	var contents []string
+	var err error
+	if !builder.IsService {
+		middlewares = util.GetMiddleware(builder.Spec)
 
-	// read all the files in the middleware directory
-	contents, err := readFilesInDirectory(
-		path.Join(builder.Dir, "app", types.MiddlewareDir),
-	)
-	if err != nil {
-		fmt.Println("error reading files in middleware directory")
+		// read all the files in the middleware directory
+		contents, err = readFilesInDirectory(
+			path.Join(builder.Dir, builder.ServiceName, types.MiddlewareDir),
+		)
+		if err != nil {
+			fmt.Println("error reading files in middleware directory")
+		}
+
+		sort.Strings(middlewares)
 	}
-
-	sort.Strings(middlewares)
 
 	for _, item := range middlewares {
 		// read from the tpl file to determine
@@ -60,7 +65,7 @@ func buildServiceContext(builder *SaaSBuilder) error {
 	builder.Data["middlewareAssignment"] = middlewareAssignment
 
 	return builder.genFile(fileGenConfig{
-		subdir:       path.Join("app", types.ContextDir),
+		subdir:       path.Join(builder.ServiceName, types.ContextDir),
 		templateFile: "templates/app/internal/svc/servicecontext.go.tpl",
 		data:         builder.Data,
 	})
@@ -68,11 +73,28 @@ func buildServiceContext(builder *SaaSBuilder) error {
 
 func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 	i := imports.New()
-	i.AddNativeImport(path.Join(builder.ModuleName, types.ConfigDir))
-	if hasMiddlware {
+
+	if !builder.IsService {
+		i.AddNativeImport("context")
+	}
+	i.AddNativeImport("log")
+	i.AddNativeImport("time")
+
+	i.AddProjectImport(path.Join(builder.ModuleName, types.ConfigDir))
+	if hasMiddlware && !builder.IsService {
 		i.AddNativeImport(path.Join(builder.ModuleName, types.MiddlewareDir))
 		i.AddExternalImport("github.com/labstack/echo/v4")
+		i.AddProjectImport(path.Join(builder.ServiceName, "internal/session"), "systemSession")
 	}
+
+	i.AddProjectImport(path.Join(builder.ServiceName, "internal/awssession"))
+	if !builder.IsService {
+		i.AddProjectImport(path.Join(builder.ServiceName, "internal/storagemanager"))
+	}
+	i.AddProjectImport(path.Join(builder.ServiceName, "internal/chatgpt"))
+	i.AddProjectImport(path.Join(builder.ServiceName, "internal/jobs"))
+	i.AddProjectImport(path.Join(builder.ServiceName, "internal/k8sutil"))
+	i.AddProjectImport(path.Join(builder.ServiceName, "internal/ratelimiter"))
 
 	i.AddExternalImport("github.com/jmoiron/sqlx")
 
@@ -84,8 +106,10 @@ func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 		i.AddExternalImport("github.com/go-sql-driver/mysql", "_")
 	}
 
+	i.AddExternalImport("github.com/aws/aws-sdk-go/aws/session")
 	i.AddExternalImport("github.com/jmoiron/sqlx")
 	i.AddExternalImport("github.com/templwind/soul/db")
+	i.AddExternalImport("github.com/templwind/soul/pubsub")
 
 	return i.Build()
 

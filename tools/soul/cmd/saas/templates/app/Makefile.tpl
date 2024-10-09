@@ -5,19 +5,19 @@ ifneq (,$(wildcard .env))
 endif
 
 # Dynamic variables
-APP_NAME := $(shell cd app && grep -lR "func main()" *.go | awk -F/ '{print $$NF}' | sed 's/\.go//')
-PACKAGES := $(shell cd app && go list ./...)
+APP_NAME := $(shell cd {{.serviceName}} && grep -lR "func main()" *.go | awk -F/ '{print $$NF}' | sed 's/\.go//')
+PACKAGES := $(shell cd {{.serviceName}} && go list ./...)
 NAME := $(shell basename ${PWD})
-COMMIT_HASH := $(shell cd app && git rev-parse --short HEAD)
+COMMIT_HASH := $(shell cd {{.serviceName}} && git rev-parse --short HEAD)
 TIMESTAMP ?= $(shell date +"%Y%m%d%H%M%S")
-VERSION ?= $(shell cd app && git describe --tags --always || git rev-parse --short HEAD)
+VERSION ?= $(shell cd {{.serviceName}} && git describe --tags --always || git rev-parse --short HEAD)
 LDFLAGS ?= -X 'main.Version=$(VERSION)'
 
 # Docker parameters
 AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=123456789012
 EXECUTABLE={{.serviceName}}
-IMAGE_NAME={{.serviceName}}-app
+IMAGE_NAME={{.serviceName}}
 NAMESPACE={{.serviceName}}
 DOCKER=docker
 DOCKER_BUILD=$(DOCKER) build
@@ -81,7 +81,7 @@ pnpm-build:
 .PHONY: build
 build:
 	make templ
-	go build -ldflags "-X main.Environment=production" -o ./app/tmp/$(APP_NAME) .
+	go build -ldflags "-X main.Environment=production" -o ./{{.serviceName}}/tmp/$(APP_NAME) .
 
 ## staticcheck: run staticcheck
 .PHONY: staticcheck
@@ -96,15 +96,15 @@ gen:
 ## xo: generate models from database
 .PHONY: xo
 xo:
-	@mkdir -p ./app/internal/models
+	@mkdir -p ./{{.serviceName}}/internal/models
 	@xo schema \
 		'file:${DSN}??loc=auto' \
 		--go-field-tag='json:"{{ "{{" }} .SQLName {{ "}}" }}" db:"{{ "{{" }} .SQLName {{ "}}" }}" form:"{{ "{{" }} .SQLName {{ "}}" }}"' \
 		--include=$(XO_INCLUDES) \
-		-o ./app//internal/models \
+		-o ./{{.serviceName}}//internal/models \
 		-k field
 
-	@soul parsexo -i ./app/internal/models -o ./app/internal/models -b {{.serviceName}}/app/internal
+	@soul parsexo -i ./{{.serviceName}}/internal/models -o ./{{.serviceName}}/internal/models -b {{.serviceName}}/{{.serviceName}}/internal
 	@go mod tidy
 
 ## backup-db: Backup the SQLite database

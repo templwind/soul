@@ -28,7 +28,7 @@ func buildEtc(builder *SaaSBuilder) error {
 	builder.Data["auth"] = strings.Join(auths, "\n")
 
 	return builder.genFile(fileGenConfig{
-		subdir:       "app/etc/",
+		subdir:       builder.ServiceName + "/etc/",
 		templateFile: "templates/app/etc/config.yaml.tpl",
 		data:         builder.Data,
 	})

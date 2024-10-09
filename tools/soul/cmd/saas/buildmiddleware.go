@@ -13,6 +13,10 @@ import (
 )
 
 func buildMiddleware(builder *SaaSBuilder) error {
+	if builder.IsService {
+		return nil
+	}
+
 	middlewares := util.GetMiddleware(builder.Spec)
 
 	middlewares = append(middlewares, []string{
@@ -39,11 +43,11 @@ func buildMiddleware(builder *SaaSBuilder) error {
 
 		builder.WithRenameFile(
 			filepath.Join(
-				"app",
+				builder.ServiceName,
 				types.MiddlewareDir,
 				"template.go"),
 			filepath.Join(
-				"app",
+				builder.ServiceName,
 				types.MiddlewareDir,
 				middlewareFilename+".go",
 			))
@@ -55,7 +59,7 @@ func buildMiddleware(builder *SaaSBuilder) error {
 		builder.Data["isNoCache"] = noCache
 
 		err := builder.genFile(fileGenConfig{
-			subdir: path.Join("app", types.MiddlewareDir),
+			subdir: path.Join(builder.ServiceName, types.MiddlewareDir),
 			templateFile: filepath.Join(
 				"templates",
 				"app",

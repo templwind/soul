@@ -39,6 +39,7 @@ func buildMain(builder *SaaSBuilder) error {
 
 	iOptFuncs = append(iOptFuncs, imports.WithSpacer())
 	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/joho/godotenv/autoload", "_"))
+	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/labstack/echo/v4"))
 	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/labstack/echo/v4/middleware"))
 	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul/conf"))
 	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul/webserver"))
@@ -46,7 +47,7 @@ func buildMain(builder *SaaSBuilder) error {
 	builder.Data["imports"] = imports.New(iOptFuncs...)
 
 	return builder.genFile(fileGenConfig{
-		subdir:       "app/",
+		subdir:       builder.ServiceName + "/",
 		templateFile: "templates/app/main.go.tpl",
 		data:         builder.Data,
 	})

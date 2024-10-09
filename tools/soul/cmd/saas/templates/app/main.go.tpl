@@ -4,11 +4,13 @@ import (
 	{{.imports}}
 )
 
+{{ if not .isService -}}
 //go:embed static
 var staticFS embed.FS
 
 //go:embed assets
 var assetsFS embed.FS
+{{- end}}
 
 //go:embed etc/*.yaml
 var configFS embed.FS
@@ -16,19 +18,22 @@ var configFS embed.FS
 var configFile = flag.String("f", "etc/{{.serviceName}}.yaml", "the config file")
 
 func main() {
+	var err error
+
 	flag.Parse()
 
 	// Load the configuration file
 	var c config.Config
 	conf.MustLoad(*configFile, &c, conf.UseEnv(), conf.UseFS(configFS))
 
+	{{ if not .isService -}}
 	// add the static logo to the config
-	// logo, err := staticFS.ReadFile("static/images/logo.svg")
+	// logo, err = staticFS.ReadFile("static/images/logo.svg")
 	// if err != nil {
 	// 	panic(err)
 	// }
 	// c.Site.LogoSvg = string(logo)
-
+	{{- end}}
 
 	// Create a new service context
 	svcCtx := svc.NewServiceContext(&c)
@@ -73,11 +78,32 @@ func main() {
 	}))
 
 	// Add static file serving
+	{{ if not .isService -}}
 	assetsGroup := server.Echo.Group("/assets", svcCtx.NoCache)
 	assetsSubFS := echo.MustSubFS(assetsFS, "assets")
 	assetsGroup.StaticFS("/", assetsSubFS)
 	staticSubFS := echo.MustSubFS(staticFS, "static")
 	server.Echo.StaticFS("/static", staticSubFS)
+	{{- end}}
+
+	// TODO: add a job
+	jobFunc := func() {
+		// Run the job logic in a go routine to prevent blocking
+		// TODO: add the logic for the job
+	}
+
+	// Run the job immediately on startup
+	go jobFunc()
+
+	// Register the job to run every 10 minutes with cron
+	err = svcCtx.JobManager.AddJob("0 */10 * * * *", jobFunc)
+	if err != nil {
+		panic(err)
+	}
+
+	// Start the job manager
+	go svcCtx.JobManager.Start()
+	defer svcCtx.JobManager.Stop()
 
 	// Start the server
 	fmt.Printf("Starting server at %s:%d ...\n", c.Host, c.Port)

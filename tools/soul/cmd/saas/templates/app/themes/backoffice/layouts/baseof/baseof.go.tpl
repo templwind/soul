@@ -41,7 +41,7 @@ func defaultProps() *Props {
 			HxSSE: &struct {
 				URL string
 			}{
-				URL: "/app/sse",
+				URL: "/{{.serviceName}}/sse",
 			},
 			XData: `{ 
 				activeUrl: window.location.pathname, 
