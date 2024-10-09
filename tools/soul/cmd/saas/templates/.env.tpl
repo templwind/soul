@@ -28,7 +28,7 @@ DO_ACCESS_KEY_ID=DOXXXX
 DO_SECRET_ACCESS_KEY=XXXX
 DO_BUCKET_NAME=XXXX
 DO_ENDPOINT=https://XXXX.sfo3.digitaloceanspaces.com
-***REMOVED***=dop_v1_XXXX
+DO_TOKEN=XXXX
 
 
 # OpenAI configuration
