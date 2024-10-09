@@ -21,19 +21,20 @@ import (
 var templatesFS embed.FS
 
 type SaaSBuilder struct {
-	Dir            string
-	ModuleName     string
-	ServiceName    string
-	DB             types.DBType
-	Router         types.RouterType
-	Spec           *spec.SiteSpec
-	Data           map[string]any
-	CustomFuncs    map[string]customFunc
-	RenameFiles    map[string]string
-	IgnoreFiles    map[string]bool
-	IgnorePaths    map[string]bool
-	OverwriteFiles map[string]bool
-	IsService      bool
+	Dir                   string
+	ModuleName            string
+	ServiceName           string
+	DB                    types.DBType
+	Router                types.RouterType
+	Spec                  *spec.SiteSpec
+	Data                  map[string]any
+	CustomFuncs           map[string]customFunc
+	RenameFiles           map[string]string
+	IgnoreFiles           map[string]bool
+	IgnorePaths           map[string]bool
+	OverwriteFiles        map[string]bool
+	IsService             bool
+	ExternalDockerNetwork string
 }
 
 type customFunc func(saasBuilder *SaaSBuilder) error
@@ -116,6 +117,12 @@ func WithIsService(isService bool) optFunc[SaaSBuilder] {
 	}
 }
 
+func WithExternalDockerNetwork(externalDockerNetwork string) optFunc[SaaSBuilder] {
+	return func(sb *SaaSBuilder) {
+		sb.ExternalDockerNetwork = externalDockerNetwork
+	}
+}
+
 func (sb *SaaSBuilder) WithData(data map[string]any) {
 	for k, v := range data {
 		sb.Data[k] = v
@@ -180,7 +187,7 @@ func (sb *SaaSBuilder) shouldIgnore(path string) bool {
 	for ignorePath := range sb.IgnorePaths {
 		// fmt.Println("Checking", path, "against", ignorePath)
 		ignorePath = strings.TrimPrefix(ignorePath, "templates/")
-		fmt.Println("Checking", path, "against", ignorePath, strings.HasPrefix(path, ignorePath))
+		// fmt.Println("Checking", path, "against", ignorePath, strings.HasPrefix(path, ignorePath))
 		if strings.HasPrefix(path, ignorePath) {
 			// fmt.Println("Ignoring", path)
 			return true

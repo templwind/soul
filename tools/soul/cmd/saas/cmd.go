@@ -31,13 +31,14 @@ var (
 
 func Cmd() *cobra.Command {
 	var (
-		varApiFile            string
-		varDir                string
-		varDB                 string
-		varRouter             string
-		varCGO                string
-		varIgnoreDBMigrations bool
-		varIsService          bool
+		varApiFile               string
+		varDir                   string
+		varDB                    string
+		varRouter                string
+		varCGO                   string
+		varExternalDockerNetwork string
+		varIgnoreDBMigrations    bool
+		varIsService             bool
 	)
 
 	var cmd = &cobra.Command{
@@ -105,7 +106,25 @@ func Cmd() *cobra.Command {
 				isService = false
 			}
 
-			if err := doGenProject(siteFile, dir, db, router, cgoEnabled, ignoreDBMigrations, isService); err != nil {
+			var externalDockerNetwork string
+			if varExternalDockerNetwork != "" {
+				externalDockerNetwork = varExternalDockerNetwork
+			} else {
+				externalDockerNetwork = "soul"
+			}
+
+			opts := doGenProjectOptions{
+				siteFile:              siteFile,
+				dir:                   dir,
+				db:                    db,
+				router:                router,
+				cgoEnabled:            cgoEnabled,
+				ignoreDBMigrations:    ignoreDBMigrations,
+				isService:             isService,
+				externalDockerNetwork: externalDockerNetwork,
+			}
+
+			if err := doGenProject(opts); err != nil {
 				fmt.Println(color.Red.Sprintf("failed to generate project: %s", err.Error()))
 			}
 		},
@@ -120,12 +139,25 @@ func Cmd() *cobra.Command {
 	cmd.Flags().StringVarP(&varCGO, "cgo", "c", "", "CGO_ENABLED")
 	cmd.Flags().BoolVarP(&varIgnoreDBMigrations, "migrations", "m", false, "Ignore generating the database migrations and folders")
 	cmd.Flags().BoolVarP(&varIsService, "service", "s", false, "Generate as a service")
-
+	cmd.Flags().StringVarP(&varExternalDockerNetwork, "network", "n", "soul", "External docker network")
 	return cmd
 }
 
-func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType, cgoEnabled, ignoreDBMigrations, isService bool) error {
-	p, err := parser.NewParser(siteFile)
+type doGenProjectOptions struct {
+	siteFile              string
+	dir                   string
+	db                    types.DBType
+	router                types.RouterType
+	cgoEnabled            bool
+	ignoreDBMigrations    bool
+	isService             bool
+	externalDockerNetwork string
+}
+
+func doGenProject(opts doGenProjectOptions) error {
+
+	// siteFile, dir string, db types.DBType, router types.RouterType, cgoEnabled, ignoreDBMigrations, isService bool) error {
+	p, err := parser.NewParser(opts.siteFile)
 	if err != nil {
 		fmt.Println(color.Red.Sprintf("parse site file failed: %s", err.Error()))
 		return err
@@ -158,7 +190,7 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 	// 	return err
 	// }
 
-	logx.Must(pathx.MkdirIfNotExist(dir))
+	logx.Must(pathx.MkdirIfNotExist(opts.dir))
 	// basePkg, err := golang.GetParentPackage(dir)
 	// if err != nil {
 	// 	fmt.Println(color.Red.Sprintf("get parent package failed: %s", err.Error()))
@@ -174,26 +206,28 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 	// first things first, download the modules into ram
 	// builder := NewSaaSBuilder(dir, moduleName, serviceName, db, router, siteSpec)
 	builder := NewSaaSBuilder(
-		WithDir(dir),
+		WithDir(opts.dir),
 		WithModuleName(moduleName),
 		WithServiceName(serviceName),
-		WithDB(db),
-		WithRouter(router),
+		WithDB(opts.db),
+		WithRouter(opts.router),
 		WithSiteSpec(siteSpec),
-		WithIsService(isService),
+		WithIsService(opts.isService),
+		WithExternalDockerNetwork(opts.externalDockerNetwork),
 	)
 
 	// set the default data for the builder
 	builder.WithData(
 		map[string]any{
-			"serviceName":        serviceName,
-			"dsnName":            strings.ToLower(siteSpec.Name),
-			"filename":           util.ToCamel(siteSpec.Name),
-			"hasWorkflow":        false,
-			"cgoEnabled":         cgoEnabled,
-			"dbType":             db,
-			"ignoreDBMigrations": ignoreDBMigrations,
-			"isService":          isService,
+			"serviceName":           serviceName,
+			"dsnName":               strings.ToLower(siteSpec.Name),
+			"filename":              util.ToCamel(siteSpec.Name),
+			"hasWorkflow":           false,
+			"cgoEnabled":            opts.cgoEnabled,
+			"dbType":                opts.db,
+			"ignoreDBMigrations":    opts.ignoreDBMigrations,
+			"isService":             opts.isService,
+			"externalDockerNetwork": opts.externalDockerNetwork,
 		},
 	)
 
@@ -207,7 +241,7 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 		serviceName + "/etc/config.yaml": serviceName + "/etc/" + moduleName + ".yaml",
 	})
 
-	if ignoreDBMigrations {
+	if opts.ignoreDBMigrations {
 		builder.WithIgnorePath("db")
 	}
 
@@ -226,7 +260,7 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 	// internal/config/config.go
 	builder.WithIgnorePath("app/internal/config")
 	builder.WithCustomFunc(serviceName+"/internal/config/config.go", buildConfig)
-	if !isService {
+	if !opts.isService {
 		builder.WithCustomFunc(serviceName+"/internal/config/menus.go", buildMenus)
 	} else {
 		builder.WithIgnoreFile("app/internal/config/menus.go")
@@ -251,7 +285,7 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 	// internal/types/types.go
 	builder.WithCustomFunc(serviceName+"/internal/types/types.go", buildTypes)
 
-	if !isService {
+	if !opts.isService {
 		// ignore the src/api files (interfaces.ts and functions.ts)
 		builder.WithIgnoreFile("app/src/api/endpoints.ts")
 		builder.WithIgnoreFile("app/src/api/models.ts")
@@ -273,13 +307,13 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 
 	builder.Execute()
 
-	if !isService {
+	if !opts.isService {
 		// make sure the assets and static directories are created
-		_ = os.MkdirAll(path.Join(dir, builder.ServiceName, "assets"), os.ModePerm)
-		_ = os.MkdirAll(path.Join(dir, builder.ServiceName, "static"), os.ModePerm)
+		_ = os.MkdirAll(path.Join(opts.dir, builder.ServiceName, "assets"), os.ModePerm)
+		_ = os.MkdirAll(path.Join(opts.dir, builder.ServiceName, "static"), os.ModePerm)
 	}
 
-	if err := backupAndSweep(siteFile); err != nil {
+	if err := backupAndSweep(opts.siteFile); err != nil {
 		return err
 	}
 
@@ -308,12 +342,12 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 			args:   []string{"go", "mod", "init", moduleName},
 			condition: func() bool {
 				// Only run this command if go.mod does not exist
-				if _, err := os.Stat(path.Join(dir, serviceName, "go.mod")); os.IsNotExist(err) {
+				if _, err := os.Stat(path.Join(opts.dir, serviceName, "go.mod")); os.IsNotExist(err) {
 					return true
 				}
 				return false
 			},
-			dir: path.Join(dir, serviceName),
+			dir: path.Join(opts.dir, serviceName),
 		},
 		{
 			ignore: false,
@@ -321,48 +355,48 @@ func doGenProject(siteFile, dir string, db types.DBType, router types.RouterType
 			condition: func() bool {
 				return true // Always run this command
 			},
-			dir: path.Join(dir, serviceName),
+			dir: path.Join(opts.dir, serviceName),
 		},
 		{
-			ignore: isService,
+			ignore: opts.isService,
 			args:   []string{"npm", "i", "-g", "pnpm@latest", "--force"},
 			condition: func() bool {
 				return true // Always run this command
 			},
-			dir: path.Join(dir, serviceName),
+			dir: path.Join(opts.dir, serviceName),
 		},
 		{
-			ignore: isService,
+			ignore: opts.isService,
 			args:   []string{"pnpm", "i", "--force"},
 			condition: func() bool {
 				return true // Always run this command
 			},
-			dir: path.Join(dir, serviceName),
+			dir: path.Join(opts.dir, serviceName),
 		},
 		{
 			ignore: false,
 			args:   []string{"git", "init"},
 			condition: func() bool {
 				// Only run this command if .git directory does not exist
-				if _, err := os.Stat(path.Join(dir, serviceName, ".git")); os.IsNotExist(err) {
+				if _, err := os.Stat(path.Join(opts.dir, serviceName, ".git")); os.IsNotExist(err) {
 					return true
 				}
 				return false
 			},
-			dir: path.Join(dir, serviceName),
+			dir: path.Join(opts.dir, serviceName),
 		},
 		{
-			ignore: isService,
+			ignore: opts.isService,
 			args:   []string{"git", "init"},
 			condition: func() bool {
 				// Only run this command if .git directory does not exist
-				if _, err := os.Stat(path.Join(dir, "db", ".git")); os.IsNotExist(err) {
+				if _, err := os.Stat(path.Join(opts.dir, "db", ".git")); os.IsNotExist(err) {
 					return true
 				}
 
 				return false
 			},
-			dir: path.Join(dir, "db"),
+			dir: path.Join(opts.dir, "db"),
 		},
 	}
 

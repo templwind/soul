@@ -5,12 +5,15 @@ ifneq (,$(wildcard .env))
 endif
 
 # Dynamic variables
-APP_NAME := $(shell cd app && grep -lR "func main()" *.go | awk -F/ '{print $$NF}' | sed 's/\.go//')
-PACKAGES := $(shell cd app && go list ./...)
+APP_NAME := $(shell cd {{.serviceName}} && grep -lR "func main()" *.go | awk -F/ '{print $$NF}' | sed 's/\.go//')
+PACKAGES := $(shell cd {{.serviceName}} && go list ./...)
 NAME := $(shell basename ${PWD})
+{{ if .externalDockerNetwork -}}
+EXTERNAL_DOCKER_NETWORK={{ .externalDockerNetwork }}
+{{- end }}
 
 # Docker parameters
-EXECUTABLE=goshare
+EXECUTABLE={{ .serviceName }}
 
 all: help
 
@@ -27,9 +30,13 @@ help: Makefile
 ## gen: Generate the website from the ast code
 .PHONY: gen
 gen:
-	{{ if .isService }}
+	{{ if .isService -}}
+	{{- if .externalDockerNetwork -}}
+	soul saas -a ${EXECUTABLE}.api -d . -m true -s true -n ${EXTERNAL_DOCKER_NETWORK}
+	{{- else }}
 	soul saas -a ${EXECUTABLE}.api -d . -m true -s true
-	{{ else }}
+	{{- end -}}
+	{{- else -}}
 	soul saas -a ${EXECUTABLE}.api -d .
-	{{ end }}
+	{{- end -}}
 

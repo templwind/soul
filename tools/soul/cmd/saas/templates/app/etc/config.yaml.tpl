@@ -168,23 +168,23 @@ GPT:
   Endpoint: https://api.openai.com/v1/chat/completions
   APIKey: ${OPENAI_API_KEY}
   OrgID: ${OPENAI_ORG_ID}
-  Model: gpt-4o
+  Model: gpt-4o-mini
   DallEModel: dall-e-3
   DallEEndpoint: https://api.openai.com/v1/images/generations
 Anthropic:
-  APIKey: $ANTHROPIC_API_KEY}
+  APIKey: ${ANTHROPIC_API_KEY}
   Model: davinci
   Endpoint: https://api.anthropic.com/v1/messages
   RequestsPerMin: 5
 AWS:
   Region: ${AWS_REGION}
   AccessKeyID: ${AWS_ACCESS_KEY_ID}
-  SecretAccessKey: $AWS_SECRET_ACCESS_KEY}
+  SecretAccessKey: ${AWS_SECRET_ACCESS_KEY}
   BucketName: ${AWS_BUCKET_NAME}
 DigitalOcean:
   Region: ${DO_REGION}
   AccessKeyID: ${DO_ACCESS_KEY_ID}
-  SecretAccessKey: $DO_SECRET_ACCESS_KEY}
+  SecretAccessKey: ${DO_SECRET_ACCESS_KEY}
   BucketName: ${DO_BUCKET_NAME}
   Endpoint: ${DO_ENDPOINT}
 Settings:

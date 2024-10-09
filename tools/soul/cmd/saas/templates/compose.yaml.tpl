@@ -61,7 +61,9 @@ services:
       start_period: 5s
     networks:
       - {{.serviceName}}
-
+      {{ if .externalDockerNetwork }}
+      - {{.externalDockerNetwork}}
+      {{ end -}}
 
   # ###############################
   # ## Temporal                  ##
@@ -156,8 +158,14 @@ services:
         max-file: "3"   # Maximum number of log files to keep
     networks:
       - {{.serviceName}}
-
+      {{ if .externalDockerNetwork -}}
+      - {{.externalDockerNetwork}}
+      {{- end }}
 
 networks:
   {{.serviceName}}:
     driver: bridge
+  {{ if .externalDockerNetwork -}}
+  {{.externalDockerNetwork}}:
+    external: true
+  {{ end -}}
