@@ -5,16 +5,17 @@ import (
 )
 
 {{ if not .isService -}}
-//go:embed static
+//go:embed all:static/*
 var staticFS embed.FS
 
-//go:embed assets
+//go:embed all:assets/*
 var assetsFS embed.FS
 {{- end}}
 
 //go:embed etc/*.yaml
 var configFS embed.FS
 
+// the config file
 var configFile = flag.String("f", "etc/{{.serviceName}}.yaml", "the config file")
 
 func main() {
@@ -34,6 +35,9 @@ func main() {
 	// }
 	// c.Site.LogoSvg = string(logo)
 	{{- end}}
+
+	// add the embeddedFS to the config
+	c.EmbeddedFS = embeddedFS
 
 	// Create a new service context
 	svcCtx := svc.NewServiceContext(&c)

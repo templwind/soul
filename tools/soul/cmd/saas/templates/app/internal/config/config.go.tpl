@@ -10,6 +10,7 @@ type Config struct {
 	Nats        NatsConfig
 	Redis       RedisConfig
 	Environment string
+	EmbeddedFS  map[string]embed.FS
 	{{.auth -}}
 	{{.jwtTrans -}}
 	{{if not .isService}}

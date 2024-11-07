@@ -5,7 +5,7 @@ import (
 	"{{ .serviceName }}/themes/backoffice"
 
 	"github.com/a-h/templ"
-	"github.com/templwind/templwind"
+	"github.com/templwind/soul"
 )
 
 type Props struct {
@@ -21,18 +21,18 @@ type Props struct {
 }
 
 // New creates a new component
-func New(props ...templwind.OptFunc[Props]) templ.Component {
-	return templwind.New(defaultProps, tpl, props...)
+func New(props ...soul.OptFunc[Props]) templ.Component {
+	return soul.New(defaultProps, tpl, props...)
 }
 
 // NewWithProps creates a new component with the given prosp
 func NewWithProps(props *Props) templ.Component {
-	return templwind.NewWithProps(tpl, props)
+	return soul.NewWithProps(tpl, props)
 }
 
 // WithProps builds the prospions with the given prosp
-func WithProps(props ...templwind.OptFunc[Props]) *Props {
-	return templwind.WithProps(defaultProps, props...)
+func WithProps(props ...soul.OptFunc[Props]) *Props {
+	return soul.WithProps(defaultProps, props...)
 }
 
 func defaultProps() *Props {
@@ -78,49 +78,49 @@ func defaultProps() *Props {
 	}
 }
 
-func WithLangCode(langCode string) templwind.OptFunc[Props] {
+func WithLangCode(langCode string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.LangCode = langCode
 	}
 }
 
-func WithLTRDir(ltrDir string) templwind.OptFunc[Props] {
+func WithLTRDir(ltrDir string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.LTRDir = ltrDir
 	}
 }
 
-func WithHead(head templ.Component) templwind.OptFunc[Props] {
+func WithHead(head templ.Component) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Head = head
 	}
 }
 
-func WithHeader(header templ.Component) templwind.OptFunc[Props] {
+func WithHeader(header templ.Component) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Header = header
 	}
 }
 
-func WithContent(content templ.Component) templwind.OptFunc[Props] {
+func WithContent(content templ.Component) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Content = content
 	}
 }
 
-func WithFooter(footer templ.Component) templwind.OptFunc[Props] {
+func WithFooter(footer templ.Component) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Footer = footer
 	}
 }
 
-func WithHtmxTrigger(htmxTrigger func(link string, totalSubItems int) string) templwind.OptFunc[Props] {
+func WithHtmxTrigger(htmxTrigger func(link string, totalSubItems int) string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.HtmxTrigger = htmxTrigger
 	}
 }
 
-func WithHxSSE(url string) templwind.OptFunc[Props] {
+func WithHxSSE(url string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.HxSSE = &struct {
 			URL string
@@ -130,31 +130,31 @@ func WithHxSSE(url string) templwind.OptFunc[Props] {
 	}
 }
 
-func WithXData(xData string) templwind.OptFunc[Props] {
+func WithXData(xData string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.XData = xData
 	}
 }
 
-func WithXInit(xInit string) templwind.OptFunc[Props] {
+func WithXInit(xInit string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.XInit = xInit
 	}
 }
 
-func WithBodyClass(bodyClass string) templwind.OptFunc[Props] {
+func WithBodyClass(bodyClass string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.BodyClass = bodyClass
 	}
 }
 
-func WithRailMenu(railMenu templ.Component) templwind.OptFunc[Props] {
+func WithRailMenu(railMenu templ.Component) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.RailMenu = railMenu
 	}
 }
 
-func WithMenus(menus config.Menus) templwind.OptFunc[Props] {
+func WithMenus(menus config.Menus) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Menus = menus
 	}

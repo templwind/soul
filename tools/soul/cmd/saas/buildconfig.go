@@ -14,6 +14,8 @@ const (
 		AccessExpire int64
 		AccountCookieName string
 		UserCookieName    string
+		SessionCookieName string
+		SecretKey         string
 	}
 `
 	jwtTransTemplate = ` struct {
@@ -37,6 +39,7 @@ func buildConfig(builder *SaaSBuilder) error {
 	}
 
 	builder.Data["imports"] = imports.New(
+		imports.WithImport("embed"),
 		imports.WithImport("sort"),
 		imports.WithSpacer(),
 		imports.WithImport(builder.ServiceName+"/internal/settings"),

@@ -4,7 +4,7 @@ import (
 	"{{ .serviceName }}/internal/config"
 
 	"github.com/a-h/templ"
-	"github.com/templwind/templwind"
+	"github.com/templwind/soul"
 )
 
 type Props struct {
@@ -18,18 +18,18 @@ type Props struct {
 }
 
 // New creates a new component
-func New(props ...templwind.OptFunc[Props]) templ.Component {
-	return templwind.New(defaultProps, tpl, props...)
+func New(props ...soul.OptFunc[Props]) templ.Component {
+	return soul.New(defaultProps, tpl, props...)
 }
 
 // NewWithProps creates a new component with the given prosp
 func NewWithProps(props *Props) templ.Component {
-	return templwind.NewWithProps(tpl, props)
+	return soul.NewWithProps(tpl, props)
 }
 
 // WithProps builds the prospions with the given prosp
-func WithProps(props ...templwind.OptFunc[Props]) *Props {
-	return templwind.WithProps(defaultProps, props...)
+func WithProps(props ...soul.OptFunc[Props]) *Props {
+	return soul.WithProps(defaultProps, props...)
 }
 
 func defaultProps() *Props {
@@ -39,43 +39,43 @@ func defaultProps() *Props {
 	}
 }
 
-func WithLangCode(langCode string) templwind.OptFunc[Props] {
+func WithLangCode(langCode string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.LangCode = langCode
 	}
 }
 
-func WithLTRDir(ltrDir string) templwind.OptFunc[Props] {
+func WithLTRDir(ltrDir string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.LTRDir = ltrDir
 	}
 }
 
-func WithHead(head templ.Component) templwind.OptFunc[Props] {
+func WithHead(head templ.Component) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Head = head
 	}
 }
 
-func WithHeader(header templ.Component) templwind.OptFunc[Props] {
+func WithHeader(header templ.Component) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Header = header
 	}
 }
 
-func WithContent(content templ.Component) templwind.OptFunc[Props] {
+func WithContent(content templ.Component) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Content = content
 	}
 }
 
-func WithFooter(footer templ.Component) templwind.OptFunc[Props] {
+func WithFooter(footer templ.Component) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Footer = footer
 	}
 }
 
-func WithMenus(menus config.Menus) templwind.OptFunc[Props] {
+func WithMenus(menus config.Menus) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Menus = menus
 	}

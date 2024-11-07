@@ -9,18 +9,19 @@ type ServiceContext struct {
 	DB               *sqlx.DB
 	{{.middleware -}}
 	{{if not .isService}}
-	Session:    systemSession.NewSession(c),
-	Menus            map[string][]config.MenuEntry
+	Session            *systemSession.Session
+	Menus              map[string][]config.MenuEntry
 	{{end -}}
-	AWSSession       *session.Session
-	DWSession        *session.Session
-	ChatGPTService   *chatgpt.ChatGPTService
-	RateLimiter      *ratelimiter.RateLimiter
+	AWSSession         *session.Session
+	DWSession          *session.Session
+	ChatGPTService     *chatgpt.ChatGPTService
+	RateLimiter        *ratelimiter.RateLimiter
 	{{if not .isService}}
-	StorageManager   *storagemanager.StorageManager
+	StorageManager     *storagemanager.StorageManager
+	SystemEmailClient  emailTypes.EmailClient
 	{{end -}}
-	JobManager       *jobs.JobManager
-	PubSubBroker     pubsub.Broker
+	JobManager         *jobs.JobManager
+	PubSubBroker       pubsub.Broker
 }
 
 func NewServiceContext(c *{{.config}}) *ServiceContext {
@@ -63,13 +64,13 @@ func NewServiceContext(c *{{.config}}) *ServiceContext {
 		DB:  sqlxDB,
 		{{.middlewareAssignment -}}
 		{{if not .isService}}
-		Menus:             c.InitMenus(),
-		Session:           systemSession.NewSession(c),
+		Menus:              c.InitMenus(),
+		Session:            systemSession.NewSession(c),
+		AWSSession:         awsSession,
 		SystemEmailClient: client.MustNewClient(emailTypes.SESClient, &emailTypes.EmailAuth{
 			AWSSession: awsSession,
 		}),
 		{{end -}}
-		AWSSession:        awsSession,
 		ChatGPTService: chatGPTService,
 		RateLimiter:    rateLimiter,
 		{{if not .isService}}

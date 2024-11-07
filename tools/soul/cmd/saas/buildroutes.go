@@ -18,10 +18,13 @@ import (
 
 const (
 	routesAdditionTemplate = `
-	{{ if .isPubSub }}
+	{{- if .isPubSub }}
 	// pubsub routes
 	{{.routes}}
-	{{ else }}
+	{{- else }}
+	////////////////////////////////////////////////////////////
+	// {{.prefix}} routes
+	////////////////////////////////////////////////////////////
 	{{.groupName}} := server.Group(
 		"{{.prefix}}",{{if .middlewares}}
 		[]echo.MiddlewareFunc{
@@ -30,7 +33,7 @@ const (
 	)
 
 	{{.routes}}
-	{{ end }}
+	{{- end }}
 	`
 	timeoutThreshold = time.Millisecond
 )
@@ -62,19 +65,22 @@ type (
 		maxBytes         string
 	}
 	route struct {
-		method      string
-		route       string
-		handler     string
-		doc         map[string]interface{}
-		isStatic    bool
-		isSocket    bool
-		isPubSub    bool
-		topics      []spec.TopicNode
-		pubSubTopic spec.TopicNode
+		method             string
+		route              string
+		staticRouteRewrite string
+		handler            string
+		doc                map[string]interface{}
+		isStatic           bool
+		isStaticEmbed      bool
+		isSocket           bool
+		isPubSub           bool
+		topics             []spec.TopicNode
+		pubSubTopic        spec.TopicNode
 	}
 )
 
 func buildRoutes(builder *SaaSBuilder) error {
+
 	var routesAdditionsBuilder strings.Builder
 	groups, err := getRoutes(builder.Spec)
 	if err != nil {
@@ -83,6 +89,9 @@ func buildRoutes(builder *SaaSBuilder) error {
 
 	routeFilename := path.Join(builder.Dir, builder.ServiceName, types.HandlerDir, "routes.go")
 
+	// var fsBuilder strings.Builder
+
+	var hasStaticEmbed bool
 	var hasTimeout bool
 	var jwtEnabled bool
 	var isPubSub bool
@@ -100,14 +109,59 @@ func buildRoutes(builder *SaaSBuilder) error {
 				routesBuilder.WriteString(fmt.Sprintf("\n%s\n", util.GetDoc(r.doc)))
 			}
 
-			if r.isStatic {
-				routesBuilder.WriteString(fmt.Sprintf(
-					`%s.Static("%s", "%s")
-	`,
-					util.ToCamel(g.name)+"Group",
-					r.route,
-					"public"+r.route,
-				))
+			if r.isStatic || r.isStaticEmbed {
+				// fmt.Printf("r: %+v\n", r)
+				if r.staticRouteRewrite == "" {
+					r.staticRouteRewrite = r.route
+				}
+
+				if r.isStaticEmbed {
+					hasStaticEmbed = true
+					fsEmbeddedName := "embedded" + util.ToPascal(g.name) + util.ToPascal(r.route)
+					builder.EmbeddedFS = append(builder.EmbeddedFS, embeddedFS{
+						Path: strings.TrimPrefix(r.route, "/"),
+						Name: fsEmbeddedName,
+					})
+					builder.HasEmbeddedFS = true
+					// fsBuilder.Reset()
+
+					fsName := util.ToCamel(g.name) + util.ToCamel(r.route) + "FS"
+					routesBuilder.WriteString(fmt.Sprintf(`%s, err := fs.Sub(svcCtx.Config.EmbeddedFS["%s"], "%s")`, fsName, fsEmbeddedName, r.route))
+					routesBuilder.WriteString("\n")
+					routesBuilder.WriteString(`	if err != nil {`)
+					routesBuilder.WriteString("\n")
+					routesBuilder.WriteString(fmt.Sprintf(`		server.Logger.Fatal("Failed to create embedded file system for %s:", err)`, r.route))
+					routesBuilder.WriteString("\n")
+					routesBuilder.WriteString(`	}`)
+					routesBuilder.WriteString("\n")
+					routesBuilder.WriteString(fmt.Sprintf(`	%s.GET("%s/*", echo.WrapHandler(http.StripPrefix("%s", http.FileServer(http.FS(%s)))))`,
+						util.ToCamel(g.name)+"Group",
+						r.staticRouteRewrite,
+						r.route,
+						fsName,
+					))
+					routesBuilder.WriteString("\n")
+				} else {
+					routesBuilder.WriteString(fmt.Sprintf(
+						`%s.Static("%s", "%s")
+		`,
+						util.ToCamel(g.name)+"Group",
+						r.route,
+						r.staticRouteRewrite,
+					))
+				}
+
+				// we have to make sure that the static directory exists
+				// if it does not exist, we will create it
+				staticDirPath := path.Join(builder.Dir, builder.ServiceName, r.route)
+				if _, err := os.Stat(staticDirPath); os.IsNotExist(err) {
+					fmt.Printf("Static directory does not exist: %s\n", staticDirPath)
+					// create the directory
+					os.MkdirAll(staticDirPath, 0755)
+					// add a .gitkeep file to the directory
+					os.Create(path.Join(staticDirPath, ".gitkeep"))
+				}
+
 			} else if isPubSub {
 				routesBuilder.WriteString(fmt.Sprintf(
 					`%s
@@ -165,7 +219,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 	os.Remove(routeFilename)
 
 	builder.Data["hasTimeout"] = hasTimeout
-	builder.Data["imports"] = genRouteImports(builder, builder.ModuleName, builder.Spec)
+	builder.Data["imports"] = genRouteImports(builder, builder.ModuleName, builder.Spec, hasStaticEmbed)
 	builder.Data["routesAdditions"] = strings.TrimSpace(routesAdditionsBuilder.String())
 
 	return builder.genFile(fileGenConfig{
@@ -175,7 +229,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 	})
 }
 
-func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec) string {
+func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec, hasStaticEmbed bool) string {
 	i := imports.New()
 	hasJwt := false
 	for _, server := range site.Servers {
@@ -190,6 +244,12 @@ func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec
 	}
 
 	folder := "notfound"
+
+	if hasStaticEmbed {
+		// i.AddNativeImport("embed")
+		i.AddNativeImport("io/fs")
+		i.AddNativeImport("net/http")
+	}
 
 	i.AddProjectImport(pathx.JoinPackages(parentPkg, types.ContextDir))
 	if !builder.IsService {
@@ -266,13 +326,15 @@ func getRoutes(site *spec.SiteSpec) ([]group, error) {
 					}
 
 					routeObj := route{
-						method:   mapping[strings.ToLower(m.Method)],
-						route:    mRoute,
-						handler:  handlerName,
-						doc:      m.DocAnnotation.Properties,
-						isStatic: m.IsStatic,
-						isSocket: m.IsSocket,
-						isPubSub: m.IsPubSub,
+						method:             mapping[strings.ToLower(m.Method)],
+						route:              mRoute,
+						staticRouteRewrite: m.StaticRouteRewrite,
+						handler:            handlerName,
+						doc:                m.DocAnnotation.Properties,
+						isStatic:           m.IsStatic,
+						isStaticEmbed:      m.IsStaticEmbed,
+						isSocket:           m.IsSocket,
+						isPubSub:           m.IsPubSub,
 					}
 
 					if m.IsSocket && m.SocketNode != nil {

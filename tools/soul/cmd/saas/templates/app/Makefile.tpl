@@ -5,12 +5,12 @@ ifneq (,$(wildcard .env))
 endif
 
 # Dynamic variables
-APP_NAME := $(shell cd {{.serviceName}} && grep -lR "func main()" *.go | awk -F/ '{print $$NF}' | sed 's/\.go//')
-PACKAGES := $(shell cd {{.serviceName}} && go list ./...)
+APP_NAME := $(shell grep -lR "func main()" *.go | awk -F/ '{print $$NF}' | sed 's/\.go//')
+PACKAGES := $(shell go list ./...)
 NAME := $(shell basename ${PWD})
-COMMIT_HASH := $(shell cd {{.serviceName}} && git rev-parse --short HEAD)
+COMMIT_HASH := $(shell git rev-parse --short HEAD)
 TIMESTAMP ?= $(shell date +"%Y%m%d%H%M%S")
-VERSION ?= $(shell cd {{.serviceName}} && git describe --tags --always || git rev-parse --short HEAD)
+VERSION ?= $(shell git describe --tags --always || git rev-parse --short HEAD)
 LDFLAGS ?= -X 'main.Version=$(VERSION)'
 
 # Docker parameters

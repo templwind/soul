@@ -420,8 +420,10 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		defer manager.RemoveClient(connection)
 		defer conn.Close()
 
+		{{ if gt (len .TopicsFromClient) 0 }}
 		// Create a new ws logic instance
 		l := {{.LogicName}}.New{{.LogicType}}(c.Request().Context(), svcCtx, conn, c)
+		{{ end }}
 
 		// Handle connect event
 		if err := wsutil.WriteServerMessage(conn, gobwasWs.OpText, []byte("ok")); err != nil {
@@ -468,8 +470,10 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 				}
 				req.Header.Set("Content-Type", "application/json")
 
+				{{ if gt (len .TopicsFromClient) 0 }}
 				// Create a new echo.Context with the modified request
 				echoCtx := echo.New().NewContext(req, nil)
+				{{ end }}
 
 				switch msg.Topic {
 				{{range .TopicsFromClient}}

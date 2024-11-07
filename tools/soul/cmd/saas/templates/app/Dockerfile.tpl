@@ -1,7 +1,7 @@
 # Use the official Golang image to create a build artifact.
 # This is based on Debian and sets the GOPATH to /go.
 # https://hub.docker.com/_/golang
-FROM golang:1.22-alpine AS dev
+FROM golang:1.23-alpine AS dev
 
 # Install any necessary dependencies
 RUN apk add -q --update \
@@ -46,7 +46,7 @@ RUN CGO_ENABLED={{ if .cgoEnabled }}1{{else}}0{{end}} go build -o /go/bin/app
 CMD ["sh", "-c", "make templ-fmt & make templ-watch & pnpm build:watch & air & wait"]
 
 # Start a new stage from scratch
-FROM gcr.io/distroless/static-debian11 as prod
+FROM gcr.io/distroless/static-debian11 AS prod
 
 # Copy the binary to the production image from the builder stage.
 COPY --from=dev /go/bin/app /app

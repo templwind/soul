@@ -52,31 +52,33 @@ type ServiceNode struct {
 // HandlerNode represents a handler in a service.
 type MethodNode struct {
 	BaseNode
-	Method          string
-	Route           string
-	Request         string
-	RequestType     interface{}
-	Response        string
-	ResponseType    interface{}
-	Page            *PageNode
-	Doc             *DocNode
-	HandlerDoc      string
-	SocketNode      *SocketNode
-	PubSubNode      *PubSubNode
-	HasRequestType  bool
-	HasResponseType bool
-	HasPage         bool
-	ReturnsPartial  bool
-	ReturnsJson     bool
-	IsStatic        bool
-	IsSocket        bool
-	IsSSE           bool
-	IsVideoStream   bool
-	IsAudioStream   bool
-	IsUploadFile    bool
-	IsPubSub        bool
-	IsFullHTMLPage  bool
-	NoOutput        bool
+	Method             string
+	Route              string
+	StaticRouteRewrite string
+	Request            string
+	RequestType        interface{}
+	Response           string
+	ResponseType       interface{}
+	Page               *PageNode
+	Doc                *DocNode
+	HandlerDoc         string
+	SocketNode         *SocketNode
+	PubSubNode         *PubSubNode
+	HasRequestType     bool
+	HasResponseType    bool
+	HasPage            bool
+	ReturnsPartial     bool
+	ReturnsJson        bool
+	IsStatic           bool
+	IsStaticEmbed      bool
+	IsSocket           bool
+	IsSSE              bool
+	IsVideoStream      bool
+	IsAudioStream      bool
+	IsUploadFile       bool
+	IsPubSub           bool
+	IsFullHTMLPage     bool
+	NoOutput           bool
 }
 
 type SocketNode struct {

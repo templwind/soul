@@ -20,6 +20,11 @@ import (
 //go:embed templates/** templates/**/.github/** templates/**/postgres/.github/**
 var templatesFS embed.FS
 
+type embeddedFS struct {
+	Path string
+	Name string
+}
+
 type SaaSBuilder struct {
 	Dir                   string
 	ModuleName            string
@@ -28,6 +33,9 @@ type SaaSBuilder struct {
 	Router                types.RouterType
 	Spec                  *spec.SiteSpec
 	Data                  map[string]any
+	Themes                map[string]string
+	EmbeddedFS            []embeddedFS
+	HasEmbeddedFS         bool
 	CustomFuncs           map[string]customFunc
 	RenameFiles           map[string]string
 	IgnoreFiles           map[string]bool
@@ -71,6 +79,7 @@ func defaultProps() *SaaSBuilder {
 		CustomFuncs:    make(map[string]customFunc),
 		RenameFiles:    make(map[string]string),
 		IsService:      false,
+		Themes:         make(map[string]string),
 	}
 }
 

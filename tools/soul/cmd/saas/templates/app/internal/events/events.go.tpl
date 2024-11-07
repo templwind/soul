@@ -3,18 +3,21 @@ package events
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 )
 
 // NextFunc is the function called when an event is emitted.
-type NextFunc func(context.Context, any) error
+// It can optionally receive a net.Conn as its last parameter.
+type NextFunc interface{}
 
 var subject *Subject
 
 // Next emits an event to the given topic using the default subject.
-func Next(topic string, value any) error {
-	return subject.Next(topic, value)
+// If a connection is provided, the event will only be delivered to that specific client.
+func Next(topic string, value any, conn ...net.Conn) error {
+	return subject.Next(topic, value, conn...)
 }
 
 // Subscribe subscribes a NextFunc to the given topic using the default subject.
@@ -36,6 +39,7 @@ func Complete() {
 type event struct {
 	topic   string
 	message any
+	conn    net.Conn
 }
 
 // Subscription represents a handler subscribed to a specific topic.
@@ -43,11 +47,12 @@ type Subscription struct {
 	Topic     string
 	CreatedAt int64
 	Next      NextFunc
+	ID        string // Add a unique identifier
 }
 
 type Subject struct {
 	mu          sync.RWMutex
-	subscribers map[string][]Subscription
+	subscribers map[string]map[string]Subscription // Change to map of maps for efficient lookup
 	events      chan event
 	complete    chan struct{}
 }
@@ -55,7 +60,7 @@ type Subject struct {
 // NewSubject creates a new Subject.
 func NewSubject() *Subject {
 	s := &Subject{
-		subscribers: make(map[string][]Subscription),
+		subscribers: make(map[string]map[string]Subscription),
 		events:      make(chan event, 128),
 		complete:    make(chan struct{}),
 	}
@@ -75,9 +80,19 @@ func (s *Subject) start() {
 					go func(sub Subscription, evt event) {
 						ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 						defer cancel()
-						err := sub.Next(ctx, evt.message)
-						if err != nil {
-							// Handle the error (logging, retry, etc.)
+						switch fn := sub.Next.(type) {
+						case func(context.Context, any) error:
+							err := fn(ctx, evt.message)
+							if err != nil {
+								// Handle the error (logging, retry, etc.)
+								fmt.Printf("Error processing event for topic %s: %v\n", evt.topic, err)
+							}
+						case func(context.Context, any, net.Conn) error:
+							err := fn(ctx, evt.message, evt.conn)
+							if err != nil {
+								// Handle the error (logging, retry, etc.)
+								fmt.Printf("Error processing event with connection for topic %s: %v\n", evt.topic, err)
+							}
 						}
 					}(sub, evt)
 				}
@@ -92,11 +107,16 @@ func (s *Subject) Complete() {
 	close(s.events)
 }
 
-func (s *Subject) Next(topic string, value any) error {
+func (s *Subject) Next(topic string, value any, conn ...net.Conn) error {
+	var connection net.Conn
+	if len(conn) > 0 {
+		connection = conn[0]
+	}
 	select {
 	case s.events <- event{
 		topic:   topic,
 		message: value,
+		conn:    connection,
 	}:
 		return nil
 	case <-time.After(1 * time.Second):
@@ -109,16 +129,19 @@ func (s *Subject) Subscribe(topic string, next NextFunc) Subscription {
 		CreatedAt: time.Now().UnixNano(),
 		Topic:     topic,
 		Next:      next,
+		ID:        fmt.Sprintf("%s-%d", topic, time.Now().UnixNano()), // Generate a unique ID
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if _, ok := s.subscribers[topic]; !ok {
-		s.subscribers[topic] = []Subscription{}
+		s.subscribers[topic] = make(map[string]Subscription)
 	}
 
-	s.subscribers[topic] = append(s.subscribers[topic], sub)
+	s.subscribers[topic][sub.ID] = sub
+
+	fmt.Printf("Subscribed to topic %s with ID %s\n", topic, sub.ID)
 
 	return sub
 }
@@ -127,16 +150,12 @@ func (s *Subject) Unsubscribe(sub Subscription) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if handlers, ok := s.subscribers[sub.Topic]; ok {
-		for i, handler := range handlers {
-			if handler.CreatedAt == sub.CreatedAt {
-				s.subscribers[sub.Topic] = append(handlers[:i], handlers[i+1:]...)
-				break
-			}
-		}
-		if len(s.subscribers[sub.Topic]) == 0 {
+	if topicSubs, ok := s.subscribers[sub.Topic]; ok {
+		delete(topicSubs, sub.ID)
+		if len(topicSubs) == 0 {
 			delete(s.subscribers, sub.Topic)
 		}
+		fmt.Printf("Unsubscribed from topic %s with ID %s\n", sub.Topic, sub.ID)
 	}
 }
 
@@ -149,6 +168,7 @@ type ReplaySubject struct {
 	Subject
 	cacheSize int
 	cache     []event
+	sent      map[string]map[string]bool // Track sent events per subscriber
 }
 
 // NewReplaySubject creates a new ReplaySubject with a specified cache size.
@@ -157,15 +177,21 @@ func NewReplaySubject(cacheSize int) *ReplaySubject {
 		Subject:   *NewSubject(),
 		cacheSize: cacheSize,
 		cache:     make([]event, 0, cacheSize),
+		sent:      make(map[string]map[string]bool),
 	}
 	return rs
 }
 
-func (rs *ReplaySubject) Next(topic string, value any) error {
+func (rs *ReplaySubject) Next(topic string, value any, conn ...net.Conn) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
-	evt := event{topic: topic, message: value}
+	var connection net.Conn
+	if len(conn) > 0 {
+		connection = conn[0]
+	}
+
+	evt := event{topic: topic, message: value, conn: connection}
 
 	// Add to cache
 	if len(rs.cache) == rs.cacheSize {
@@ -173,28 +199,50 @@ func (rs *ReplaySubject) Next(topic string, value any) error {
 	}
 	rs.cache = append(rs.cache, evt)
 
-	return rs.Subject.Next(topic, value)
+	fmt.Printf("Event added to cache for topic %s\n", topic)
+
+	return rs.Subject.Next(topic, value, connection)
 }
 
-func (rs *ReplaySubject) Subscribe(topic string, next NextFunc) Subscription {
-	rs.mu.RLock()
-	defer rs.mu.RUnlock()
+func (rs *ReplaySubject) Subscribe(topic string, next NextFunc, replayEvents bool) Subscription {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
 
 	sub := rs.Subject.Subscribe(topic, next)
 
-	// Replay cached events
-	for _, evt := range rs.cache {
-		if evt.topic == topic {
-			go func(evt event) {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				err := next(ctx, evt.message)
-				if err != nil {
-					// Handle the error (logging, retry, etc.)
+	if replayEvents {
+		rs.sent[sub.ID] = make(map[string]bool)
+		// Replay cached events
+		for _, evt := range rs.cache {
+			if evt.topic == topic {
+				eventID := fmt.Sprintf("%s-%v", evt.topic, evt.message)
+				if !rs.sent[sub.ID][eventID] {
+					go rs.processEvent(sub, evt)
+					rs.sent[sub.ID][eventID] = true
+					fmt.Printf("Replayed event for topic %s to subscriber %s\n", topic, sub.ID)
 				}
-			}(evt)
+			}
 		}
 	}
 
 	return sub
+}
+
+func (rs *ReplaySubject) processEvent(sub Subscription, evt event) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	switch fn := sub.Next.(type) {
+	case func(context.Context, any) error:
+		err := fn(ctx, evt.message)
+		if err != nil {
+			// Handle the error (logging, retry, etc.)
+			fmt.Printf("Error processing event for topic %s: %v\n", evt.topic, err)
+		}
+	case func(context.Context, any, net.Conn) error:
+		err := fn(ctx, evt.message, evt.conn)
+		if err != nil {
+			// Handle the error (logging, retry, etc.)
+			fmt.Printf("Error processing event with connection for topic %s: %v\n", evt.topic, err)
+		}
+	}
 }

@@ -45,6 +45,7 @@ func buildMain(builder *SaaSBuilder) error {
 	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul/webserver"))
 
 	builder.Data["imports"] = imports.New(iOptFuncs...)
+	builder.Data["hasEmbeddedFS"] = builder.HasEmbeddedFS
 
 	return builder.genFile(fileGenConfig{
 		subdir:       builder.ServiceName + "/",

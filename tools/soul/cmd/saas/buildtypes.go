@@ -54,35 +54,48 @@ func buildTypes(builder *SaaSBuilder) error {
 	})
 }
 
+func ensureUniqueTypeName(typeName string, existingTypes map[string]bool) string {
+	baseName := gotctlutil.Title(typeName)
+	uniqueName := baseName
+	counter := 1
+
+	// Keep adding a number suffix until we find a unique name
+	for existingTypes[uniqueName] {
+		uniqueName = fmt.Sprintf("%s%d", baseName, counter)
+		counter++
+	}
+
+	existingTypes[uniqueName] = true
+	return uniqueName
+}
+
 // gen gen types to string
 func genTypes(builder *SaaSBuilder) (string, error) {
 	var strBuilder strings.Builder
 	first := true
+	existingTypes := make(map[string]bool)
+
 	for _, tp := range builder.Spec.Types {
 		if first {
 			first = false
 		} else {
 			strBuilder.WriteString("\n\n")
 		}
-		if err := writeType(&strBuilder, tp); err != nil {
-			return "", util.WrapErr(err, "Type "+tp.GetName()+" generate error")
+
+		// Ensure unique type name before writing
+		uniqueTypeName := ensureUniqueTypeName(tp.GetName(), existingTypes)
+
+		if err := writeTypeWithName(&strBuilder, tp, uniqueTypeName); err != nil {
+			return "", util.WrapErr(err, "Type "+uniqueTypeName+" generate error")
 		}
 	}
 
 	return strBuilder.String(), nil
 }
 
-func writeType(writer io.Writer, tp spec.Type) error {
-	fmt.Fprintf(writer, "type %s struct {\n", gotctlutil.Title(tp.GetName()))
+func writeTypeWithName(writer io.Writer, tp spec.Type, typeName string) error {
+	fmt.Fprintf(writer, "type %s struct {\n", typeName)
 	for _, member := range tp.GetFields() {
-		// if member.Name == member.Type {
-		// 	if _, err := fmt.Fprintf(writer, "\t%s\n", strings.Title(member.Type)); err != nil {
-		// 		return err
-		// 	}
-
-		// 	continue
-		// }
-
 		if err := util.WriteProperty(writer, member.Name, member.Tag, "", member.Type, 1); err != nil {
 			return err
 		}

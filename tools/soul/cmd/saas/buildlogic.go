@@ -130,6 +130,8 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 	subDir := getLogicFolderPath(server, handler)
 	filename := path.Join(builder.Dir, builder.ServiceName, subDir, strings.ToLower(handler.Name)+".go")
 
+	hasHandlerMethods := false
+
 	// if false {
 	// 	if _, err := os.Stat(filename); err == nil {
 	// 		if err := os.Remove(filename); err != nil {
@@ -148,6 +150,8 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 	if len(theme) > 0 {
 		builder.Data["theme"] = theme
 	}
+	// add the theme to the themes map
+	builder.Themes[theme] = theme
 
 	// get the assetGroup
 	assetGroup := server.GetAnnotation("assetGroup")
@@ -191,6 +195,12 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 
 	methods := []types.MethodConfig{}
 	for _, method := range handler.Methods {
+		if method.IsStaticEmbed || method.IsStatic {
+			continue
+		}
+
+		hasHandlerMethods = true
+
 		var responseString string
 		var returnString string
 		var requestString string
@@ -387,6 +397,10 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 		}
 	}
 
+	if !hasHandlerMethods {
+		return nil
+	}
+
 	if fileExists {
 		return addMissingMethods(
 			builder,
@@ -472,6 +486,10 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 
 		if method.IsFullHTMLPage || method.ReturnsPartial {
 			i.AddExternalImport("github.com/a-h/templ")
+		}
+
+		// || method.ReturnsPartial
+		if method.IsFullHTMLPage {
 			i.AddExternalImport("github.com/templwind/soul")
 			i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
 		}

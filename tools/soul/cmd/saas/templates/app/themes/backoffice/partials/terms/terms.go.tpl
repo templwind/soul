@@ -2,7 +2,7 @@ package terms
 
 import (
 	"github.com/a-h/templ"
-	"github.com/templwind/templwind"
+	"github.com/templwind/soul"
 )
 
 type Term struct {
@@ -20,8 +20,8 @@ type Props struct {
 	Terms []Term
 }
 
-func New(opts ...templwind.OptFunc[Props]) templ.Component {
-	return templwind.New(defaultProps, tpl, opts...)
+func New(opts ...soul.OptFunc[Props]) templ.Component {
+	return soul.New(defaultProps, tpl, opts...)
 }
 
 func defaultProps() *Props {
@@ -30,13 +30,13 @@ func defaultProps() *Props {
 	}
 }
 
-func WithLabel(label string) templwind.OptFunc[Props] {
+func WithLabel(label string) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Label = label
 	}
 }
 
-func WithTerms(terms []Term) templwind.OptFunc[Props] {
+func WithTerms(terms []Term) soul.OptFunc[Props] {
 	return func(p *Props) {
 		p.Terms = terms
 	}

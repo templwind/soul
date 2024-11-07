@@ -32,6 +32,9 @@ func buildServiceContext(builder *SaaSBuilder) error {
 		sort.Strings(middlewares)
 	}
 
+	// append the default middleware
+	middlewares = append(middlewares, "NoCache")
+
 	for _, item := range middlewares {
 		// read from the tpl file to determine
 		// if we have a cfg *config.Config and/or db models.DB
@@ -82,7 +85,7 @@ func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 
 	i.AddProjectImport(path.Join(builder.ModuleName, types.ConfigDir))
 	if hasMiddlware && !builder.IsService {
-		i.AddNativeImport(path.Join(builder.ModuleName, types.MiddlewareDir))
+		i.AddProjectImport(path.Join(builder.ModuleName, types.MiddlewareDir))
 		i.AddExternalImport("github.com/labstack/echo/v4")
 		i.AddProjectImport(path.Join(builder.ServiceName, "internal/session"), "systemSession")
 	}
@@ -91,6 +94,9 @@ func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 	if !builder.IsService {
 		i.AddProjectImport(path.Join(builder.ServiceName, "internal/storagemanager"))
 	}
+
+	i.AddProjectImport(path.Join(builder.ServiceName, "internal/emailclient/types"), "emailTypes")
+	i.AddProjectImport(path.Join(builder.ServiceName, "internal/emailclient/client"))
 	i.AddProjectImport(path.Join(builder.ServiceName, "internal/chatgpt"))
 	i.AddProjectImport(path.Join(builder.ServiceName, "internal/jobs"))
 	i.AddProjectImport(path.Join(builder.ServiceName, "internal/k8sutil"))

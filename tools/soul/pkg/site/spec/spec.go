@@ -49,32 +49,34 @@ type (
 	}
 
 	Method struct {
-		Method          string
-		Route           string
-		Request         string
-		RequestType     Type
-		Response        string
-		ResponseType    Type
-		Page            *Page
-		Doc             *DocNode
-		HandlerDoc      Doc
-		HandlerComment  Doc
-		DocAnnotation   Annotation
-		SocketNode      *SocketNode
-		PubSubNode      *PubSubNode
-		HasRequestType  bool
-		HasResponseType bool
-		HasPage         bool
-		ReturnsPartial  bool
-		ReturnsJson     bool
-		IsStatic        bool
-		IsSocket        bool
-		IsPubSub        bool
-		IsSSE           bool
-		IsVideoStream   bool
-		IsAudioStream   bool
-		IsFullHTMLPage  bool
-		NoOutput        bool
+		Method             string
+		Route              string
+		StaticRouteRewrite string
+		Request            string
+		RequestType        Type
+		Response           string
+		ResponseType       Type
+		Page               *Page
+		Doc                *DocNode
+		HandlerDoc         Doc
+		HandlerComment     Doc
+		DocAnnotation      Annotation
+		SocketNode         *SocketNode
+		PubSubNode         *PubSubNode
+		HasRequestType     bool
+		HasResponseType    bool
+		HasPage            bool
+		ReturnsPartial     bool
+		ReturnsJson        bool
+		IsStatic           bool
+		IsStaticEmbed      bool
+		IsSocket           bool
+		IsPubSub           bool
+		IsSSE              bool
+		IsVideoStream      bool
+		IsAudioStream      bool
+		IsFullHTMLPage     bool
+		NoOutput           bool
 	}
 
 	SocketNode struct {
@@ -258,27 +260,29 @@ func NewMethod(m ast.MethodNode,
 	}
 
 	return Method{
-		Method:          m.Method,
-		Route:           m.Route,
-		RequestType:     reqType,
-		ResponseType:    resType,
-		Page:            page,
-		Doc:             doc,
-		IsStatic:        m.IsStatic,
-		IsSocket:        m.IsSocket,
-		IsPubSub:        m.IsPubSub,
-		SocketNode:      socketNode,
-		PubSubNode:      pubSubNode,
-		ReturnsPartial:  m.ReturnsPartial,
-		HasRequestType:  m.HasRequestType,
-		HasResponseType: m.HasResponseType,
-		HasPage:         m.HasPage,
-		ReturnsJson:     m.ReturnsJson,
-		IsSSE:           m.IsSSE,
-		IsVideoStream:   m.IsVideoStream,
-		IsAudioStream:   m.IsAudioStream,
-		IsFullHTMLPage:  m.IsFullHTMLPage,
-		NoOutput:        m.NoOutput,
+		Method:             m.Method,
+		Route:              m.Route,
+		StaticRouteRewrite: m.StaticRouteRewrite,
+		RequestType:        reqType,
+		ResponseType:       resType,
+		Page:               page,
+		Doc:                doc,
+		IsStatic:           m.IsStatic,
+		IsStaticEmbed:      m.IsStaticEmbed,
+		IsSocket:           m.IsSocket,
+		IsPubSub:           m.IsPubSub,
+		SocketNode:         socketNode,
+		PubSubNode:         pubSubNode,
+		ReturnsPartial:     m.ReturnsPartial,
+		HasRequestType:     m.HasRequestType,
+		HasResponseType:    m.HasResponseType,
+		HasPage:            m.HasPage,
+		ReturnsJson:        m.ReturnsJson,
+		IsSSE:              m.IsSSE,
+		IsVideoStream:      m.IsVideoStream,
+		IsAudioStream:      m.IsAudioStream,
+		IsFullHTMLPage:     m.IsFullHTMLPage,
+		NoOutput:           m.NoOutput,
 	}
 }
 

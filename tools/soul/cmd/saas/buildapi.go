@@ -81,11 +81,12 @@ func buildApi(builder *SaaSBuilder) error {
 
 	// fmt.Println(builder.Data["Endpoints"])
 	if !builder.IsService {
-		filename := path.Join(builder.Dir, types.SrcDir, "api", "endpoints.ts")
+		filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "api", "endpoints.ts")
+		// fmt.Println("Removing:", filename)
 		os.Remove(filename)
 		// Generate the endpoints.ts file
 		if err := builder.genFile(fileGenConfig{
-			subdir:       builder.ServiceName + "/" + path.Join(types.SrcDir, "api"),
+			subdir:       path.Join(builder.ServiceName, types.SrcDir, "api"),
 			templateFile: "templates/app/src/api/endpoints.ts.tpl",
 			data:         builder.Data,
 		}); err != nil {
@@ -217,7 +218,8 @@ func genApiTypes(builder *SaaSBuilder, allowedTypes map[string]bool) error {
 		}
 	}
 
-	filename := path.Join(builder.Dir, types.SrcDir, "api", "models.ts")
+	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "api", "models.ts")
+	// fmt.Println("Removing:", filename)
 	os.Remove(filename)
 
 	models := modelBuilder.String()
@@ -227,7 +229,7 @@ func genApiTypes(builder *SaaSBuilder, allowedTypes map[string]bool) error {
 
 	// Generate the models.ts file
 	if err := builder.genFile(fileGenConfig{
-		subdir:       path.Join(types.SrcDir, "api"),
+		subdir:       path.Join(builder.ServiceName, types.SrcDir, "api"),
 		templateFile: "templates/app/src/api/models.ts.tpl",
 		data:         builder.Data,
 	}); err != nil {

@@ -1,11 +1,10 @@
 package session
 
 import (
-	"fmt"
 	"net/http"
 
 	"{{ .serviceName }}/internal/config"
-
+	
 	"github.com/labstack/echo/v4"
 )
 
@@ -20,10 +19,16 @@ func SetCookie(cfg *config.Config, c echo.Context, token string, cookieName stri
 	})
 }
 
+func GetCookie(c echo.Context, cookieName string) string {
+	cookie, err := c.Cookie(cookieName)
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
 func ClearCookies(c echo.Context, cookieNames ...string) {
 	for _, cookieName := range cookieNames {
-		fmt.Println("cookieName", cookieName)
-
 		c.SetCookie(&http.Cookie{
 			Name:     cookieName,
 			Value:    "",

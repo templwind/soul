@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -40,6 +41,7 @@ const (
 	COMMENT
 	STRUCT_FIELD
 	ATTRIBUTE
+	IMPORT
 	OPEN_BRACE
 	CLOSE_BRACE
 	OPEN_PAREN
@@ -67,16 +69,58 @@ type Lexer struct {
 	scanner *bufio.Scanner
 }
 
-// NewLexer initializes a new lexer
+// NewLexer initializes a new lexer with import resolution
 func NewLexer(filename string) (*Lexer, error) {
-	file, err := os.Open(filename)
+	fullContent, err := resolveImports(filename)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve imports: %w", err)
 	}
-	return &Lexer{scanner: bufio.NewScanner(file)}, nil
+	return &Lexer{scanner: bufio.NewScanner(strings.NewReader(fullContent))}, nil
 }
 
-// NextToken returns the next token
+// resolveImports reads a file and resolves its import statements, returning a merged content string
+func resolveImports(filename string) (string, error) {
+	var contentBuilder strings.Builder
+
+	// Helper function to process a file and append its content
+	var processFile func(string) error
+	processFile = func(filePath string) error {
+		file, err := os.Open(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to open file %s: %w", filePath, err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		importRegex := regexp.MustCompile(`^\s*import\s+"(.+\.api)"`)
+
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+
+			// Check for import statements
+			if match := importRegex.FindStringSubmatch(line); len(match) > 1 {
+				importFile := match[1]
+				importPath := filepath.Join(filepath.Dir(filePath), importFile)
+				if err := processFile(importPath); err != nil {
+					return fmt.Errorf("failed to process import '%s': %w", importFile, err)
+				}
+			} else {
+				contentBuilder.WriteString(line + "\n")
+			}
+		}
+
+		return scanner.Err()
+	}
+
+	// Start processing from the root file
+	if err := processFile(filename); err != nil {
+		return "", err
+	}
+
+	return contentBuilder.String(), nil
+}
+
+// NextToken returns the next token from the merged content
 func (l *Lexer) NextToken() Token {
 	for l.scanner.Scan() {
 		line := strings.TrimSpace(l.scanner.Text())
@@ -84,13 +128,12 @@ func (l *Lexer) NextToken() Token {
 			continue
 		}
 
-		// for now, remove the comments
+		// Skip comments
 		if strings.HasPrefix(line, "//") {
 			continue
 		}
 
 		tokenized := l.tokenizeLine(line)
-		// fmt.Println("line: ", line, tokenized)
 		return tokenized
 	}
 	if err := l.scanner.Err(); err != nil {
@@ -110,8 +153,9 @@ func (l *Lexer) tokenizeLine(line string) Token {
 	case line == ")":
 		return Token{Type: CLOSE_PAREN, Literal: ")"}
 	case strings.HasPrefix(line, "//"):
-		fmt.Println("COMMENT", line)
 		return Token{Type: COMMENT, Literal: line}
+	case strings.HasPrefix(line, "import"):
+		return Token{Type: IMPORT, Literal: l.cleanPrefix(line, "import")}
 	case strings.HasPrefix(line, "type"):
 		return Token{Type: AT_TYPE, Literal: l.cleanPrefix(line, "type")}
 	case strings.HasPrefix(line, "@server"):
@@ -140,9 +184,7 @@ func (l *Lexer) tokenizeLine(line string) Token {
 		return Token{Type: AT_MODULE, Literal: l.cleanPrefix(line, "@module")}
 	case strings.HasPrefix(line, "service"):
 		return Token{Type: AT_SERVICE, Literal: l.cleanPrefix(line, "service")}
-	case strings.Contains(line, ":") &&
-		!strings.Contains(line, "`") &&
-		!strings.Contains(line, "/"):
+	case strings.Contains(line, ":") && !strings.Contains(line, "`") && !strings.Contains(line, "/"):
 		return Token{Type: ATTRIBUTE, Literal: line}
 	case regexp.MustCompile(`^\w+:`).MatchString(line):
 		return Token{Type: STRUCT_FIELD, Literal: line}

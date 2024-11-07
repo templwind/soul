@@ -241,6 +241,7 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 
 	isModifier := func(part string) bool {
 		return strings.EqualFold(part, "static") ||
+			strings.EqualFold(part, "static-embed") ||
 			strings.EqualFold(part, "socket") ||
 			strings.EqualFold(part, "sse") ||
 			strings.EqualFold(part, "video") ||
@@ -258,9 +259,21 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 			part := strings.ToLower(part)
 			if isModifier(part) {
 				switch part {
-				case "static":
+				case "static", "static-embed":
 					if method.Method == "GET" {
 						method.IsStatic = true
+						if strings.EqualFold(part, "static-embed") {
+							method.IsStaticEmbed = true
+						}
+						// Remove the base path portion to isolate potential rewrite paths
+						paths := strings.TrimSpace(strings.Replace(p.curToken.Literal, part, "", 1))
+						// Split into path segments to check if a rewrite path exists
+						pathSegments := strings.Fields(paths)
+						if len(pathSegments) > 1 {
+							// If a rewrite path exists, set StaticPathRewrite with the second path onward
+							method.StaticRouteRewrite = strings.TrimSpace(pathSegments[1])
+						}
+
 						continue
 					} else {
 						panic("Static paths (get static /path) can only be used with a GET method")

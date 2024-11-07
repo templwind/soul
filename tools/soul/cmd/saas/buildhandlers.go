@@ -51,6 +51,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 
 	hasSocket := false // layoutPath := getLogicLayoutPath(server)
 	socketServerTopics := make(map[string]string)
+	hasTopicsFromClient := false
 
 	// pubsub
 	// hasPubSub := false
@@ -66,7 +67,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 		// logicName = pkgName
 	}
 
-	logicName := strings.ToLower(util.ToCamel(handler.Name))
+	// logicName := strings.ToLower(util.ToCamel(handler.Name))
 
 	// get the assetGroup
 	assetGroup := server.GetAnnotation("assetGroup")
@@ -97,7 +98,14 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 
 	methods := []types.MethodConfig{}
 	uniqueMethods := []string{}
+	hasHandlerMethods := false
 	for _, method := range handler.Methods {
+		if method.IsStaticEmbed || method.IsStatic {
+			continue
+		}
+
+		hasHandlerMethods = true
+
 		handlerName := util.ToPascal(getHandlerName(handler, &method))
 		if method.IsPubSub {
 			baseName, err := getHandlerBaseName(handler)
@@ -217,6 +225,9 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 					})
 				}
 			}
+			if !hasTopicsFromClient {
+				hasTopicsFromClient = len(topicsFromClient) > 0
+			}
 		}
 
 		// fmt.Println("handlerName:", handlerName)
@@ -232,7 +243,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 			HandlerName:      handlerName,
 			RequestType:      requestType,
 			ResponseType:     responseType,
-			LogicName:        logicName,
+			LogicName:        "logicHandler",
 			LogicType:        util.ToPascal(getLogicName(handler)),
 			LogicFunc:        logicFunc, //util.ToPascal(strings.TrimSuffix(handlerName, "Handler")),
 			IsSocket:         method.IsSocket,
@@ -246,12 +257,21 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 		})
 	}
 
+	// if no methods, return
+	if !hasHandlerMethods {
+		return nil
+	}
+
 	// b, _ := json.MarshalIndent(methods, "", "  ")
 	// fmt.Println("methods", string(b))
 	// fmt.Println("handler.Name:", handler.Name)
 
+	if !hasSocket {
+		hasTopicsFromClient = true
+	}
+
 	if handler.Name == "notfound" && !builder.IsService {
-		imports := genHandlerImports(server, handler, builder.ModuleName, true)
+		imports := genHandlerImports(server, handler, builder.ModuleName, true, hasTopicsFromClient)
 
 		builder.Data["PkgName"] = pkgName
 		builder.Data["Imports"] = imports
@@ -271,7 +291,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 		return nil
 	}
 
-	imports := genHandlerImports(server, handler, builder.ModuleName, false)
+	imports := genHandlerImports(server, handler, builder.ModuleName, false, hasTopicsFromClient)
 
 	builder.Data["PkgName"] = pkgName
 	builder.Data["Imports"] = imports
@@ -293,7 +313,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	})
 }
 
-func genHandlerImports(server spec.Server, handler spec.Handler, moduleName string, omitLogic bool) string {
+func genHandlerImports(server spec.Server, handler spec.Handler, moduleName string, omitLogic bool, hasTopicsFromClient bool) string {
 	theme := server.GetAnnotation("theme")
 	if len(theme) == 0 {
 		theme = "themes/templwind"
@@ -320,7 +340,10 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 			i.AddExternalImport("github.com/templwind/soul/htmx")
 			i.AddExternalImport("github.com/templwind/soul")
 		} else {
-			i.AddProjectImport(path.Join(moduleName, getLogicFolderPath(server, handler)))
+			// fmt.Println("Handler:", strings.ToLower(util.ToCamel(handler.Name))+"Logic")
+			if hasTopicsFromClient {
+				i.AddProjectImport(path.Join(moduleName, getLogicFolderPath(server, handler)), "logicHandler")
+			}
 		}
 
 		if method.ReturnsJson {

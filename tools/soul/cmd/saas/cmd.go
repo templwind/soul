@@ -110,7 +110,7 @@ func Cmd() *cobra.Command {
 			if varExternalDockerNetwork != "" {
 				externalDockerNetwork = varExternalDockerNetwork
 			} else {
-				externalDockerNetwork = "soul"
+				externalDockerNetwork = "" // soul
 			}
 
 			opts := doGenProjectOptions{
@@ -237,6 +237,8 @@ func doGenProject(opts doGenProjectOptions) error {
 		// "env":              ".env",
 		// "app/gitignore":    "app/.gitignore",
 		// "app/dockerignore": "app/.dockerignore",
+		serviceName + "/assets/keep":     serviceName + "/assets/.keep",
+		serviceName + "/static/keep":     serviceName + "/static/.keep",
 		serviceName + "/main.go":         serviceName + "/" + strings.ToLower(siteSpec.Name) + ".go",
 		serviceName + "/etc/config.yaml": serviceName + "/etc/" + moduleName + ".yaml",
 	})
@@ -250,9 +252,7 @@ func doGenProject(opts doGenProjectOptions) error {
 	builder.WithIgnorePath("app/internal/handler")
 	builder.WithIgnoreFile("app/internal/types/loginvalidation.go")
 	builder.WithIgnoreFile("app/internal/types/registervalidation.go")
-
-	// main.go
-	builder.WithCustomFunc(serviceName+"/main.go", buildMain)
+	builder.WithIgnoreFile("app/embeds.go")
 
 	// etc/etc.yaml
 	builder.WithCustomFunc(serviceName+"/etc/config.yaml", buildEtc)
@@ -272,6 +272,9 @@ func doGenProject(opts doGenProjectOptions) error {
 	// internal/handler/routes.go
 	builder.WithCustomFunc(serviceName+"/internal/handler/routes.go", buildRoutes)
 
+	// internal/embeds.go
+	builder.WithCustomFunc(serviceName+"/embeds.go", buildEmbeds)
+
 	// internal/logic/*.go
 	builder.WithCustomFunc(serviceName+"/internal/logic/logic.go", buildLogic)
 
@@ -284,6 +287,9 @@ func doGenProject(opts doGenProjectOptions) error {
 
 	// internal/types/types.go
 	builder.WithCustomFunc(serviceName+"/internal/types/types.go", buildTypes)
+
+	// main.go
+	builder.WithCustomFunc(serviceName+"/main.go", buildMain)
 
 	if !opts.isService {
 		// ignore the src/api files (interfaces.ts and functions.ts)
