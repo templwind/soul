@@ -195,7 +195,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			})
 			{{- end }}
 			{{- if or (.IsFullHTMLPage) (.ReturnsPartial) }}
-			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
+			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
 				return soul.Render(c, http.StatusOK,
 					error5x.New(
 						error5x.WithErrors(
@@ -213,7 +213,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			{{- end}}
 		}
 		{{- if .IsFullHTMLPage}}
-		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
+		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
 			return soul.Render(c, http.StatusOK,
 				resp,
 			)
@@ -291,7 +291,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		if err != nil {
 			c.Logger().Error(err)
 			{{- if .IsFullHTMLPage}}
-			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
+			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
 				return soul.Render(c, http.StatusOK,
 					error5x.New(
 						error5x.WithErrors(
@@ -312,7 +312,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		}
 
 		{{- if .IsFullHTMLPage}}
-		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
+		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
 			return soul.Render(c, http.StatusOK,
 				resp,
 			)
@@ -355,7 +355,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
 		if err != nil {
 			c.Logger().Error(err)
-			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
+			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
 				return soul.Render(c, http.StatusOK,
 					error5x.New(
 						error5x.WithErrors(
@@ -372,7 +372,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			)
 		}
 
-		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) {
+		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
 			return soul.Render(c, http.StatusOK,
 				resp,
 			)
