@@ -1,5 +1,5 @@
 {
-  "name": "crowdgains",
+  "name": "{{.serviceName}}",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,24 +7,47 @@
     "build": "vite build",
     "build:watch": "vite build --watch",
     "dev": "vite",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "esbuild:watch": "NODE_ENV=development node esbuild.config.js --watch",
+    "esbuild:build": "NODE_ENV=production node esbuild.config.js"
   },
   "devDependencies": {
-    "@tailwindcss/forms": "^0.5.7",
-    "@tailwindcss/typography": "^0.5.13",
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "@tailwindcss/forms": "^0.5.9",
+    "@tailwindcss/typography": "^0.5.15",
+    "@tsconfig/svelte": "^5.0.4",
     "@types/uuid": "^10.0.0",
-    "autoprefixer": "^10.4.19",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "chokidar": "^4.0.1",
     "concurrently": "^8.2.2",
-    "htmx.org": "^2.0.0",
-    "postcss": "^8.4.38",
+    "htmx.org": "^2.0.2",
+    "postcss": "^8.4.47",
     "postcss-import": "^16.1.0",
-    "sass": "^1.77.4",
-    "tailwindcss": "^3.4.4",
-    "typescript": "^5.2.2",
+    "sass": "^1.79.1",
+    "svelte-preprocess": "^6.0.2",
+    "tailwindcss": "^3.4.12",
+    "typescript": "^5.6.2",
     "uuid": "^10.0.0",
-    "vite": "^5.2.0"
+    "vite": "^5.4.6"
   },
   "dependencies": {
-    "daisyui": "^4.12.10"
+    "@types/alpinejs": "^3.13.10",
+    "alpinejs": "^3.14.1",
+    "css-what": "^6.1.0",
+    "cssnano": "^7.0.6",
+    "daisyui": "^4.12.10",
+    "editorjs-text-alignment-blocktune": "^1.0.3",
+    "esbuild": "^0.24.0",
+    "esbuild-plugin-sass": "^1.0.1",
+    "esbuild-svelte": "^0.8.2",
+    "fs-extra": "^11.2.0",
+    "marked": "^14.1.2",
+    "model": "link:@milkdown/prose/model",
+    "saas": "^1.0.0",
+    "svelte": "^4.2.19",
+    "svgo": "^3.3.2",
+    "tslib": "^2.7.0",
+    "uuidv4": "^6.2.13"
   }
 }

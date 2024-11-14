@@ -53,6 +53,7 @@ type ServiceNode struct {
 type MethodNode struct {
 	BaseNode
 	Method             string
+	Prefix             string
 	Route              string
 	StaticRouteRewrite string
 	Request            string

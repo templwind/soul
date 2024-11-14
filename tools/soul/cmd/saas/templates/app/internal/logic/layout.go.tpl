@@ -30,6 +30,7 @@ func Layout(c echo.Context, svcCtx *svc.ServiceContext, content templ.Component)
 	}
 
 	return []soul.OptFunc[baseof.Props]{
+		baseof.WithConfig(svcCtx.Config),
 		baseof.WithLTRDir("ltr"),
 		baseof.WithLangCode("en"),
 		baseof.WithHead(head.New(

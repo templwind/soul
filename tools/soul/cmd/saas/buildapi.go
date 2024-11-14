@@ -24,7 +24,7 @@ func buildApi(builder *SaaSBuilder) error {
 
 	// Iterate through all services and methods to identify JSON-returning request and response types
 	for _, s := range builder.Spec.Servers {
-		routePrefix := strings.ToLower(s.GetAnnotation(types.GroupProperty))
+		routePrefix := strings.ToLower(s.GetAnnotation(types.PrefixProperty))
 		// fmt.Println("RoutePrefix:", routePrefix)
 		for _, srv := range s.Services {
 			for _, h := range srv.Handlers {
@@ -55,6 +55,11 @@ func buildApi(builder *SaaSBuilder) error {
 
 						if m.RequestType != nil {
 							requestType = findTypeByName(builder.Spec.Types, m.RequestType.GetName())
+							if requestType == nil {
+								fmt.Println("RequestType not found:", m.RequestType.GetName())
+								continue outerLoop
+							}
+
 							for _, field := range requestType.GetFields() {
 								// fmt.Println("Field:", field.Name, field.Tag)
 								if strings.Contains(field.Tag, "form:") && !strings.Contains(field.Tag, "json:") {
@@ -68,6 +73,9 @@ func buildApi(builder *SaaSBuilder) error {
 						if m.ResponseType != nil {
 							allowedTypes[m.ResponseType.GetName()] = true
 							responseType = findTypeByName(builder.Spec.Types, m.ResponseType.GetName())
+						} else {
+							fmt.Println("ResponseType not found:", m.ResponseType.GetName())
+							continue outerLoop
 						}
 
 						writeApiEndpoint(endpointBuilder, requestType, responseType, srv, h, m, routePrefix)

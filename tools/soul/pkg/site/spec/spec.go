@@ -50,6 +50,7 @@ type (
 
 	Method struct {
 		Method             string
+		Prefix             string
 		Route              string
 		StaticRouteRewrite string
 		Request            string
@@ -261,6 +262,7 @@ func NewMethod(m ast.MethodNode,
 
 	return Method{
 		Method:             m.Method,
+		Prefix:             m.Prefix,
 		Route:              m.Route,
 		StaticRouteRewrite: m.StaticRouteRewrite,
 		RequestType:        reqType,

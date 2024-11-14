@@ -1,6 +1,12 @@
 package config
 
-import "github.com/gosimple/slug"
+import (
+	"reflect"
+	"strconv"
+	"strings"
+
+	"github.com/gosimple/slug"
+)
 
 type Menus map[string][]MenuEntry
 type MenuEntry struct {
@@ -16,6 +22,60 @@ type MenuEntry struct {
 	HxDisable   bool
 	Weight	    int
 	Children    []MenuEntry
+}
+
+// BuildRoute takes a map of parameters and returns the processed URL with any dynamic segments replaced.
+// If the URL has no dynamic segments (no ":" character), it returns the original URL unchanged.
+func (m MenuEntry) BuildRoute(data any) string {
+    // If no dynamic segments or no data provided, return original
+    if !strings.Contains(m.URL, ":") || data == nil {
+        return m.URL
+    }
+
+    result := m.URL
+    
+    // Use reflection to examine the struct fields
+    v := reflect.ValueOf(data)
+    if v.Kind() == reflect.Ptr {
+        v = v.Elem()
+    }
+    
+    if v.Kind() != reflect.Struct {
+        return m.URL
+    }
+    
+    t := v.Type()
+    for i := 0; i < t.NumField(); i++ {
+        field := t.Field(i)
+        // Get the path tag value
+        pathTag := field.Tag.Get("path")
+        if pathTag != "" {
+            // Get the field value as string
+            fieldValue := v.Field(i)
+            var stringValue string
+            
+            // Convert the field value to string based on its kind
+            switch fieldValue.Kind() {
+            case reflect.String:
+                stringValue = fieldValue.String()
+            case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+                stringValue = strconv.FormatInt(fieldValue.Int(), 10)
+            case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+                stringValue = strconv.FormatUint(fieldValue.Uint(), 10)
+            case reflect.Float32, reflect.Float64:
+                stringValue = strconv.FormatFloat(fieldValue.Float(), 'f', -1, 64)
+            case reflect.Bool:
+                stringValue = strconv.FormatBool(fieldValue.Bool())
+            default:
+                continue
+            }
+            
+            // Replace the parameter in the URL
+            result = strings.Replace(result, ":"+pathTag, stringValue, -1)
+        }
+    }
+    
+    return result
 }
 
 func (m MenuEntry) GetIdentifier(txt ...string) string {

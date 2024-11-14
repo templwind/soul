@@ -49,6 +49,12 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	handlerPath := getHandlerFolderPath(server)
 	pkgName := toPrefix(strings.ToLower(handlerPath[strings.LastIndex(handlerPath, "/")+1:]))
 
+	prefix := server.GetAnnotation(types.PrefixProperty)
+	// fmt.Println("--------------------------------")
+	// fmt.Println("prefix:", prefix)
+	// fmt.Println("handlerPath:", handlerPath)
+	// fmt.Println("handlerName:", handlerName)
+	// os.Exit(1)
 	hasSocket := false // layoutPath := getLogicLayoutPath(server)
 	socketServerTopics := make(map[string]string)
 	hasTopicsFromClient := false
@@ -100,6 +106,9 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 	uniqueMethods := []string{}
 	hasHandlerMethods := false
 	for _, method := range handler.Methods {
+
+		method.Prefix = prefix
+
 		if method.IsStaticEmbed || method.IsStatic {
 			continue
 		}
@@ -382,23 +391,26 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 			i.AddExternalImport("github.com/gobwas/ws/wsutil")
 		}
 
-		if method.IsStatic || method.IsFullHTMLPage {
+		if method.IsFullHTMLPage {
 			i.AddNativeImport("net/http")
 
 			if omitLogic {
 				i.AddNativeImport("strings")
 			}
 
-			if omitLogic {
-				i.AddProjectImport(path.Join(moduleName, theme, "error4x"), "error4x")
-			} else {
-				i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
+			// fmt.Println("method:", method.Method, method.Prefix, method.Route)
+			if !method.IsStatic {
+				if omitLogic {
+					i.AddProjectImport(path.Join(moduleName, theme, "error4x"), "error4x")
+				} else {
+					i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
+				}
+
+				i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
+				i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
+				i.AddExternalImport("github.com/templwind/soul/htmx")
 			}
 
-			i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
-			i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
-
-			i.AddExternalImport("github.com/templwind/soul/htmx")
 			i.AddExternalImport("github.com/templwind/soul")
 			if method.IsStatic {
 				i.AddExternalImport("github.com/templwind/soul/webserver/httpx")

@@ -43,7 +43,8 @@ RUN rm -rf node_modules package-lock.json pnpm-lock.yaml && pnpm install --shame
 RUN CGO_ENABLED={{ if .cgoEnabled }}1{{else}}0{{end}} go build -o /go/bin/app
 
 # Add CMD for development
-CMD ["sh", "-c", "make templ-fmt & make templ-watch & pnpm build:watch & air & wait"]
+# CMD ["sh", "-c", "make templ-fmt & make templ-watch & pnpm build:watch & air & wait"]
+CMD ["sh", "-c", "make templ-fmt & make templ-watch & air & wait"]
 
 # Start a new stage from scratch
 FROM gcr.io/distroless/static-debian11 AS prod

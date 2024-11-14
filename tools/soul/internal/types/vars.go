@@ -23,6 +23,7 @@ const (
 	ViewDir         = Internal + "views"
 	WorkflowDir     = Internal + "workflow"
 	GroupProperty   = "group"
+	PrefixProperty  = "prefix"
 	JwtTransKey     = "jwtTransition"
 	TypesPacket     = "types"
 )

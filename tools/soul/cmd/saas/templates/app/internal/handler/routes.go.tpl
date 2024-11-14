@@ -17,10 +17,18 @@ func RegisterHandlers(server *echo.Echo, svcCtx *svc.ServiceContext) {
 	{{.routesAdditions}}
 
 	{{- if not .isService }}
+	{{- if .error404Override }}
 
+	////////////////////////////////////////////////////////////
+	// Catchall handler for static website
+	////////////////////////////////////////////////////////////
+	{{ .error404Override }}
+	{{- else }}
+	
 	////////////////////////////////////////////////////////////
 	// 404 / Catchall handler
 	////////////////////////////////////////////////////////////
 	server.Any("/*", notfound.NotFoundHandler(svcCtx))
+	{{- end}}
 	{{- end}}
 }

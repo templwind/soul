@@ -12,6 +12,8 @@ const (
 	jwtEtcTemplate = `
   AccessSecret: abcdef0123456789 
   AccessExpire: 84600
+  AccountCookieName: account
+  UserCookieName: auth
   SecretKey: 9f63008-bfd2-b4-addeeabe33-e8-ec1-cefd
 `
 )

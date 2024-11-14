@@ -15,6 +15,10 @@ func IsHtmxBoosted(r *http.Request) bool {
 	return r.Header.Get("HX-Boosted") == "true"
 }
 
+func IsHtmxHistoryRestoreRequest(r *http.Request) bool {
+	return r.Header.Get("HX-History-Restore-Request") == "true"
+}
+
 func Redirect(w http.ResponseWriter, r *http.Request, path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")

@@ -32,11 +32,14 @@ help: Makefile
 gen:
 	{{ if .isService -}}
 	{{- if .externalDockerNetwork -}}
-	soul saas -a ${EXECUTABLE}.api -d . -m true -s true -n ${EXTERNAL_DOCKER_NETWORK}
+#	soul saas -a ${EXECUTABLE}.api -d . -m true -s true -n ${EXTERNAL_DOCKER_NETWORK}
+	soul saas -a ./ast/main.api -d . -n ${EXTERNAL_DOCKER_NETWORK}
 	{{- else }}
-	soul saas -a ${EXECUTABLE}.api -d . -m true -s true
+#	soul saas -a ${EXECUTABLE}.api -d . -m true -s true
+	soul saas -a ./ast/main.api -d .
 	{{- end -}}
 	{{- else -}}
-	soul saas -a ${EXECUTABLE}.api -d .
+#	soul saas -a ${EXECUTABLE}.api -d .
+	soul saas -a ./ast/main.api -d .
 	{{- end -}}
 

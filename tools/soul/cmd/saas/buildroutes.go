@@ -31,6 +31,9 @@ const (
 			{{.middlewares}}
 		}...,{{end}}
 	)
+	{{.groupName}}.Use(middleware.RemoveTrailingSlashWithConfig(middleware.TrailingSlashConfig{
+		RedirectCode: http.StatusMovedPermanently,
+	}))
 
 	{{.routes}}
 	{{- end }}
@@ -95,8 +98,11 @@ func buildRoutes(builder *SaaSBuilder) error {
 	var hasTimeout bool
 	var jwtEnabled bool
 	var isPubSub bool
+	var error404Override string
+	var ignorePrefixes []string = []string{}
 	gt := template.Must(template.New("groupTemplate").Parse(routesAdditionTemplate))
 	for _, g := range groups {
+		var hasMethods bool
 		var routesBuilder strings.Builder
 		for _, r := range g.routes {
 
@@ -110,47 +116,6 @@ func buildRoutes(builder *SaaSBuilder) error {
 			}
 
 			if r.isStatic || r.isStaticEmbed {
-				// fmt.Printf("r: %+v\n", r)
-				if r.staticRouteRewrite == "" {
-					r.staticRouteRewrite = r.route
-				}
-
-				if r.isStaticEmbed {
-					hasStaticEmbed = true
-					fsEmbeddedName := "embedded" + util.ToPascal(g.name) + util.ToPascal(r.route)
-					builder.EmbeddedFS = append(builder.EmbeddedFS, embeddedFS{
-						Path: strings.TrimPrefix(r.route, "/"),
-						Name: fsEmbeddedName,
-					})
-					builder.HasEmbeddedFS = true
-					// fsBuilder.Reset()
-
-					fsName := util.ToCamel(g.name) + util.ToCamel(r.route) + "FS"
-					routesBuilder.WriteString(fmt.Sprintf(`%s, err := fs.Sub(svcCtx.Config.EmbeddedFS["%s"], "%s")`, fsName, fsEmbeddedName, r.route))
-					routesBuilder.WriteString("\n")
-					routesBuilder.WriteString(`	if err != nil {`)
-					routesBuilder.WriteString("\n")
-					routesBuilder.WriteString(fmt.Sprintf(`		server.Logger.Fatal("Failed to create embedded file system for %s:", err)`, r.route))
-					routesBuilder.WriteString("\n")
-					routesBuilder.WriteString(`	}`)
-					routesBuilder.WriteString("\n")
-					routesBuilder.WriteString(fmt.Sprintf(`	%s.GET("%s/*", echo.WrapHandler(http.StripPrefix("%s", http.FileServer(http.FS(%s)))))`,
-						util.ToCamel(g.name)+"Group",
-						r.staticRouteRewrite,
-						r.route,
-						fsName,
-					))
-					routesBuilder.WriteString("\n")
-				} else {
-					routesBuilder.WriteString(fmt.Sprintf(
-						`%s.Static("%s", "%s")
-		`,
-						util.ToCamel(g.name)+"Group",
-						r.route,
-						r.staticRouteRewrite,
-					))
-				}
-
 				// we have to make sure that the static directory exists
 				// if it does not exist, we will create it
 				staticDirPath := path.Join(builder.Dir, builder.ServiceName, r.route)
@@ -162,13 +127,102 @@ func buildRoutes(builder *SaaSBuilder) error {
 					os.Create(path.Join(staticDirPath, ".gitkeep"))
 				}
 
+				if g.prefix == "" && r.staticRouteRewrite == "/" {
+
+					var overrideBuilder strings.Builder
+					if r.isStaticEmbed {
+						hasStaticEmbed = true
+						fsEmbeddedName := "embedded" + util.ToPascal(g.name) + util.ToPascal(r.route)
+
+						overrideBuilder.WriteString(fmt.Sprintf(`server.Use(middleware.StaticWithConfig(middleware.StaticConfig{
+							Root: "%s",
+							Filesystem: http.FS(svcCtx.Config.EmbeddedFS["%s"]),
+						}))`,
+							strings.TrimPrefix(r.route, "/"),
+							fsEmbeddedName,
+						))
+
+						builder.EmbeddedFS = append(builder.EmbeddedFS, embeddedFS{
+							Path: strings.TrimPrefix(r.route, "/"),
+							Name: fsEmbeddedName,
+						})
+						builder.HasEmbeddedFS = true
+					} else {
+						overrideBuilder.WriteString(fmt.Sprintf(`server.Group("").Use(middleware.Static("%s"))`,
+							strings.TrimPrefix(r.route, "/"),
+						))
+					}
+
+					error404Override = overrideBuilder.String()
+					continue
+				}
+
+				// fmt.Printf("r: %+v\n", r)
+				if r.staticRouteRewrite == "" {
+					r.staticRouteRewrite = r.route
+				}
+
+				staticGroupName := util.ToCamel(g.name) + util.ToPascal(r.route) + "StaticGroup"
+
+				routesBuilder.WriteString("\n")
+				routesBuilder.WriteString(fmt.Sprintf(`	%s := server.Group("%s")`,
+					staticGroupName,
+					path.Join(g.prefix, r.staticRouteRewrite),
+				))
+				routesBuilder.WriteString("\n")
+
+				if r.isStaticEmbed {
+					hasStaticEmbed = true
+					fsEmbeddedName := "embedded" + util.ToPascal(g.name) + util.ToPascal(r.route)
+					builder.EmbeddedFS = append(builder.EmbeddedFS, embeddedFS{
+						Path: strings.TrimPrefix(r.route, "/"),
+						Name: fsEmbeddedName,
+					})
+					builder.HasEmbeddedFS = true
+					// fsBuilder.Reset()
+
+					// fsName := util.ToCamel(g.name) + util.ToCamel(r.route) + "FS"
+					// routesBuilder.WriteString(fmt.Sprintf(`%s, err := fs.Sub(svcCtx.Config.EmbeddedFS["%s"], "%s")`, fsName, fsEmbeddedName, strings.TrimPrefix(r.route, "/")))
+					// routesBuilder.WriteString("\n")
+					// routesBuilder.WriteString(`	if err != nil {`)
+					// routesBuilder.WriteString("\n")
+					// routesBuilder.WriteString(fmt.Sprintf(`		server.Logger.Fatal("Failed to create embedded file system for %s:", err)`, r.route))
+					// routesBuilder.WriteString("\n")
+					// routesBuilder.WriteString(`	}`)
+					// routesBuilder.WriteString("\n")
+					// routesBuilder.WriteString(fmt.Sprintf(`	%s.GET("%s/*", echo.WrapHandler(http.StripPrefix("%s", http.FileServer(http.FS(%s)))))`,
+					// 	util.ToCamel(g.name)+"Group",
+					// 	r.staticRouteRewrite,
+					// 	r.route,
+					// 	fsName,
+					// ))
+					// routesBuilder.WriteString("\n")
+					routesBuilder.WriteString(fmt.Sprintf(
+						`	%s.StaticFS("", svcCtx.Config.EmbeddedFS["%s"])`,
+						staticGroupName,
+						fsEmbeddedName,
+						// strings.TrimPrefix(r.staticRouteRewrite, "/"),
+					))
+				} else {
+					routesBuilder.WriteString(fmt.Sprintf(
+						`	%s.Static("", "%s")`,
+						staticGroupName,
+						strings.TrimPrefix(r.route, "/"),
+					))
+				}
+				routesBuilder.WriteString("\n")
+				// routesBuilder.WriteString(fmt.Sprintf(`	%s.Use(middleware.AddTrailingSlash())`, staticGroupName))
+				// routesBuilder.WriteString("\n")
+
 			} else if isPubSub {
+				hasMethods = true
 				routesBuilder.WriteString(fmt.Sprintf(
 					`%s
 	`,
 					r.handler,
 				))
 			} else {
+				hasMethods = true
 				routesBuilder.WriteString(fmt.Sprintf(
 					`%s.%s("%s", %s)
 	`,
@@ -178,6 +232,11 @@ func buildRoutes(builder *SaaSBuilder) error {
 					r.handler,
 				))
 			}
+		}
+
+		if !hasMethods {
+			ignorePrefixes = append(ignorePrefixes, g.name)
+			continue
 		}
 
 		for i := range g.middlewares {
@@ -207,6 +266,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 		builder.Data["prefix"] = g.prefix
 		builder.Data["isPubSub"] = isPubSub
 		builder.Data["isService"] = builder.IsService
+		builder.Data["error404Override"] = error404Override
 		if err := gt.Execute(&routesAdditionsBuilder, builder.Data); err != nil {
 			return err
 		}
@@ -219,7 +279,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 	os.Remove(routeFilename)
 
 	builder.Data["hasTimeout"] = hasTimeout
-	builder.Data["imports"] = genRouteImports(builder, builder.ModuleName, builder.Spec, hasStaticEmbed)
+	builder.Data["imports"] = genRouteImports(builder, builder.ModuleName, builder.Spec, hasStaticEmbed, error404Override, ignorePrefixes)
 	builder.Data["routesAdditions"] = strings.TrimSpace(routesAdditionsBuilder.String())
 
 	return builder.genFile(fileGenConfig{
@@ -229,12 +289,15 @@ func buildRoutes(builder *SaaSBuilder) error {
 	})
 }
 
-func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec, hasStaticEmbed bool) string {
+func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec, hasStaticEmbed bool, error404Override string, ignorePrefixes []string) string {
 	i := imports.New()
 	hasJwt := false
 	for _, server := range site.Servers {
 		folder := strings.ToLower(server.GetAnnotation(types.GroupProperty))
 		if folder != "" {
+			if util.Contains(ignorePrefixes, folder) {
+				continue
+			}
 			i.AddProjectImport(pathx.JoinPackages(parentPkg, types.HandlerDir, folder), toPrefix(folder))
 		}
 		jwt := server.GetAnnotation("jwt")
@@ -245,14 +308,16 @@ func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec
 
 	folder := "notfound"
 
+	i.AddNativeImport("net/http")
+
 	if hasStaticEmbed {
 		// i.AddNativeImport("embed")
-		i.AddNativeImport("io/fs")
-		i.AddNativeImport("net/http")
+		// i.AddNativeImport("io/fs")
+		i.AddExternalImport("github.com/labstack/echo/v4/middleware")
 	}
 
 	i.AddProjectImport(pathx.JoinPackages(parentPkg, types.ContextDir))
-	if !builder.IsService {
+	if !builder.IsService && len(error404Override) == 0 {
 		i.AddProjectImport(pathx.JoinPackages(parentPkg, types.HandlerDir, folder))
 	}
 
@@ -264,19 +329,6 @@ func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec
 	}
 
 	return i.Build()
-
-	// importSet.AddStr(fmt.Sprintf("\"%s\"",
-	// 	pathx.JoinPackages(pathx.JoinPackages(parentPkg, types.HandlerDir, folder))))
-
-	// imports := importSet.KeysStr()
-	// sort.Strings(imports)
-	// projectSection := strings.Join(imports, "\n\t")
-	// depSection := []string{`"github.com/golang-jwt/jwt/v5"`}
-	// if hasJwt {
-	// 	depSection = append(depSection, `"github.com/labstack/echo-jwt/v4"`)
-	// }
-	// depSection = append(depSection, `"github.com/labstack/echo/v4"`)
-	// return fmt.Sprintf("%s\n\n\t%s", projectSection, strings.Join(depSection, "\n\t"))
 }
 
 func getRoutes(site *spec.SiteSpec) ([]group, error) {
@@ -288,7 +340,14 @@ func getRoutes(site *spec.SiteSpec) ([]group, error) {
 		// fmt.Println("folder", folder)
 
 		// last part of the folder name but it may not include "/"
-		groupedRoutes.name = folder[strings.LastIndex(folder, "/")+1:]
+		// parts := strings.Split(folder, "/")
+		// if len(parts) >= 2 {
+		// 	groupedRoutes.name = util.ToCamel(parts[len(parts)-2]) + util.ToPascal(parts[len(parts)-1])
+		// } else {
+		// 	groupedRoutes.name = parts[len(parts)-1]
+		// }
+		groupedRoutes.name = util.ToCamel(folder)
+
 		for _, s := range server.Services {
 			for _, r := range s.Handlers {
 				// handlerName := getHandlerName(r, nil)
