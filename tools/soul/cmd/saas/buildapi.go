@@ -72,6 +72,7 @@ func buildApi(builder *SaaSBuilder) error {
 						}
 						if m.ResponseType != nil {
 							allowedTypes[m.ResponseType.GetName()] = true
+							// fmt.Println("ResponseType:", m.ResponseType.GetName())
 							responseType = findTypeByName(builder.Spec.Types, m.ResponseType.GetName())
 						} else {
 							fmt.Println("ResponseType not found:", m.ResponseType.GetName())
@@ -79,6 +80,7 @@ func buildApi(builder *SaaSBuilder) error {
 						}
 
 						writeApiEndpoint(endpointBuilder, requestType, responseType, srv, h, m, routePrefix)
+						// fmt.Println("Endpoint:", endpointBuilder.String())
 					}
 				}
 			}
@@ -86,6 +88,7 @@ func buildApi(builder *SaaSBuilder) error {
 	}
 
 	builder.Data["Endpoints"] = strings.TrimSpace(endpointBuilder.String())
+	// fmt.Println("Endpoints:", builder.Data["Endpoints"])
 
 	// fmt.Println(builder.Data["Endpoints"])
 	if !builder.IsService {
@@ -137,12 +140,27 @@ func addAllRequiredTypes(tp spec.Type, allowedTypes map[string]bool, allTypes []
 	// 	return // Avoid processing already visited types
 	// }
 
+	self := tp.GetName()
 	allowedTypes[tp.GetName()] = true // Mark the current type as allowed
 
 	// Iterate through all fields to find non-primitive types and process them recursively
+	// let's make sure we don't get caught in an infinite loop
+	visited := make(map[string]bool)
+
 	for _, field := range tp.GetFields() {
 		fieldType := cleanTypeName(field.Type)
 
+		if fieldType == self {
+			continue
+		}
+
+		// if we've already visited this type, skip it
+		if visited[fieldType] {
+			continue
+		}
+		visited[fieldType] = true
+
+		// fmt.Println("Field:", field.Name, fieldType)
 		// Skip primitive types
 		if isPrimitive(fieldType) {
 			continue

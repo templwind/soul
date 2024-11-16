@@ -465,6 +465,8 @@ func (sb *SaaSBuilder) Execute() error {
 
 	// Execute all custom functions
 	for _, fn := range sb.CustomFuncs {
+		// fmt.Printf("Executing custom function: %s\n", runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name())
+
 		if err := fn(sb); err != nil {
 			return err
 		}

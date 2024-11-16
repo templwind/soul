@@ -9,3 +9,4 @@ release:
 	git commit -m "Release $$VERSION"; \
 	git tag $$VERSION; \
 	git push origin $$VERSION
+	git push

@@ -119,7 +119,7 @@ func ParseForm(c echo.Context, v any) error {
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
 		fieldType := typ.Field(i)
-		formTag := fieldType.Tag.Get("form")
+		formTag := strings.Replace(fieldType.Tag.Get("form"), ",optional", "", 1)
 
 		if formTag != "" {
 			var formValues []string
