@@ -212,7 +212,8 @@ func ParsePath(c echo.Context, v any, pattern string) error {
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
 		fieldType := typ.Field(i)
-		pathTag := fieldType.Tag.Get("path")
+		// pathTag := fieldType.Tag.Get("path")
+		pathTag := strings.Replace(fieldType.Tag.Get("path"), ",optional", "", 1)
 
 		if pathTag != "" {
 			var paramValue string
