@@ -1,5 +1,4 @@
 services:
-  {{ if not .isService -}}
   {{- if eq .dbType "postgres" }}
   # ###############################
   # ## DB                        ##
@@ -29,7 +28,7 @@ services:
       retries: 5
     networks:
       - {{.serviceName}}
-  {{- end }}
+
 
   # ###############################
   # ## Migrations                ##
@@ -64,7 +63,7 @@ services:
       {{ if .externalDockerNetwork }}
       - {{.externalDockerNetwork}}
       {{ end -}}
-
+{{ if not .isService -}}
   # ###############################
   # ## Temporal                  ##
   # ###############################
@@ -122,6 +121,7 @@ services:
     networks:
       - {{.serviceName}}
   {{- end }}
+  {{- end }}
   # ###############################
   # ## App                       ##
   # ###############################
@@ -131,7 +131,9 @@ services:
       target: dev
     depends_on:
       - migrations
+      {{- if not .isService -}}
       - temporal
+      {{ end }}
     ports:
       - 8888:8888
     env_file:

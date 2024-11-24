@@ -127,7 +127,11 @@ func buildApi(builder *SaaSBuilder) error {
 // findTypeByName finds a type by name from a list of types
 func findTypeByName(allTypes []spec.Type, name string) spec.Type {
 	for _, tp := range allTypes {
-		if strings.EqualFold(tp.GetName(), name) {
+		// strip [] and *
+		cleanName := strings.ReplaceAll(name, "[]", "")
+		cleanName = strings.ReplaceAll(cleanName, "*", "")
+
+		if strings.EqualFold(tp.GetName(), cleanName) {
 			return tp
 		}
 	}

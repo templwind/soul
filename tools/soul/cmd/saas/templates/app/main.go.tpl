@@ -36,9 +36,10 @@ func main() {
 	// c.Site.LogoSvg = string(logo)
 	{{- end}}
 
+	{{ if not .isService -}}
 	// add the embeddedFS to the config
 	c.EmbeddedFS = embeddedFS
-
+	{{- end}}
 	// Create a new service context
 	svcCtx := svc.NewServiceContext(&c)
 

@@ -32,7 +32,23 @@ type Validator interface {
 
 var validator atomic.Value
 
-// Parse parses the request.
+// Parse handles the complete parsing of an HTTP request, processing path parameters,
+// query parameters, form data, headers, and JSON body. It also validates the parsed data
+// if a validator is configured.
+//
+// Parameters:
+//   - c: The Echo context containing the HTTP request
+//   - v: A pointer to the struct where parsed data will be stored
+//   - pattern: The URL pattern for path parameter extraction
+//
+// The target struct can use the following tags:
+//   - `path:"name"` or `path:"name,optional"` for path parameters
+//   - `query:"name"` or `query:"name,optional"` for query parameters
+//   - `form:"name"` or `form:"name,optional"` for form data
+//   - `file:"name"` or `file:"name,optional"` for file metadata
+//   - `header:"name"` or `header:"name,optional"` for headers
+//
+// Returns an error if parsing fails or validation fails.
 func Parse(c echo.Context, v any, pattern string) error {
 	// Check if both JSON and form data are present
 	isJSON := withJsonBody(c.Request())
@@ -75,7 +91,21 @@ func Parse(c echo.Context, v any, pattern string) error {
 	return nil
 }
 
-// ParseHeaders parses the headers request.
+// ParseHeaders extracts and parses HTTP headers into the target struct.
+// Headers are mapped using the "header" struct tag.
+//
+// Parameters:
+//   - c: The Echo context containing the HTTP request
+//   - v: A pointer to the struct where header values will be stored
+//
+// Header fields can be marked as optional using the "optional" tag modifier:
+//
+//	type Headers struct {
+//	    Auth string `header:"Authorization"`           // required
+//	    Track string `header:"X-Tracking,optional"`   // optional
+//	}
+//
+// Returns an error if a required header is missing or if type conversion fails.
 func ParseHeaders(c echo.Context, v any) error {
 	headers := c.Request().Header
 	val := reflect.ValueOf(v).Elem()
@@ -87,9 +117,17 @@ func ParseHeaders(c echo.Context, v any) error {
 		headerTag := fieldType.Tag.Get("header")
 
 		if headerTag != "" {
-			headerValue := headers.Get(headerTag)
+			tagParts := strings.Split(headerTag, ",")
+			headerName := tagParts[0]
+			isOptional := len(tagParts) > 1 && tagParts[1] == "optional"
+
+			headerValue := headers.Get(headerName)
 			if headerValue != "" {
-				field.SetString(headerValue)
+				if err := setFieldValue(field, headerValue); err != nil {
+					return fmt.Errorf("error setting header parameter %s: %w", headerName, err)
+				}
+			} else if !isOptional {
+				return fmt.Errorf("missing required header parameter: %s", headerName)
 			}
 		}
 	}
@@ -97,8 +135,23 @@ func ParseHeaders(c echo.Context, v any) error {
 	return nil
 }
 
-// ParseForm parses the form request.
-// ParseForm parses the form request, including multipart form data.
+// ParseForm handles both regular form data and multipart form data, including file uploads.
+// Form values are mapped using the "form" struct tag, and file metadata using the "file" tag.
+//
+// Parameters:
+//   - c: The Echo context containing the HTTP request
+//   - v: A pointer to the struct where form values will be stored
+//
+// Supports both single values and slices. Fields can be marked as optional:
+//
+//	type FormData struct {
+//	    Name   string   `form:"name"`            // required field
+//	    Tags   []string `form:"tags,optional"`   // optional slice
+//	    File   string   `file:"upload"`          // required file
+//	    Size   int64    `file:"upload,optional"` // optional file metadata
+//	}
+//
+// Returns an error if parsing fails, a required field is missing, or type conversion fails.
 func ParseForm(c echo.Context, v any) error {
 	// Check if the request is multipart
 	isMultipart := strings.HasPrefix(c.Request().Header.Get("Content-Type"), "multipart/form-data")
@@ -119,14 +172,18 @@ func ParseForm(c echo.Context, v any) error {
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
 		fieldType := typ.Field(i)
-		formTag := strings.Replace(fieldType.Tag.Get("form"), ",optional", "", 1)
+		formTag := fieldType.Tag.Get("form")
 
 		if formTag != "" {
+			tagParts := strings.Split(formTag, ",")
+			formName := tagParts[0]
+			isOptional := len(tagParts) > 1 && tagParts[1] == "optional"
+
 			var formValues []string
 			if isMultipart {
-				formValues = c.Request().MultipartForm.Value[formTag]
+				formValues = c.Request().MultipartForm.Value[formName]
 			} else {
-				formValues = c.Request().Form[formTag]
+				formValues = c.Request().Form[formName]
 			}
 
 			if len(formValues) > 0 {
@@ -135,32 +192,39 @@ func ParseForm(c echo.Context, v any) error {
 					for _, formValue := range formValues {
 						newElem := reflect.New(field.Type().Elem()).Elem()
 						if err := setFieldValue(newElem, formValue); err != nil {
-							return fmt.Errorf("error setting form value %s: %w", formTag, err)
+							return fmt.Errorf("error setting form value %s: %w", formName, err)
 						}
 						slice = reflect.Append(slice, newElem)
 					}
 					field.Set(slice)
 				} else {
 					if err := setFieldValue(field, formValues[0]); err != nil {
-						return fmt.Errorf("error setting form value %s: %w", formTag, err)
+						return fmt.Errorf("error setting form value %s: %w", formName, err)
 					}
 				}
+			} else if !isOptional {
+				return fmt.Errorf("missing required form parameter: %s", formName)
 			}
 		}
-	}
 
-	// Handle file metadata if present
-	if isMultipart {
-		fileHeader, err := c.FormFile("file")
-		if err == nil && fileHeader != nil {
-			if filenameField := val.FieldByName("Filename"); filenameField.IsValid() && filenameField.CanSet() {
-				filenameField.SetString(fileHeader.Filename)
-			}
-			if fileSizeField := val.FieldByName("FileSize"); fileSizeField.IsValid() && fileSizeField.CanSet() {
-				fileSizeField.SetInt(fileHeader.Size)
-			}
-			if contentTypeField := val.FieldByName("ContentType"); contentTypeField.IsValid() && contentTypeField.CanSet() {
-				contentTypeField.SetString(fileHeader.Header.Get("Content-Type"))
+		fileTag := fieldType.Tag.Get("file")
+		if isMultipart && fileTag != "" {
+			tagParts := strings.Split(fileTag, ",")
+			fileName := tagParts[0]
+			isOptional := len(tagParts) > 1 && tagParts[1] == "optional"
+
+			fileHeader, err := c.FormFile(fileName)
+			if err == nil && fileHeader != nil {
+				switch fieldType.Name {
+				case "Filename":
+					field.SetString(fileHeader.Filename)
+				case "FileSize":
+					field.SetInt(fileHeader.Size)
+				case "ContentType":
+					field.SetString(fileHeader.Header.Get("Content-Type"))
+				}
+			} else if !isOptional {
+				return fmt.Errorf("missing required file parameter: %s", fileName)
 			}
 		}
 	}
@@ -168,7 +232,15 @@ func ParseForm(c echo.Context, v any) error {
 	return nil
 }
 
-// ParseHeader parses the request header and returns a map.
+// ParseHeader parses a single header value that contains key-value pairs
+// separated by semicolons and returns them as a map.
+//
+// Parameter:
+//   - headerValue: Raw header string in the format "key1=value1;key2=value2"
+//
+// Returns a map of the parsed key-value pairs.
+// Example input: "token=abc123;expire=3600"
+// Returns: map[string]string{"token": "abc123", "expire": "3600"}
 func ParseHeader(headerValue string) map[string]string {
 	ret := make(map[string]string)
 	fields := strings.Split(headerValue, separator)
@@ -190,7 +262,15 @@ func ParseHeader(headerValue string) map[string]string {
 	return ret
 }
 
-// ParseJsonBody parses the post request which contains json in body.
+// ParseJsonBody decodes JSON data from the request body into the target struct.
+// Only processes the request if Content-Type is application/json.
+//
+// Parameters:
+//   - c: The Echo context containing the HTTP request
+//   - v: A pointer to the struct where JSON data will be decoded
+//
+// The body size is limited to maxBodyLen (8MB) to prevent memory exhaustion.
+// Returns an error if JSON decoding fails.
 func ParseJsonBody(c echo.Context, v any) error {
 	if withJsonBody(c.Request()) {
 		reader := io.LimitReader(c.Request().Body, maxBodyLen)
@@ -200,6 +280,22 @@ func ParseJsonBody(c echo.Context, v any) error {
 	return nil
 }
 
+// ParsePath extracts and parses URL path parameters into the target struct.
+// Path parameters are mapped using the "path" struct tag.
+//
+// Parameters:
+//   - c: The Echo context containing the HTTP request
+//   - v: A pointer to the struct where path values will be stored
+//   - pattern: The URL pattern for parameter extraction
+//
+// Supports both simple and embedded parameters. Fields can be marked as optional:
+//
+//	type PathParams struct {
+//	    ID   string `path:"id"`            // required
+//	    Slug string `path:"slug,optional"` // optional
+//	}
+//
+// Returns an error if parsing fails, a required parameter is missing, or type conversion fails.
 func ParsePath(c echo.Context, v any, pattern string) error {
 	vars, err := extractPathVars(c, pattern)
 	if err != nil {
@@ -212,21 +308,26 @@ func ParsePath(c echo.Context, v any, pattern string) error {
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
 		fieldType := typ.Field(i)
-		// pathTag := fieldType.Tag.Get("path")
-		pathTag := strings.Replace(fieldType.Tag.Get("path"), ",optional", "", 1)
+		pathTag := fieldType.Tag.Get("path")
 
 		if pathTag != "" {
+			tagParts := strings.Split(pathTag, ",")
+			pathName := tagParts[0]
+			isOptional := len(tagParts) > 1 && tagParts[1] == "optional"
+
 			var paramValue string
-			if value, ok := vars[pathTag]; ok {
+			if value, ok := vars[pathName]; ok {
 				paramValue = value
 			} else {
-				paramValue = c.Param(pathTag)
+				paramValue = c.Param(pathName)
 			}
 
 			if paramValue != "" {
 				if err := setFieldValue(field, paramValue); err != nil {
-					return fmt.Errorf("error setting path parameter %s: %w", pathTag, err)
+					return fmt.Errorf("error setting path parameter %s: %w", pathName, err)
 				}
+			} else if !isOptional {
+				return fmt.Errorf("missing required path parameter: %s", pathName)
 			}
 		}
 	}
@@ -234,6 +335,14 @@ func ParsePath(c echo.Context, v any, pattern string) error {
 	return nil
 }
 
+// extractPathVars extracts path variables from the URL based on the given pattern.
+// Handles both regular path parameters and embedded parameters.
+//
+// Parameters:
+//   - c: The Echo context containing the HTTP request
+//   - pattern: The URL pattern to match against
+//
+// Returns a map of parameter names to their values and an error if pattern matching fails.
 func extractPathVars(c echo.Context, pattern string) (map[string]string, error) {
 	vars := map[string]string{}
 	// Extract the named parameters from the path
@@ -288,6 +397,13 @@ func extractPathVars(c echo.Context, pattern string) (map[string]string, error) 
 	return vars, nil
 }
 
+// extractParamNames extracts parameter names from a URL path part that contains
+// embedded parameters.
+//
+// Parameter:
+//   - part: A single segment of a URL path that may contain embedded parameters
+//
+// Returns a slice of parameter names found in the path part.
 func extractParamNames(part string) []string {
 	var paramNames []string
 	for {
@@ -307,6 +423,22 @@ func extractParamNames(part string) []string {
 	return paramNames
 }
 
+// ParseQuery extracts and parses URL query parameters into the target struct.
+// Query parameters are mapped using the "query" struct tag.
+//
+// Parameters:
+//   - c: The Echo context containing the HTTP request
+//   - v: A pointer to the struct where query values will be stored
+//
+// Query fields can be marked as optional using the "optional" tag modifier:
+//
+//	type QueryParams struct {
+//	    Page  int    `query:"page"`           // required
+//	    Size  int    `query:"size,optional"`  // optional
+//	    Sort  string `query:"sort,optional"`  // optional
+//	}
+//
+// Returns an error if a required parameter is missing or if type conversion fails.
 func ParseQuery(c echo.Context, v any) error {
 	queryParams := c.QueryParams()
 	val := reflect.ValueOf(v).Elem()
@@ -336,7 +468,24 @@ func ParseQuery(c echo.Context, v any) error {
 	return nil
 }
 
-// Add support for time.Time in setFieldValue
+// setFieldValue sets a reflected field's value from a string input.
+// Supports multiple types including basic types, time.Time, slices, and maps.
+//
+// Parameters:
+//   - field: The reflected field to set
+//   - value: The string value to parse and set
+//
+// Supported types:
+//   - String
+//   - Int, Int8, Int16, Int32, Int64
+//   - Uint, Uint8, Uint16, Uint32, Uint64
+//   - Float32, Float64
+//   - Bool
+//   - time.Time (RFC3339 format)
+//   - []string (comma-separated values)
+//   - map[string]string (JSON format)
+//
+// Returns an error if type conversion fails or if the field type is unsupported.
 func setFieldValue(field reflect.Value, value string) error {
 	switch field.Kind() {
 	case reflect.String:
@@ -404,13 +553,22 @@ func setFieldValue(field reflect.Value, value string) error {
 	return nil
 }
 
-// SetValidator sets the validator.
-// The validator is used to validate the request, only called in Parse,
-// not in ParseHeaders, ParseForm, ParseHeader, ParseJsonBody, ParsePath.
+// SetValidator configures the validator used for validating parsed data.
+// The validator is only called during the Parse function, not in individual parse functions.
+//
+// Parameter:
+//   - val: Implementation of the Validator interface
 func SetValidator(val Validator) {
 	validator.Store(val)
 }
 
+// withJsonBody checks if the request contains JSON data based on Content-Type
+// and Content-Length headers.
+//
+// Parameter:
+//   - r: The HTTP request to check
+//
+// Returns true if the request contains JSON data.
 func withJsonBody(r *http.Request) bool {
 	return r.ContentLength > 0 && strings.Contains(r.Header.Get("Content-Type"), "application/json")
 }

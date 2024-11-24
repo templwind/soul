@@ -310,11 +310,11 @@ func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec
 
 	i.AddNativeImport("net/http")
 
-	if hasStaticEmbed {
-		// i.AddNativeImport("embed")
-		// i.AddNativeImport("io/fs")
-		i.AddExternalImport("github.com/labstack/echo/v4/middleware")
-	}
+	// if hasStaticEmbed {
+	// i.AddNativeImport("embed")
+	// i.AddNativeImport("io/fs")
+	i.AddExternalImport("github.com/labstack/echo/v4/middleware")
+	// }
 
 	i.AddProjectImport(pathx.JoinPackages(parentPkg, types.ContextDir))
 	if !builder.IsService && len(error404Override) == 0 {

@@ -88,8 +88,10 @@ func buildMenu(entries []ast.MenuEntry) map[string]*MenuEntry {
 
 func linkMenuEntries(entryMap map[string]*MenuEntry) {
 	for _, entry := range entryMap {
-		if parentURL, ok := entryMap[entry.Parent]; ok {
-			parentURL.Children = append(parentURL.Children, *entry)
+		if entry.URL != entry.Parent {
+			if parentURL, ok := entryMap[entry.Parent]; ok {
+				parentURL.Children = append(parentURL.Children, *entry)
+			}
 		}
 	}
 }

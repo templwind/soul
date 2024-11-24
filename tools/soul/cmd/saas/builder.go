@@ -73,7 +73,7 @@ func NewSaaSBuilder(opts ...optFunc[SaaSBuilder]) *SaaSBuilder {
 func defaultProps() *SaaSBuilder {
 	return &SaaSBuilder{
 		IgnoreFiles:    map[string]bool{"handler.go.tpl": true},
-		IgnorePaths:    map[string]bool{"templates/internal/handler/": true},
+		IgnorePaths:    map[string]bool{"app/internal/handler": true},
 		OverwriteFiles: make(map[string]bool),
 		Data:           make(map[string]any),
 		CustomFuncs:    make(map[string]customFunc),
@@ -392,6 +392,14 @@ func (sb *SaaSBuilder) processFiles() error {
 		if sb.shouldIgnore(path) {
 			return nil // Ignore the file if it matches the ignore criteria
 		}
+
+		// if strings.Contains(path, "emailclient") {
+		// 	for ignore := range sb.IgnorePaths {
+		// 		fmt.Println("Ignore", ignore)
+		// 	}
+		// 	fmt.Println("Didn't ignore", path)
+		// 	os.Exit(1)
+		// }
 
 		subdir := strings.TrimPrefix(filepath.Dir(path), "templates")
 		// Replace the "app/" prefix with the ServiceName

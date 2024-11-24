@@ -38,16 +38,20 @@ func buildConfig(builder *SaaSBuilder) error {
 		jwtTransList = append(jwtTransList, fmt.Sprintf("%s %s", item, jwtTransTemplate))
 	}
 
-	builder.Data["imports"] = imports.New(
-		imports.WithImport("embed"),
-		imports.WithImport("sort"),
-		imports.WithSpacer(),
-		imports.WithImport(builder.ServiceName+"/internal/settings"),
-		imports.WithSpacer(),
-		imports.WithImport("github.com/biter777/countries"),
-		imports.WithImport("github.com/templwind/soul/db"),
-		imports.WithImport("github.com/templwind/soul/webserver"),
-	).String()
+	i := imports.New()
+	if !builder.IsService {
+		i.AddNativeImport("embed")
+		i.AddNativeImport("sort")
+		i.AddProjectImport(builder.ServiceName + "/internal/settings")
+		i.AddExternalImport("github.com/biter777/countries")
+		i.AddExternalImport("github.com/templwind/soul/db")
+		i.AddExternalImport("github.com/templwind/soul/webserver")
+	} else {
+		i.AddExternalImport("github.com/templwind/soul/db")
+		i.AddExternalImport("github.com/templwind/soul/webserver")
+	}
+
+	builder.Data["imports"] = i.Build()
 	builder.Data["auth"] = strings.Join(auths, "\n")
 	builder.Data["jwtTrans"] = strings.Join(jwtTransList, "\n")
 

@@ -72,6 +72,7 @@ type (
 		IsStatic           bool
 		IsStaticEmbed      bool
 		IsSocket           bool
+		IsDownload         bool
 		IsPubSub           bool
 		IsSSE              bool
 		IsVideoStream      bool
@@ -272,6 +273,7 @@ func NewMethod(m ast.MethodNode,
 		IsStatic:           m.IsStatic,
 		IsStaticEmbed:      m.IsStaticEmbed,
 		IsSocket:           m.IsSocket,
+		IsDownload:         m.IsDownload,
 		IsPubSub:           m.IsPubSub,
 		SocketNode:         socketNode,
 		PubSubNode:         pubSubNode,

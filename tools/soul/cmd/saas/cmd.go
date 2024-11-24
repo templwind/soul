@@ -39,6 +39,7 @@ func Cmd() *cobra.Command {
 		varExternalDockerNetwork string
 		varIgnoreDBMigrations    bool
 		varIsService             bool
+		varIgnorePaths           []string
 	)
 
 	var cmd = &cobra.Command{
@@ -113,6 +114,14 @@ func Cmd() *cobra.Command {
 				externalDockerNetwork = "" // soul
 			}
 
+			var ignorePaths map[string]bool
+			if len(varIgnorePaths) > 0 {
+				ignorePaths = make(map[string]bool)
+				for _, path := range varIgnorePaths {
+					ignorePaths[path] = true
+				}
+			}
+
 			opts := doGenProjectOptions{
 				siteFile:              siteFile,
 				dir:                   dir,
@@ -122,6 +131,7 @@ func Cmd() *cobra.Command {
 				ignoreDBMigrations:    ignoreDBMigrations,
 				isService:             isService,
 				externalDockerNetwork: externalDockerNetwork,
+				ignorePaths:           ignorePaths,
 			}
 
 			if err := doGenProject(opts); err != nil {
@@ -139,7 +149,8 @@ func Cmd() *cobra.Command {
 	cmd.Flags().StringVarP(&varCGO, "cgo", "c", "", "CGO_ENABLED")
 	cmd.Flags().BoolVarP(&varIgnoreDBMigrations, "migrations", "m", false, "Ignore generating the database migrations and folders")
 	cmd.Flags().BoolVarP(&varIsService, "service", "s", false, "Generate as a service")
-	cmd.Flags().StringVarP(&varExternalDockerNetwork, "network", "n", "soul", "External docker network")
+	cmd.Flags().StringVarP(&varExternalDockerNetwork, "network", "n", "", "External docker network")
+	cmd.Flags().StringSliceVarP(&varIgnorePaths, "ignore", "i", []string{}, "Ignore paths")
 	return cmd
 }
 
@@ -152,6 +163,7 @@ type doGenProjectOptions struct {
 	ignoreDBMigrations    bool
 	isService             bool
 	externalDockerNetwork string
+	ignorePaths           map[string]bool
 }
 
 func doGenProject(opts doGenProjectOptions) error {
@@ -296,10 +308,44 @@ func doGenProject(opts doGenProjectOptions) error {
 		builder.WithIgnoreFile("app/src/api/endpoints.ts")
 		builder.WithIgnoreFile("app/src/api/models.ts")
 		builder.WithCustomFunc(serviceName+"/src/api/models.ts", buildApi)
+
+		// check to see if the models directory exists and has files in it
+		modelsPath := path.Join(opts.dir, serviceName, types.ModelsDir)
+		if entries, err := os.ReadDir(modelsPath); err == nil && len(entries) > 0 {
+			builder.WithIgnorePath("app/internal/models")
+		}
+
+		for ignore := range opts.ignorePaths {
+			builder.WithIgnorePath(path.Join("app", ignore))
+		}
 	} else {
-		builder.WithIgnorePath("app/internal/middleware")
+		// builder.WithIgnorePath("app/internal/middleware")
+		builder.WithIgnoreFiles(
+			"app/internal/middleware/accountguard.go",
+			"app/internal/middleware/authguard.go",
+			"app/internal/middleware/chooseaccountguard.go",
+			"app/internal/middleware/middleware.go",
+			"app/internal/middleware/template.go",
+			"app/internal/middleware/userguard.go",
+		)
+
+		// ignore temporal
+		builder.WithIgnorePath("temporal")
+		builder.WithIgnorePath("app/internal/workflow")
+
+		// ignore types
+		builder.WithIgnoreFiles(
+			"app/internal/types/temportaltopics.go",
+		)
+
+		// ignore the rest of the internal folders
+		builder.WithIgnorePath("app/internal/emailclient")
 		builder.WithIgnorePath("app/internal/tokens")
+		builder.WithIgnorePath("app/internal/security")
 		builder.WithIgnorePath("app/internal/session")
+		builder.WithIgnorePath("app/internal/settings")
+		builder.WithIgnorePath("app/internal/storagemanager")
+		builder.WithIgnorePath("app/internal/ui")
 		builder.WithIgnorePath("app/themes")
 		builder.WithIgnorePath("app/src")
 		builder.WithIgnoreFile("app/package.json")
@@ -309,6 +355,92 @@ func doGenProject(opts doGenProjectOptions) error {
 		builder.WithIgnoreFile("app/tsconfig.node.json")
 		builder.WithIgnoreFile("app/tsconfig.svelte.json")
 		builder.WithIgnoreFile("app/vite.config.ts")
+
+		builder.WithIgnoreFiles(
+			"db/" + opts.db.String() + "/migrations/3_email.sql",
+		)
+
+		// ignore the models we don't need
+		builder.WithIgnoreFiles(
+			"app/internal/models/"+opts.db.String()+"/account.ext.go",
+			"app/internal/models/"+opts.db.String()+"/account.go",
+			"app/internal/models/"+opts.db.String()+"/account.xo.go",
+			"app/internal/models/"+opts.db.String()+"/attachment.ext.go",
+			"app/internal/models/"+opts.db.String()+"/attachment.xo.go",
+			"app/internal/models/"+opts.db.String()+"/auditlog.ext.go",
+			"app/internal/models/"+opts.db.String()+"/auditlog.xo.go",
+			"app/internal/models/"+opts.db.String()+"/bucket.ext.go",
+			"app/internal/models/"+opts.db.String()+"/bucket.xo.go",
+			"app/internal/models/"+opts.db.String()+"/comment.ext.go",
+			"app/internal/models/"+opts.db.String()+"/comment.xo.go",
+			// "app/internal/models/"+opts.db.String()+"/db.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailcampaign.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailcampaign.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailclick.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailclick.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emaillink.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emaillink.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailmetric.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailmetric.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailopen.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailopen.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailrecipient.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailrecipient.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailsend.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailsend.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailsender.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailsender.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailstatus.go",
+			"app/internal/models/"+opts.db.String()+"/emailstatushistory.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailstatushistory.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailtemplate.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailtemplate.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailtype.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailtype.xo.go",
+			"app/internal/models/"+opts.db.String()+"/emailunsubscribe.ext.go",
+			"app/internal/models/"+opts.db.String()+"/emailunsubscribe.xo.go",
+			"app/internal/models/"+opts.db.String()+"/invoice.ext.go",
+			"app/internal/models/"+opts.db.String()+"/invoice.xo.go",
+			"app/internal/models/"+opts.db.String()+"/notification.ext.go",
+			"app/internal/models/"+opts.db.String()+"/notification.xo.go",
+			"app/internal/models/"+opts.db.String()+"/oauthstate.ext.go",
+			"app/internal/models/"+opts.db.String()+"/oauthstate.xo.go",
+			"app/internal/models/"+opts.db.String()+"/paymentattempt.ext.go",
+			"app/internal/models/"+opts.db.String()+"/paymentattempt.xo.go",
+			"app/internal/models/"+opts.db.String()+"/paymentmethod.ext.go",
+			"app/internal/models/"+opts.db.String()+"/paymentmethod.xo.go",
+			"app/internal/models/"+opts.db.String()+"/permission.ext.go",
+			"app/internal/models/"+opts.db.String()+"/permission.xo.go",
+			"app/internal/models/"+opts.db.String()+"/post.ext.go",
+			"app/internal/models/"+opts.db.String()+"/post.xo.go",
+			"app/internal/models/"+opts.db.String()+"/product.ext.go",
+			"app/internal/models/"+opts.db.String()+"/product.xo.go",
+			"app/internal/models/"+opts.db.String()+"/publicid.go",
+			"app/internal/models/"+opts.db.String()+"/review.ext.go",
+			"app/internal/models/"+opts.db.String()+"/review.xo.go",
+			"app/internal/models/"+opts.db.String()+"/role.ext.go",
+			"app/internal/models/"+opts.db.String()+"/role.xo.go",
+			"app/internal/models/"+opts.db.String()+"/rolepermission.ext.go",
+			"app/internal/models/"+opts.db.String()+"/rolepermission.xo.go",
+			"app/internal/models/"+opts.db.String()+"/setting.ext.go",
+			"app/internal/models/"+opts.db.String()+"/setting.xo.go",
+			"app/internal/models/"+opts.db.String()+"/subscription.ext.go",
+			"app/internal/models/"+opts.db.String()+"/subscription.xo.go",
+			"app/internal/models/"+opts.db.String()+"/tag.ext.go",
+			"app/internal/models/"+opts.db.String()+"/tag.xo.go",
+			"app/internal/models/"+opts.db.String()+"/transactions.ext.go",
+			"app/internal/models/"+opts.db.String()+"/user.ext.go",
+			"app/internal/models/"+opts.db.String()+"/user.go",
+			"app/internal/models/"+opts.db.String()+"/user.xo.go",
+			"app/internal/models/"+opts.db.String()+"/useraccount.ext.go",
+			"app/internal/models/"+opts.db.String()+"/useraccount.xo.go",
+			"app/internal/models/"+opts.db.String()+"/userrole.ext.go",
+			"app/internal/models/"+opts.db.String()+"/userrole.xo.go",
+			"app/internal/models/"+opts.db.String()+"/usertype.ext.go",
+			"app/internal/models/"+opts.db.String()+"/usertype.go",
+			"app/internal/models/"+opts.db.String()+"/usertype.xo.go",
+			// "app/internal/models/"+opts.db.String()+"/xid.go",
+		)
 	}
 
 	builder.Execute()
@@ -380,7 +512,7 @@ func doGenProject(opts doGenProjectOptions) error {
 			dir: path.Join(opts.dir, serviceName),
 		},
 		{
-			ignore: false,
+			ignore: opts.isService,
 			args:   []string{"git", "init"},
 			condition: func() bool {
 				// Only run this command if .git directory does not exist

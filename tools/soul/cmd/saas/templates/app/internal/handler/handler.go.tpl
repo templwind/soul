@@ -63,7 +63,8 @@ func addSubscription(topic string) {
 // IsAudioStream:   {{if .IsAudioStream}}true{{else}}false{{end}}  
 // IsFullHTMLPage:  {{if .IsFullHTMLPage}}true{{else}}false{{end}} 
 // NoOutput:        {{if .NoOutput}}true{{else}}false{{end}}   
-// IsPubSub:        {{if .IsPubSub}}true{{else}}false{{end}}       
+// IsPubSub:        {{if .IsPubSub}}true{{else}}false{{end}}     
+// IsDownload:      {{if .IsDownload}}true{{else}}false{{end}}   
 {{ end }}    
 
 {{- if .IsPubSub }}
@@ -81,7 +82,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 	}
 
 	err = svcCtx.PubSubBroker.Subscribe(topic, group, func(msg []byte) ([]byte, error) {
-		var req types.{{.PubSubTopic.RequestType}}
+		var req {{if .HasPointerRequest}}*{{end}}{{if .HasArrayRequest}}[]{{end}}types.{{.PubSubTopic.RequestType}}
 		if err := json.Unmarshal(msg, &req); err != nil {
 			log.Printf("Failed to unmarshal message: %v", err)
 			return nil, err
@@ -169,7 +170,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 
 {{ define "static"}}
 		{{- if .HasRequestType -}}
-		var req types.{{.RequestType}}
+		var req {{if .HasPointerRequest}}*{{end}}{{if .HasArrayRequest}}[]{{end}}types.{{.RequestType}}
 		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
@@ -184,7 +185,11 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		{{end}}
 		{{- if .IsFullHTMLPage}}
 		baseProps := []soul.OptFunc[baseof.Props]{}
+		{{- if .IsDownload}}
+		_, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
+		{{- else}}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
+		{{- end}}
 		{{- end}}
 		if err != nil {
 			c.Logger().Error(err)
@@ -213,6 +218,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			{{- end}}
 		}
 		{{- if .IsFullHTMLPage}}
+		{{- if not .IsDownload}}
 		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
 			return soul.Render(c, http.StatusOK,
 				resp,
@@ -230,10 +236,114 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			{{- end}}
 		)
 		{{- end}}
+		{{ else }}
+		return nil
+		{{- end}}
 {{- end}}
 {{ define "sse" }}
-		return nil
-{{- end}}
+		// Define SSEEvent locally
+		type SSEEvent struct {
+			ID     string      `json:"id"`
+			Status string      `json:"status"`
+			Time   time.Time   `json:"time"`
+			Path   string      `json:"path"`
+			Data   interface{} `json:"data,omitempty"`
+		}
+
+		// Extract user from the session context
+		user := session.UserFromContext(c)
+		if user == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"error": "Unauthorized",
+			})
+		}
+
+		// Set SSE headers
+		c.Response().Header().Set("Content-Type", "text/event-stream")
+		c.Response().Header().Set("Cache-Control", "no-cache")
+		c.Response().Header().Set("Connection", "keep-alive")
+		c.Response().WriteHeader(http.StatusOK)
+
+		// Ensure Flusher is supported
+		flusher, ok := c.Response().Writer.(http.Flusher)
+		if !ok {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+				"error": "Streaming not supported",
+			})
+		}
+
+		// Subscribe client to EventHub using both path and clientID
+		eventChan := svcCtx.EventHub.Subscribe(path, user.ID)
+		defer func() {
+			svcCtx.EventHub.Unsubscribe(path, user.ID)
+			c.Logger().Infof("Client %d unsubscribed from path %s", user.ID, path)
+		}()
+
+		// Send initial connection event
+		initialEvent := SSEEvent{
+			ID:     uuid.New().String(),
+			Status: "connected",
+			Time:   time.Now(),
+			Path:   path,
+		}
+		jsonData, _ := json.Marshal(initialEvent)
+		if _, err := c.Response().Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", jsonData))); err != nil {
+			c.Logger().Errorf("Failed to send initial event for client %d on path %s: %v", user.ID, path, err)
+			return err
+		}
+		flusher.Flush()
+
+		// Mutex for safe writes
+		var writeMutex sync.Mutex
+
+		// Goroutine to handle event sending
+		ctx := c.Request().Context()
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case event := <-eventChan:
+					jsonData, err := json.Marshal(event)
+					if err != nil {
+						c.Logger().Errorf("Failed to marshal event for client %d on path %s: %v", user.ID, path, err)
+						continue
+					}
+
+					writeMutex.Lock()
+					_, err = c.Response().Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", jsonData)))
+					flusher.Flush()
+					writeMutex.Unlock()
+
+					if err != nil {
+						c.Logger().Errorf("Failed to send event for client %d on path %s: %v", user.ID, path, err)
+						return
+					}
+				}
+			}
+		}()
+
+		// Keep connection alive with heartbeats
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				// Client disconnected
+				return nil
+			case <-ticker.C:
+				writeMutex.Lock()
+				if _, err := c.Response().Writer.Write([]byte(": keepalive\n\n")); err != nil {
+					writeMutex.Unlock()
+					c.Logger().Errorf("Failed to send heartbeat for client %d on path %s: %v", user.ID, path, err)
+					return err
+				}
+				flusher.Flush()
+				writeMutex.Unlock()
+			}
+		}
+{{ end }}
 {{ define "video" }}
 		return nil
 {{- end}}
@@ -242,7 +352,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 {{- end}}
 {{ define "json" }}
 		{{- if .HasRequestType -}}
-		var req types.{{.RequestType}}
+		var req {{if .HasPointerRequest}}*{{end}}{{if .HasArrayRequest}}[]{{end}}types.{{.RequestType}}
 		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
@@ -271,7 +381,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 
 {{ define "partial" }}
 		{{- if .HasRequestType -}}
-		var req types.{{.RequestType}}
+		var req {{if .HasPointerRequest}}*{{end}}{{if .HasArrayRequest}}[]{{end}}types.{{.RequestType}}
 		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
@@ -284,7 +394,11 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		{{ template "instance" . }}
 		{{- if .IsFullHTMLPage}}
 		baseProps := []soul.OptFunc[baseof.Props]{}
+		{{- if .IsDownload}}
+		_, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
+		{{- else}}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
+		{{- end}}
 		{{- else}}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
 		{{- end}}
@@ -341,7 +455,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 
 {{ define "fullHTML" }}
 		{{- if .HasRequestType -}}
-		var req types.{{.RequestType}}
+		var req {{if .HasPointerRequest}}*{{end}}{{if .HasArrayRequest}}[]{{end}}types.{{.RequestType}}
 		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
@@ -352,7 +466,11 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 		{{end -}}
 		{{ template "instance" . }}
 		baseProps := []soul.OptFunc[baseof.Props]{}
+		{{- if .IsDownload}}
+		_, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
+		{{- else}}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
+		{{- end}}
 		if err != nil {
 			c.Logger().Error(err)
 			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
@@ -371,7 +489,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 				),
 			)
 		}
-
+		{{- if not .IsDownload}}
 		if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
 			return soul.Render(c, http.StatusOK,
 				resp,
@@ -388,11 +506,14 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 			),
 			{{- end}}
 		)
+		{{ else }}
+		return nil
+		{{- end}}
 {{- end}}
 
 {{ define "default" }}
 		{{- if .HasRequestType -}}
-		var req types.{{.RequestType}}
+		var req {{if .HasPointerRequest}}*{{end}}{{if .HasArrayRequest}}[]{{end}}types.{{.RequestType}}
 		if err := httpx.Parse(c, &req, path); err != nil {
 			c.Logger().Error(err)
 			return soul.Render(c, http.StatusOK,
@@ -480,7 +601,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc 
 				case types.{{.Topic}}:
 					go func() { 
 						{{- if .HasReqType -}}
-						var req types.{{.RequestType}}
+						var req {{if .HasPointerRequest}}*{{end}}{{if .HasArrayRequest}}[]{{end}}types.{{.RequestType}}
 						if err := httpx.Parse(echoCtx, &req, path); err != nil {
 							c.Logger().Error(err)
 						}

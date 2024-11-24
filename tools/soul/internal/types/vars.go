@@ -10,6 +10,7 @@ const (
 	ConfigDir       = Internal + "config"
 	ContextDir      = Internal + "svc"
 	EventsDir       = Internal + "events"
+	EmailClientDir  = Internal + "emailclient"
 	HandlerDir      = Internal + "handler"
 	LayoutsDir      = Internal + "ui/layouts"
 	LogicDir        = Internal + "logic"

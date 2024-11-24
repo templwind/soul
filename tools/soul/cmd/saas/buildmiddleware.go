@@ -19,12 +19,19 @@ func buildMiddleware(builder *SaaSBuilder) error {
 
 	middlewares := util.GetMiddleware(builder.Spec)
 
-	middlewares = append(middlewares, []string{
-		"AccountGuard",
-		"AuthGuard",
-		"UserGuard",
-		"NoCache",
-	}...)
+	// add the default middlewares
+	if !builder.IsService {
+		middlewares = append(middlewares, []string{
+			"AccountGuard",
+			"AuthGuard",
+			"UserGuard",
+			"NoCache",
+		}...)
+	} else {
+		middlewares = append(middlewares, []string{
+			"NoCache",
+		}...)
+	}
 
 	for _, item := range middlewares {
 		noCache := false

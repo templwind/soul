@@ -10,7 +10,9 @@ type Config struct {
 	Nats        NatsConfig
 	Redis       RedisConfig
 	Environment string
+	{{if not .isService}}
 	EmbeddedFS  map[string]embed.FS
+	{{- end}}
 	{{.auth -}}
 	{{.jwtTrans -}}
 	{{if not .isService}}
@@ -35,16 +37,22 @@ type Config struct {
 	Assets           Assets
 	Menus            Menus
 	{{- end}}
+	{{if not .isService}}
 	Pricing          Pricing
+	{{- end}}
 	TotalInstances   int
 	GPT              GPT
+{{if not .isService}}
 	AllowedCountries map[string]bool `yaml:"AllowedCountries"`
 	countryCodeList  map[string]string
+	{{- end}}
 	AWS              AWS
+	{{if not .isService}}
 	DigitalOcean     DigitalOcean
 	Email            Email
 	Stripe           Stripe
 	Settings         settings.Settings
+	{{- end}}
 }
 
 type NatsConfig struct {
@@ -72,13 +80,14 @@ type Anthropic struct {
 	Endpoint       string
 	RequestsPerMin int
 }
-
+{{if not .isService}}
 type Stripe struct {
 	SecretKey      string
 	PublishableKey string
 	WebhookSecret  string
 }
-
+{{end}}
+{{if not .isService}}
 type Email struct {
 	From             string // Sender's email address
 	ReplyTo          string // Address to receive replies, optional but recommended
@@ -94,14 +103,14 @@ type Email struct {
 		SupportEmail string // Support email address
 	}
 }
-
+{{end}}
 type AWS struct {
 	Region          string
 	AccessKeyID     string
 	SecretAccessKey string
 	BucketName      string
 }
-
+{{if not .isService}}
 type DigitalOcean struct {
 	Region          string
 	AccessKeyID     string
@@ -109,7 +118,7 @@ type DigitalOcean struct {
 	BucketName      string
 	Endpoint        string
 }
-
+{{end}}
 {{if not .isService}}
 type Assets struct {
 	Prelaunch struct {
@@ -141,7 +150,7 @@ type GPT struct {
 	TotalRPM       int
 	MaxConcurrency int
 }
-
+{{if not .isService}}
 func (c *Config) GetCountryCodeList() map[string]string {
 	// Initialize countryCodeList
 	c.countryCodeList = make(map[string]string)
@@ -183,7 +192,8 @@ func (c *Config) GetCountryCodeList() map[string]string {
 
 	return c.countryCodeList
 }
-
+{{end}}
+{{if not .isService}}
 // Pricing defines the pricing plans and their features
 type Pricing struct {
 	Plans          []Plan // List of pricing plans
@@ -247,3 +257,4 @@ type Bonus struct {
 	RetailPrice float64 // Retail price of the bonus
 	Description string  // Description of the bonus
 }
+{{end}}

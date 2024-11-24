@@ -136,11 +136,15 @@ func RequestGoTypeName(r spec.Method, pkg ...string) string {
 	}
 
 	req := GolangExpr(r.RequestType, pkg...)
+	// clean up the request type
+	req = strings.TrimPrefix(req, "*")
+	req = strings.TrimPrefix(req, "[]")
+
 	switch r.ResponseType.(type) {
 	case *spec.StructType:
-		if !strings.HasPrefix(req, "*") {
-			return "*" + req
-		}
+		return "*" + req
+	case *spec.ArrayType:
+		return "*[]" + req
 	default:
 		if !strings.HasPrefix(req, "*") {
 			return "*" + req
@@ -156,11 +160,14 @@ func ResponseGoTypeName(r spec.Method, pkg ...string) string {
 	}
 
 	resp := GolangExpr(r.ResponseType, pkg...)
+	resp = strings.TrimPrefix(resp, "*")
+	resp = strings.TrimPrefix(resp, "[]")
+
 	switch r.ResponseType.(type) {
 	case *spec.StructType:
-		if !strings.HasPrefix(resp, "*") {
-			return "*" + resp
-		}
+		return "*" + resp
+	case *spec.ArrayType:
+		return "*[]" + resp
 	}
 
 	return resp
@@ -172,11 +179,13 @@ func TopicRequestGoTypeName(r spec.TopicNode, pkg ...string) string {
 	}
 
 	req := GolangExpr(r.RequestType, pkg...)
+	req = strings.TrimPrefix(req, "*")
+	req = strings.TrimPrefix(req, "[]")
 	switch r.RequestType.(type) {
 	case *spec.StructType:
-		if !strings.HasPrefix(req, "*") {
-			return "*" + req
-		}
+		return "*" + req
+	case *spec.ArrayType:
+		return "*[]" + req
 	}
 
 	return req
@@ -188,11 +197,13 @@ func TopicResponseGoTypeName(r spec.TopicNode, pkg ...string) string {
 	}
 
 	resp := GolangExpr(r.ResponseType, pkg...)
+	resp = strings.TrimPrefix(resp, "*")
+	resp = strings.TrimPrefix(resp, "[]")
 	switch r.ResponseType.(type) {
 	case *spec.StructType:
-		if !strings.HasPrefix(resp, "*") {
-			return "*" + resp
-		}
+		return "*" + resp
+	case *spec.ArrayType:
+		return "*[]" + resp
 	}
 
 	return resp

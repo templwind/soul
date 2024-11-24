@@ -73,6 +73,7 @@ type MethodNode struct {
 	IsStatic           bool
 	IsStaticEmbed      bool
 	IsSocket           bool
+	IsDownload         bool
 	IsSSE              bool
 	IsVideoStream      bool
 	IsAudioStream      bool

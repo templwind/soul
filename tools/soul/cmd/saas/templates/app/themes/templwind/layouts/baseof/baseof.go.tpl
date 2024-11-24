@@ -8,6 +8,8 @@ import (
 )
 
 type Props struct {
+	Config   *config.Config
+	Theme    string
 	Menus    config.Menus
 	LangCode string
 	LTRDir   string
@@ -34,8 +36,22 @@ func WithProps(props ...soul.OptFunc[Props]) *Props {
 
 func defaultProps() *Props {
 	return &Props{
+		Theme:    "light",
 		LangCode: "en",
 		LTRDir:   "ltr",
+	}
+}
+
+
+func WithConfig(config *config.Config) soul.OptFunc[Props] {
+	return func(p *Props) {
+		p.Config = config
+	}
+}
+
+func WithTheme(theme string) soul.OptFunc[Props] {
+	return func(p *Props) {
+		p.Theme = theme
 	}
 }
 

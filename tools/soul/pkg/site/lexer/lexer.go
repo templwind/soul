@@ -178,6 +178,10 @@ func (l *Lexer) tokenizeLine(line string) Token {
 		return Token{Type: AT_PATCH_METHOD, Literal: l.cleanPrefix(line, "patch")}
 	case strings.HasPrefix(line, "sub"):
 		return Token{Type: AT_SUB_TOPIC, Literal: l.cleanPrefix(line, "sub")}
+	case strings.HasPrefix(line, "pub"):
+		return Token{Type: AT_SUB_TOPIC, Literal: l.cleanPrefix(line, "pub")}
+	case strings.HasPrefix(line, "pubsub"):
+		return Token{Type: AT_SUB_TOPIC, Literal: l.cleanPrefix(line, "pubsub")}
 	case strings.HasPrefix(line, "@menus"):
 		return Token{Type: AT_MENUS, Literal: l.cleanPrefix(line, "@menus")}
 	case strings.HasPrefix(line, "@module"):
