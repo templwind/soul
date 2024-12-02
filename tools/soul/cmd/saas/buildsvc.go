@@ -34,8 +34,13 @@ func buildServiceContext(builder *SaaSBuilder) error {
 
 	// append the default middleware
 	middlewares = append(middlewares, "NoCache")
-
+	included := map[string]bool{}
 	for _, item := range middlewares {
+		if included[item] {
+			continue
+		}
+		included[item] = true
+
 		// read from the tpl file to determine
 		// if we have a cfg *config.Config and/or db models.DB
 
@@ -116,6 +121,7 @@ func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 	i.AddExternalImport("github.com/jmoiron/sqlx")
 	i.AddExternalImport("github.com/templwind/soul/db")
 	i.AddExternalImport("github.com/templwind/soul/pubsub")
+	i.AddExternalImport("github.com/templwind/soul/webserver/sse")
 
 	return i.Build()
 

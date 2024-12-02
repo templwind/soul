@@ -81,7 +81,7 @@ pnpm-build:
 .PHONY: build
 build:
 	make templ
-	go build -ldflags "-X main.Environment=production" -o ./{{.serviceName}}/tmp/$(APP_NAME) .
+	go build -ldflags "-X main.Environment=production" -o ./tmp/$(APP_NAME) .
 
 ## staticcheck: run staticcheck
 .PHONY: staticcheck

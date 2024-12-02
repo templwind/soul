@@ -285,7 +285,9 @@ func doGenProject(opts doGenProjectOptions) error {
 	builder.WithCustomFunc(serviceName+"/internal/handler/routes.go", buildRoutes)
 
 	// internal/embeds.go
-	builder.WithCustomFunc(serviceName+"/embeds.go", buildEmbeds)
+	if !builder.IsService {
+		builder.WithCustomFunc(serviceName+"/embeds.go", buildEmbeds)
+	}
 
 	// internal/logic/*.go
 	builder.WithCustomFunc(serviceName+"/internal/logic/logic.go", buildLogic)
@@ -484,6 +486,14 @@ func doGenProject(opts doGenProjectOptions) error {
 					return true
 				}
 				return false
+			},
+			dir: path.Join(opts.dir, serviceName),
+		},
+		{
+			ignore: opts.isService,
+			args:   []string{"make", "templ"},
+			condition: func() bool {
+				return true // Always run this command
 			},
 			dir: path.Join(opts.dir, serviceName),
 		},

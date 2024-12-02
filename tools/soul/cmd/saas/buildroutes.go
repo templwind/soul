@@ -105,12 +105,6 @@ func buildRoutes(builder *SaaSBuilder) error {
 		var hasMethods bool
 		var routesBuilder strings.Builder
 		for _, r := range g.routes {
-
-			if r.isPubSub {
-				isPubSub = true
-			}
-			// fmt.Println("Handler", r.handler)
-
 			if len(r.doc) > 0 {
 				routesBuilder.WriteString(fmt.Sprintf("\n%s\n", util.GetDoc(r.doc)))
 			}
@@ -179,24 +173,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 						Name: fsEmbeddedName,
 					})
 					builder.HasEmbeddedFS = true
-					// fsBuilder.Reset()
 
-					// fsName := util.ToCamel(g.name) + util.ToCamel(r.route) + "FS"
-					// routesBuilder.WriteString(fmt.Sprintf(`%s, err := fs.Sub(svcCtx.Config.EmbeddedFS["%s"], "%s")`, fsName, fsEmbeddedName, strings.TrimPrefix(r.route, "/")))
-					// routesBuilder.WriteString("\n")
-					// routesBuilder.WriteString(`	if err != nil {`)
-					// routesBuilder.WriteString("\n")
-					// routesBuilder.WriteString(fmt.Sprintf(`		server.Logger.Fatal("Failed to create embedded file system for %s:", err)`, r.route))
-					// routesBuilder.WriteString("\n")
-					// routesBuilder.WriteString(`	}`)
-					// routesBuilder.WriteString("\n")
-					// routesBuilder.WriteString(fmt.Sprintf(`	%s.GET("%s/*", echo.WrapHandler(http.StripPrefix("%s", http.FileServer(http.FS(%s)))))`,
-					// 	util.ToCamel(g.name)+"Group",
-					// 	r.staticRouteRewrite,
-					// 	r.route,
-					// 	fsName,
-					// ))
-					// routesBuilder.WriteString("\n")
 					routesBuilder.WriteString(fmt.Sprintf(
 						`	%s.StaticFS("", svcCtx.Config.EmbeddedFS["%s"])`,
 						staticGroupName,
@@ -214,7 +191,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 				// routesBuilder.WriteString(fmt.Sprintf(`	%s.Use(middleware.AddTrailingSlash())`, staticGroupName))
 				// routesBuilder.WriteString("\n")
 
-			} else if isPubSub {
+			} else if r.isPubSub {
 				hasMethods = true
 				routesBuilder.WriteString(fmt.Sprintf(
 					`%s

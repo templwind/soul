@@ -23,6 +23,7 @@ type Topic struct {
 
 type MethodConfig struct {
 	spec.Method
+	MethodRawName      string
 	Get                bool
 	Post               bool
 	Put                bool
@@ -46,6 +47,9 @@ type MethodConfig struct {
 	ReturnString       string
 	ResponseString     string
 	ReturnsPartial     bool
+	ReturnsFullHTML    bool
+	ReturnsPlainText   bool
+	ReturnsNoOutput    bool
 	HandlerName        string
 	HasDoc             bool
 	Doc                string

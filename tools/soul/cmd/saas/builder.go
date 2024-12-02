@@ -284,6 +284,7 @@ func (sb *SaaSBuilder) genFile(c fileGenConfig) error {
 
 	err = t.Execute(buffer, c.data)
 	if err != nil {
+		fmt.Println("Error executing template", c.templateFile, err)
 		return err
 	}
 

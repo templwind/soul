@@ -164,3 +164,29 @@ func notIn(subject string, list ...string) bool {
 
 	return true
 }
+
+// Converts a path into a name
+func pathToName(method, path string) string {
+	// Split the path into segments
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	var nameParts []string
+
+	for i := 0; i < len(segments); i++ {
+		segment := segments[i]
+		if strings.HasPrefix(segment, ":") {
+			// Handle case where the path starts with a parameter (e.g., /:id)
+			if len(nameParts) == 0 {
+				nameParts = append(nameParts, "By"+util.ToPascal(segment[1:]))
+			} else {
+				// Parameter belongs to the preceding segment
+				nameParts[len(nameParts)-1] += "By" + util.ToPascal(segment[1:])
+			}
+		} else {
+			// Convert regular segments to PascalCase
+			nameParts = append(nameParts, util.ToPascal(segment))
+		}
+	}
+
+	// Combine method with processed segments
+	return strings.ToLower(method) + strings.Join(nameParts, "")
+}

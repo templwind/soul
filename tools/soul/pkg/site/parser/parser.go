@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -218,12 +219,16 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 		method.Method = "GET"
 	case lexer.AT_POST_METHOD:
 		method.Method = "POST"
+		method.NoOutput = true
 	case lexer.AT_PUT_METHOD:
 		method.Method = "PUT"
+		method.NoOutput = true
 	case lexer.AT_DELETE_METHOD:
 		method.Method = "DELETE"
+		method.NoOutput = true
 	case lexer.AT_PATCH_METHOD:
 		method.Method = "PATCH"
+		method.NoOutput = true
 	case lexer.AT_SUB_TOPIC:
 		method.Method = "SUB"
 		method.IsPubSub = true
@@ -252,6 +257,7 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 		return strings.NewReplacer("(", "", ")", "").Replace(part)
 	}
 
+	// partCount := len(parts)
 	for _, part := range parts {
 		if state == "modifier" {
 			state = "route"
@@ -350,9 +356,26 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 				method.ReturnsJson = true
 				method.HasResponseType = true
 				method.ResponseType = p.parseType(method.Response) // Use parseType here
+				method.NoOutput = false
 			}
 			if strings.Contains(part, "partial") {
+				// if method.Method == "DELETE" {
+				// 	fmt.Println("Error: Partial returns can only be used with GET, POST and PUT methods")
+				// 	os.Exit(0)
+				// }
+				method.NoOutput = false
 				method.ReturnsPartial = true
+			}
+			if strings.Contains(part, "plain") || strings.Contains(part, "text") || strings.Contains(part, "plaintext") {
+				method.NoOutput = false
+				method.ReturnsPlainText = true
+			}
+
+			if method.Method == "GET" && strings.Contains(part, "204") {
+				fmt.Println("Error: GET methods cannot return a 204 No Content status code")
+				os.Exit(0)
+			} else if strings.Contains(part, "204") {
+				method.NoOutput = true
 			}
 		}
 	}
@@ -365,31 +388,41 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 		p.parseSubTopic(method)
 	}
 
-	if method.Method == "GET" &&
-		(!method.IsSocket &&
-			!method.IsSSE &&
-			!method.IsVideoStream &&
-			!method.IsAudioStream &&
-			!method.ReturnsJson &&
-			!method.IsPubSub) {
-		method.IsFullHTMLPage = true
-	}
+	// if (method.Method == "GET" ||
+	// 	method.Method == "POST") &&
+	// 	(!method.IsSocket &&
+	// 		!method.IsSSE &&
+	// 		!method.IsVideoStream &&
+	// 		!method.IsAudioStream &&
+	// 		!method.ReturnsJson &&
+	// 		!method.IsPubSub &&
+	// 		!method.ReturnsPlainText) {
+	// 	method.NoOutput = false
+	// 	method.IsFullHTMLPage = true
+	// }
 
 	if method.Method == "GET" &&
-		method.ReturnsPartial {
-		method.IsFullHTMLPage = true
-	}
-
-	if !method.IsFullHTMLPage &&
 		!method.ReturnsPartial &&
 		!method.ReturnsJson &&
+		!method.ReturnsPlainText &&
 		!method.IsSocket &&
 		!method.IsPubSub &&
 		!method.IsSSE &&
 		!method.IsVideoStream &&
 		!method.IsAudioStream {
-		method.NoOutput = true
+		method.IsFullHTMLPage = true
 	}
+
+	// if !method.IsFullHTMLPage &&
+	// 	!method.ReturnsPartial &&
+	// 	!method.ReturnsJson &&
+	// 	!method.IsSocket &&
+	// 	!method.IsPubSub &&
+	// 	!method.IsSSE &&
+	// 	!method.IsVideoStream &&
+	// 	!method.IsAudioStream {
+	// 	method.NoOutput = true
+	// }
 }
 
 // func (p *Parser) parseMethod(method *ast.MethodNode) {

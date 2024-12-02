@@ -22,6 +22,7 @@ type ServiceContext struct {
 	{{end -}}
 	JobManager         *jobs.JobManager
 	PubSubBroker       pubsub.Broker
+	EventHub          *sse.EventHub
 }
 
 func NewServiceContext(c *{{.config}}) *ServiceContext {
@@ -78,6 +79,7 @@ func NewServiceContext(c *{{.config}}) *ServiceContext {
 		{{end -}}
 		JobManager:     jobManager,
 		PubSubBroker:   pubsub.MustNewNATSBroker(c.Nats.URL, c.Redis.URL),
+		EventHub:       sse.NewEventHub(),
 	}
 }
 

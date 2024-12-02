@@ -68,6 +68,7 @@ type (
 		HasResponseType    bool
 		HasPage            bool
 		ReturnsPartial     bool
+		ReturnsPlainText   bool
 		ReturnsJson        bool
 		IsStatic           bool
 		IsStaticEmbed      bool
@@ -278,6 +279,7 @@ func NewMethod(m ast.MethodNode,
 		SocketNode:         socketNode,
 		PubSubNode:         pubSubNode,
 		ReturnsPartial:     m.ReturnsPartial,
+		ReturnsPlainText:   m.ReturnsPlainText,
 		HasRequestType:     m.HasRequestType,
 		HasResponseType:    m.HasResponseType,
 		HasPage:            m.HasPage,

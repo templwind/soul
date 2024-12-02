@@ -69,6 +69,7 @@ type MethodNode struct {
 	HasResponseType    bool
 	HasPage            bool
 	ReturnsPartial     bool
+	ReturnsPlainText   bool
 	ReturnsJson        bool
 	IsStatic           bool
 	IsStaticEmbed      bool
