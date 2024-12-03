@@ -358,6 +358,11 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 				method.ResponseType = p.parseType(method.Response) // Use parseType here
 				method.NoOutput = false
 			}
+			if strings.Contains(part, "redirect") {
+				method.NoOutput = false
+				method.ReturnsRedirect = true
+				state = "redirectURL"
+			}
 			if strings.Contains(part, "partial") {
 				// if method.Method == "DELETE" {
 				// 	fmt.Println("Error: Partial returns can only be used with GET, POST and PUT methods")
@@ -378,6 +383,21 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 				method.NoOutput = true
 			}
 		}
+
+		if state == "redirectURL" {
+			part = strings.TrimSpace(strings.TrimPrefix(part, "redirect"))
+			if strings.TrimSpace(part) == "" {
+				continue
+			}
+			state = "final"
+			// get the redirect url
+			redirectParts := strings.Fields(part)
+			if len(redirectParts) > 0 {
+				method.RedirectURL = redirectParts[0]
+			}
+
+			// fmt.Printf("REDIRECT PART:  %v %s\n", redirectParts, method.RedirectURL)
+		}
 	}
 
 	if method.IsSocket {
@@ -387,19 +407,6 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 	if method.IsPubSub {
 		p.parseSubTopic(method)
 	}
-
-	// if (method.Method == "GET" ||
-	// 	method.Method == "POST") &&
-	// 	(!method.IsSocket &&
-	// 		!method.IsSSE &&
-	// 		!method.IsVideoStream &&
-	// 		!method.IsAudioStream &&
-	// 		!method.ReturnsJson &&
-	// 		!method.IsPubSub &&
-	// 		!method.ReturnsPlainText) {
-	// 	method.NoOutput = false
-	// 	method.IsFullHTMLPage = true
-	// }
 
 	if method.Method == "GET" &&
 		!method.ReturnsPartial &&
@@ -412,224 +419,7 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 		!method.IsAudioStream {
 		method.IsFullHTMLPage = true
 	}
-
-	// if !method.IsFullHTMLPage &&
-	// 	!method.ReturnsPartial &&
-	// 	!method.ReturnsJson &&
-	// 	!method.IsSocket &&
-	// 	!method.IsPubSub &&
-	// 	!method.IsSSE &&
-	// 	!method.IsVideoStream &&
-	// 	!method.IsAudioStream {
-	// 	method.NoOutput = true
-	// }
 }
-
-// func (p *Parser) parseMethod(method *ast.MethodNode) {
-// 	// fmt.Println("METHOD", p.curToken.Literal, p.curToken.Type)
-// 	switch p.curToken.Type {
-// 	case lexer.AT_GET_METHOD:
-// 		method.Method = "GET"
-// 	case lexer.AT_POST_METHOD:
-// 		method.Method = "POST"
-// 	case lexer.AT_PUT_METHOD:
-// 		method.Method = "PUT"
-// 	case lexer.AT_DELETE_METHOD:
-// 		method.Method = "DELETE"
-// 	case lexer.AT_PATCH_METHOD:
-// 		method.Method = "PATCH"
-// 	case lexer.AT_SUB_TOPIC:
-// 		method.Method = "SUB"
-// 		method.IsPubSub = true
-// 	default:
-// 		return
-// 	}
-
-// 	literal := strings.Replace(p.curToken.Literal, "(", " (", -1)
-// 	parts := strings.Fields(literal)
-// 	// fmt.Println("PARTS", parts)
-
-// 	state := "modifier"
-// 	method.BaseNode = ast.NewBaseNode(ast.NodeTypeMethod, method.Method)
-
-// 	isModifier := func(part string) bool {
-// 		return strings.EqualFold(part, "static") ||
-// 			strings.EqualFold(part, "static-embed") ||
-// 			strings.EqualFold(part, "socket") ||
-// 			strings.EqualFold(part, "sse") ||
-// 			strings.EqualFold(part, "video") ||
-// 			strings.EqualFold(part, "audio") ||
-// 			strings.EqualFold(part, "file") ||
-// 			strings.EqualFold(part, "download")
-// 	}
-
-// 	cleanType := func(part string) string {
-// 		return strings.NewReplacer("(", "", ")", "").Replace(part)
-// 	}
-
-// 	for _, part := range parts {
-// 		if state == "modifier" {
-// 			state = "route"
-// 			part := strings.ToLower(part)
-// 			if isModifier(part) {
-// 				switch part {
-// 				case "static", "static-embed":
-// 					if method.Method == "GET" {
-// 						method.IsStatic = true
-// 						if strings.EqualFold(part, "static-embed") {
-// 							method.IsStaticEmbed = true
-// 						}
-// 						// Remove the base path portion to isolate potential rewrite paths
-// 						paths := strings.TrimSpace(strings.Replace(p.curToken.Literal, part, "", 1))
-// 						// Split into path segments to check if a rewrite path exists
-// 						pathSegments := strings.Fields(paths)
-// 						if len(pathSegments) > 1 {
-// 							// If a rewrite path exists, set StaticPathRewrite with the second path onward
-// 							method.StaticRouteRewrite = strings.TrimSpace(pathSegments[1])
-// 						}
-
-// 						continue
-// 					} else {
-// 						panic("Static paths (get static /path) can only be used with a GET method")
-// 					}
-// 				case "socket":
-// 					if method.Method == "GET" {
-// 						method.IsSocket = true
-// 						continue
-// 					} else {
-// 						panic("Socket paths (get socket /path) can only be used with a GET method")
-// 					}
-// 				case "sse":
-// 					if method.Method == "GET" || method.Method == "POST" {
-// 						method.IsSSE = true
-// 						continue
-// 					} else {
-// 						panic("SSE paths (get|post sse /path) can only be used with GET or POST methods")
-// 					}
-
-// 				case "video":
-// 					if method.Method == "GET" {
-// 						method.IsVideoStream = true
-// 						continue
-// 					} else {
-// 						panic("Video paths (get video /path) can only be used with a GET method")
-// 					}
-// 				case "audio":
-// 					if method.Method == "GET" {
-// 						method.IsAudioStream = true
-// 						continue
-// 					} else {
-// 						panic("Audio paths (get audio /path) can only be used with a GET method")
-// 					}
-// 				case "file":
-// 					if method.Method == "POST" {
-// 						method.IsUploadFile = true
-// 						continue
-// 					} else {
-// 						panic("File paths (post file /path) can only be used with a POST method")
-// 					}
-// 				case "download":
-// 					if method.Method == "GET" {
-// 						method.IsDownload = true
-// 						continue
-// 					} else {
-// 						panic("Download paths (get download /path) can only be used with a GET method")
-// 					}
-// 				}
-// 			}
-// 		}
-
-// 		if state == "route" {
-// 			state = "requestObject"
-// 			method.Route = part
-// 			continue
-// 		}
-
-// 		if state == "requestObject" {
-// 			state = "responseObject"
-// 			if strings.Contains(part, "(") {
-
-// 				if strings.Contains(part, "()") || strings.EqualFold(part, "returns") {
-// 					continue
-// 				} else {
-// 					method.Request = cleanType(part)
-// 					method.HasRequestType = true
-// 					if strings.Contains(method.Request, "[]") {
-// 						method.RequestType = spec.NewArrayType(
-// 							spec.NewStructType(strings.TrimSpace(strings.Replace(method.Request, "[]", "", -1)), nil, nil, nil),
-// 						)
-// 					} else {
-// 						method.RequestType = spec.NewStructType(strings.TrimSpace(strings.Replace(method.Request, "[]", "", -1)), nil, nil, nil)
-// 					}
-// 					state = "responseObject"
-// 				}
-// 			}
-// 			continue
-// 		}
-
-// 		if state == "responseObject" {
-// 			if strings.EqualFold(part, "returns") {
-// 				state = "responseObject"
-// 				continue
-// 			}
-// 			if strings.Contains(part, "(") {
-// 				method.Response = cleanType(part)
-// 				method.ReturnsJson = true
-// 				method.HasResponseType = true
-// 				if strings.Contains(method.Response, "[]") {
-// 					method.ResponseType = spec.NewArrayType(
-// 						spec.NewStructType(strings.TrimSpace(strings.Replace(method.Response, "[]", "", -1)), nil, nil, nil),
-// 					)
-// 				} else {
-// 					method.ResponseType = spec.NewStructType(strings.TrimSpace(strings.Replace(method.Response, "[]", "", -1)), nil, nil, nil)
-// 				}
-// 			}
-// 			if strings.Contains(part, "partial") {
-// 				method.ReturnsPartial = true
-// 			}
-// 		}
-// 	}
-
-// 	// if the method has a socket modifier
-// 	if method.IsSocket {
-// 		p.parseSocketMethod(method)
-// 	}
-
-// 	if method.IsPubSub {
-// 		p.parseSubTopic(method)
-// 	}
-
-// 	if method.Method == "GET" &&
-// 		(!method.IsSocket &&
-// 			!method.IsSSE &&
-// 			!method.IsVideoStream &&
-// 			!method.IsAudioStream &&
-// 			!method.ReturnsJson &&
-// 			!method.IsPubSub) {
-// 		method.IsFullHTMLPage = true
-// 	}
-
-// 	// allow the method to be a full html page if it returns partial
-// 	// this enables refreshes of the page
-// 	if method.Method == "GET" &&
-// 		method.ReturnsPartial {
-// 		method.IsFullHTMLPage = true
-// 	}
-
-// 	if !method.IsFullHTMLPage &&
-// 		!method.ReturnsPartial &&
-// 		!method.ReturnsJson &&
-// 		!method.IsSocket &&
-// 		!method.IsPubSub &&
-// 		!method.IsSSE &&
-// 		!method.IsVideoStream &&
-// 		!method.IsAudioStream {
-// 		method.NoOutput = true
-// 	}
-
-// 	// json, _ := json.MarshalIndent(method, "", "  ")
-// 	// fmt.Println(string(json))
-// }
 
 func (p *Parser) parseType(typeStr string) interface{} {
 	typeStr = strings.TrimSpace(typeStr)

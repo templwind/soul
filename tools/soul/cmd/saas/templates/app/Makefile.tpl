@@ -1,7 +1,7 @@
 # Load environment variables from .env file
-ifneq (,$(wildcard .env))
-	include .env
-	export $(shell sed 's/=.*//' .env)
+ifneq (,$(wildcard ../.env))
+	include ../.env
+	export $(shell sed 's/=.*//' ../.env)
 endif
 
 # Dynamic variables
@@ -96,15 +96,16 @@ gen:
 ## xo: generate models from database
 .PHONY: xo
 xo:
-	@mkdir -p ./{{.serviceName}}/internal/models
+	@mkdir -p ./internal/models
 	@xo schema \
-		'file:${DSN}??loc=auto' \
-		--go-field-tag='json:"{{ "{{" }} .SQLName {{ "}}" }}" db:"{{ "{{" }} .SQLName {{ "}}" }}" form:"{{ "{{" }} .SQLName {{ "}}" }}"' \
+		"postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_DEV_HOST}:${POSTGRES_DEV_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}" \
+		--go-field-tag='json:"{{ "{{ .SQLName }}" }}" db:"{{ "{{ .SQLName }}" }}" form:"{{ "{{ .SQLName }}" }}"' \
 		--include=$(XO_INCLUDES) \
-		-o ./{{.serviceName}}//internal/models \
-		-k field
+		-o ./internal/models \
+		-k field \
+		--go-esc=all 
 
-	@soul parsexo -i ./{{.serviceName}}/internal/models -o ./{{.serviceName}}/internal/models -b {{.serviceName}}/{{.serviceName}}/internal
+	@soul parsexo -i ./internal/models -o ./internal/models -b {{.serviceName}}/internal
 	@go mod tidy
 
 ## backup-db: Backup the SQLite database

@@ -71,6 +71,8 @@ type MethodNode struct {
 	ReturnsPartial     bool
 	ReturnsPlainText   bool
 	ReturnsJson        bool
+	ReturnsRedirect    bool
+	RedirectURL        string
 	IsStatic           bool
 	IsStaticEmbed      bool
 	IsSocket           bool

@@ -177,21 +177,21 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 		}
 
 		uniqueMethods = append(uniqueMethods, handlerName)
-		// var logicFunc string
-		// if !method.IsPubSub {
-		// 	logicFunc = util.ToPascal(getHandlerName(handler, &method))
-		// } else {
-		// 	logicFunc = util.ToPascal(method.PubSubNode.Route)
-		// }
-		// logicFunc = strings.TrimSuffix(logicFunc, "Handler")
-
 		var logicFunc string
 		if !method.IsPubSub {
-			logicFunc = util.ToPascal(pathToName(method.Method, method.Route))
+			logicFunc = util.ToPascal(getHandlerName(handler, &method))
 		} else {
 			logicFunc = util.ToPascal(method.PubSubNode.Route)
 		}
 		logicFunc = strings.TrimSuffix(logicFunc, "Handler")
+
+		// var logicFunc string
+		// if !method.IsPubSub {
+		// 	logicFunc = util.ToPascal(pathToName(method.Method, method.Route))
+		// } else {
+		// 	logicFunc = util.ToPascal(method.PubSubNode.Route)
+		// }
+		// logicFunc = strings.TrimSuffix(logicFunc, "Handler")
 
 		// fmt.Println("method:", method.Method, method.Route)
 
@@ -316,6 +316,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 			TopicsFromServer:   topicsFromServer,
 			ReturnsPartial:     method.ReturnsPartial,
 			ReturnsPlainText:   method.ReturnsPlainText,
+			ReturnsRedirect:    method.ReturnsRedirect,
 			AssetGroup:         assetGroup,
 			RequiresSocket:     NewRequiresSocket,
 			IsPubSub:           method.IsPubSub,

@@ -1,10 +1,16 @@
 package {{.pkgName}}
 
 {{ if .hasProps }}
-templ {{.templName}}View(props *{{.templName}}Props) {
-	<div>
-		<h1>{{.pageTitle}}</h1>
-	</div>
+import "goshare/internal/ui/components/page"
+
+templ {{.templName}}View(props *Props) {
+	@page.New(
+		page.WithTitle(props.PageTitle),
+	) {
+		<div>
+			page content
+		</div>
+	}
 }
 {{ else }}
 templ {{.templName}}View() {

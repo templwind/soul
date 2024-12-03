@@ -37,6 +37,7 @@ import (
 	// ReturnsJson:      {{if .ReturnsJson}}true{{else}}false{{end}}    
 	// ReturnsPlainText: {{if .ReturnsPlainText}}true{{else}}false{{end}}
 	// ReturnsNoOutput:  {{if .ReturnsNoOutput}}true{{else}}false{{end}}   
+	// ReturnsRedirect:  {{if .ReturnsRedirect}}true{{else}}false{{end}}
 	// IsStatic:         {{if .IsStatic}}true{{else}}false{{end}}       
 	// IsSocket:         {{if .IsSocket}}true{{else}}false{{end}}       
 	// IsSSE:            {{if .IsSSE}}true{{else}}false{{end}}          
@@ -225,22 +226,20 @@ Response Block
 {{ define "response-block" }}
 	{{- if .HasResponseType }}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
-	{{- end -}}
-	{{- if .IsFullHTMLPage }}
+	{{- else if .IsFullHTMLPage }}
 		baseProps := []soul.OptFunc[baseof.Props]{}
 		{{- if .IsDownload }}
 		_, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
 		{{- else }}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}}, &baseProps)
 		{{- end -}}
-	{{- end }}
-	{{- if .ReturnsPartial }}
+	{{- else if .ReturnsPartial }}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
-	{{- end }}
-	{{- if .ReturnsPlainText -}}
+	{{- else if .ReturnsRedirect }}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
-	{{- end }}
-	{{- if .ReturnsNoOutput -}}
+	{{- else if .ReturnsPlainText }}
+		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
+	{{- else if .ReturnsNoOutput }}
 		err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
 	{{- end }}
 {{ end }}
@@ -308,7 +307,7 @@ Full HTML Page
 --------------------------------
 */}}
 {{ define "html-response-block" }}
-	{{- if or .IsFullHTMLPage .ReturnsPartial }}
+	{{- if or .IsFullHTMLPage .ReturnsPartial .ReturnsRedirect }}
 		{{- template "response-block" . -}}
 		if err != nil {
 			{{- template "error-response-block" . -}}
@@ -319,11 +318,11 @@ Full HTML Page
 					resp,
 				)
 			}
-			{{ if .ReturnsPartial }}
+			{{- if or .ReturnsPartial .ReturnsRedirect }}
 			return soul.Render(c, http.StatusOK,
 				resp,
 			)
-			{{ else }}
+			{{- else }}
 			return soul.Render(c, http.StatusOK,
 				{{- if .HasBaseProps}}
 				baseof.New(
@@ -335,12 +334,12 @@ Full HTML Page
 				),
 				{{- end}}
 			)
-			{{ end }}
+			{{- end }}
 		{{- else }}
 			return nil
-		{{- end}}
+		{{- end }}
 	{{- end }}
-{{ end }}
+{{- end }}
 
 {{/*
 --------------------------------

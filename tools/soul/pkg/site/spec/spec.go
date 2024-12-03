@@ -70,6 +70,8 @@ type (
 		ReturnsPartial     bool
 		ReturnsPlainText   bool
 		ReturnsJson        bool
+		ReturnsRedirect    bool
+		RedirectURL        string
 		IsStatic           bool
 		IsStaticEmbed      bool
 		IsSocket           bool
@@ -280,10 +282,12 @@ func NewMethod(m ast.MethodNode,
 		PubSubNode:         pubSubNode,
 		ReturnsPartial:     m.ReturnsPartial,
 		ReturnsPlainText:   m.ReturnsPlainText,
+		ReturnsJson:        m.ReturnsJson,
+		ReturnsRedirect:    m.ReturnsRedirect,
+		RedirectURL:        m.RedirectURL,
 		HasRequestType:     m.HasRequestType,
 		HasResponseType:    m.HasResponseType,
 		HasPage:            m.HasPage,
-		ReturnsJson:        m.ReturnsJson,
 		IsSSE:              m.IsSSE,
 		IsVideoStream:      m.IsVideoStream,
 		IsAudioStream:      m.IsAudioStream,

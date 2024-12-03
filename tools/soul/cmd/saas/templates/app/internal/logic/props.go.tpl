@@ -5,38 +5,70 @@ import (
 )
 
 // Props defines the options for the AppBar component
-type {{.templName}}Props struct {
+type Props struct {
+	Component func(*Props) templ.Component
 	Request   *http.Request
 	Config    *config.Config
+	PageTitle string
 }
 
 // New creates a new component
-func (p *{{.templName}}Props) New(opts ...soul.OptFunc[{{.templName}}Props]) templ.Component {
-	return soul.New(p.defaultProps, {{.templName}}View, opts...)
+func New(opts ...soul.OptFunc[Props]) templ.Component {
+	// Construct the Props with the given options
+	props := soul.WithProps(defaultProps, opts...)
+
+	// Enforce that a Component function is provided
+	if props.Component == nil {
+		panic("no Component function provided to New function")
+	}
+
+	// Use the Component function to generate the templ.Component
+	return props.Component(props)
 }
 
 // NewWithProps creates a new component with the given options
-func (p *{{.templName}}Props) NewWithProps(opt *{{.templName}}Props) templ.Component {
-	return soul.NewWithProps({{.templName}}View, opt)
+func NewWithProps(opt *Props) templ.Component {
+	// Use the Component provided in the Props
+	if opt.Component == nil {
+		panic("no Component provided to NewWithProps function")
+	}
+	return opt.Component(opt)
 }
 
 // WithProps builds the options with the given options
-func (p *{{.templName}}Props) WithProps(opts ...soul.OptFunc[{{.templName}}Props]) *{{.templName}}Props {
-	return soul.WithProps(p.defaultProps, opts...)
+func WithProps(opts ...soul.OptFunc[Props]) *Props {
+	return soul.WithProps(defaultProps, opts...)
 }
 
-func (p *{{.templName}}Props) defaultProps() *{{.templName}}Props {
-	return &{{.templName}}Props{}
+// defaultProps returns the default props
+func defaultProps() *Props {
+	return &Props{}
 }
 
-func (p *{{.templName}}Props) WithRequest(r *http.Request) soul.OptFunc[{{.templName}}Props] {
-	return func(p *{{.templName}}Props) {
+// Option function to set the Component
+func WithComponent(c func(*Props) templ.Component) soul.OptFunc[Props] {
+	return func(p *Props) {
+		p.Component = c
+	}
+}
+
+// Option function to set the Request
+func WithRequest(r *http.Request) soul.OptFunc[Props] {
+	return func(p *Props) {
 		p.Request = r
 	}
 }
 
-func (p *{{.templName}}Props) WithConfig(c *config.Config) soul.OptFunc[{{.templName}}Props] {
-	return func(p *{{.templName}}Props) {
+// Option function to set the PageTitle
+func WithPageTitle(t string) soul.OptFunc[Props] {
+	return func(p *Props) {
+		p.PageTitle = t
+	}
+}
+
+// Option function to set the Config
+func WithConfig(c *config.Config) soul.OptFunc[Props] {
+	return func(p *Props) {
 		p.Config = c
 	}
 }

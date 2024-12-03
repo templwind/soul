@@ -70,7 +70,7 @@ func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasS
 	{{- if not .IsSocket }}
 	func (l *{{.LogicType}}) {{.LogicFunc}}({{.Request}}) {{.ResponseType}} {
 		// todo: add your logic here and delete this line
-
+		
 		{{- if .HasBaseProps}}
 		// todo: uncomment to add your base template properties
 		// note: updated your template include path to use the correct theme

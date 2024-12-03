@@ -50,6 +50,8 @@ type MethodConfig struct {
 	ReturnsFullHTML    bool
 	ReturnsPlainText   bool
 	ReturnsNoOutput    bool
+	ReturnsRedirect    bool
+	RedirectURL        string
 	HandlerName        string
 	HasDoc             bool
 	Doc                string
