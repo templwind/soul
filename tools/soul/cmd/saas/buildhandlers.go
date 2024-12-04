@@ -471,6 +471,7 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 				i.AddExternalImport("github.com/templwind/soul")
 				i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
 				i.AddExternalImport("github.com/templwind/soul/htmx")
+				continue
 			}
 
 			// full html page

@@ -17,7 +17,7 @@ import (
 		{{.Doc}}
 	{{end}}
 
-	{{if false }}
+	{{if true }}
 	// Detailed Review Against Standards
 
 	// | **Method** | **Query Params** | **Request Body**           | **Common Response Types**                      | **Standards/Notes**                                                                   |
@@ -312,16 +312,15 @@ Full HTML Page
 		if err != nil {
 			{{- template "error-response-block" . -}}
 		}
+		if resp != nil {
 		{{- if not .IsDownload }}
 			if htmx.IsHtmxRequest(c.Request()) && !htmx.IsHtmxBoosted(c.Request()) && !htmx.IsHtmxHistoryRestoreRequest(c.Request()) {
 				return soul.Render(c, http.StatusOK,
 					resp,
 				)
 			}
-			{{- if or .ReturnsPartial .ReturnsRedirect }}
-			return soul.Render(c, http.StatusOK,
-				resp,
-			)
+			{{- if or .ReturnsPartial }}
+			return soul.Render(c, http.StatusOK, resp)
 			{{- else }}
 			return soul.Render(c, http.StatusOK,
 				{{- if .HasBaseProps}}
@@ -330,13 +329,13 @@ Full HTML Page
 				),
 				{{- else}}
 				baseof.New(
-					pageLayout.Layout(svcCtx, resp)...,
+					pageLayout.Layout(c, svcCtx, resp)...,
 				),
 				{{- end}}
 			)
 			{{- end }}
-		{{- else }}
-			return nil
+		}
+		return nil
 		{{- end }}
 	{{- end }}
 {{- end }}
