@@ -432,6 +432,7 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 
 			if method.IsSocket {
 				i.AddProjectImport(path.Join(moduleName, types.TypesDir))
+				i.AddProjectImport(path.Join(moduleName, types.SessionDir))
 				for _, topic := range method.SocketNode.Topics {
 					if topic.RequestType != nil && len(topic.RequestType.GetName()) > 0 && topic.InitiatedByClient {
 						i.AddExternalImport("github.com/templwind/soul/webserver/httpx")

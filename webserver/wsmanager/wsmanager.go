@@ -14,7 +14,7 @@ type ConnectionManager struct {
 	clients       map[*Connection]bool
 	subscriptions map[string]map[*Connection]bool
 	broadcast     chan Message
-	userConnMap   map[string][]*Connection // Mapping from user ID to connections
+	userConnMap   map[any][]*Connection // Mapping from user ID to connections
 }
 
 var instance *ConnectionManager
@@ -26,7 +26,7 @@ func NewConnectionManager() *ConnectionManager {
 			clients:       make(map[*Connection]bool),
 			subscriptions: make(map[string]map[*Connection]bool),
 			broadcast:     make(chan Message),
-			userConnMap:   make(map[string][]*Connection),
+			userConnMap:   make(map[any][]*Connection),
 		}
 		// Optionally start handling broadcasts
 		go instance.handleBroadcasts()
@@ -34,7 +34,7 @@ func NewConnectionManager() *ConnectionManager {
 	return instance
 }
 
-func (cm *ConnectionManager) AddClient(conn *Connection, userID string) {
+func (cm *ConnectionManager) AddClient(conn *Connection, userID any) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.clients[conn] = true
@@ -44,7 +44,7 @@ func (cm *ConnectionManager) AddClient(conn *Connection, userID string) {
 	log.Println("Client added:", conn)
 }
 
-func (cm *ConnectionManager) RemoveClient(conn *Connection, userID string) {
+func (cm *ConnectionManager) RemoveClient(conn *Connection, userID any) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	delete(cm.clients, conn)
