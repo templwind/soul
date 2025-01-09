@@ -111,10 +111,10 @@ func (cm *ConnectionManager) handleBroadcasts() {
 			go func(client *Connection) {
 				client.mu.Lock()
 				defer client.mu.Unlock()
-				err := wsutil.WriteServerMessage(client.conn, ws.OpText, topicPayload.Payload)
+				err := wsutil.WriteServerMessage(client.Conn, ws.OpText, topicPayload.Payload)
 				if err != nil {
 					log.Printf("Error sending message to client: %v", err)
-					client.conn.Close()
+					client.Conn.Close()
 					// Depending on your policy, you might want to retry, log, or handle the error differently
 				} else {
 					log.Printf("Message sent to client: %v", client)

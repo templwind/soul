@@ -6,12 +6,12 @@ import (
 )
 
 type Connection struct {
-	conn net.Conn
+	Conn net.Conn
 	mu   sync.Mutex
 }
 
 func NewConnection(conn net.Conn) *Connection {
 	return &Connection{
-		conn: conn,
+		Conn: conn,
 	}
 }
