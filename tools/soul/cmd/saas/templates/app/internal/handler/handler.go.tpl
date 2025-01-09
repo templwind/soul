@@ -17,7 +17,7 @@ import (
 		{{.Doc}}
 	{{end}}
 
-	{{if true }}
+	{{if false }}
 	// Detailed Review Against Standards
 
 	// | **Method** | **Query Params** | **Request Body**           | **Common Response Types**                      | **Standards/Notes**                                                                   |

@@ -14,6 +14,7 @@ type ConnectionManager struct {
 	clients       map[*Connection]bool
 	subscriptions map[string]map[*Connection]bool
 	broadcast     chan Message
+	userConnMap   map[string][]*Connection // Mapping from user ID to connections
 }
 
 var instance *ConnectionManager
@@ -25,23 +26,40 @@ func NewConnectionManager() *ConnectionManager {
 			clients:       make(map[*Connection]bool),
 			subscriptions: make(map[string]map[*Connection]bool),
 			broadcast:     make(chan Message),
+			userConnMap:   make(map[string][]*Connection),
 		}
-		// go instance.handleBroadcasts()
+		// Optionally start handling broadcasts
+		go instance.handleBroadcasts()
 	})
 	return instance
 }
 
-func (cm *ConnectionManager) AddClient(conn *Connection) {
+func (cm *ConnectionManager) AddClient(conn *Connection, userID string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.clients[conn] = true
+	if userID != "" {
+		cm.userConnMap[userID] = append(cm.userConnMap[userID], conn)
+	}
 	log.Println("Client added:", conn)
 }
 
-func (cm *ConnectionManager) RemoveClient(conn *Connection) {
+func (cm *ConnectionManager) RemoveClient(conn *Connection, userID string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	delete(cm.clients, conn)
+	if userID != "" {
+		conns := cm.userConnMap[userID]
+		for i, c := range conns {
+			if c == conn {
+				cm.userConnMap[userID] = append(conns[:i], conns[i+1:]...)
+				break
+			}
+		}
+		if len(cm.userConnMap[userID]) == 0 {
+			delete(cm.userConnMap, userID)
+		}
+	}
 	for topic := range cm.subscriptions {
 		delete(cm.subscriptions[topic], conn)
 		if len(cm.subscriptions[topic]) == 0 {
@@ -105,4 +123,11 @@ func (cm *ConnectionManager) handleBroadcasts() {
 		}
 		cm.mu.Unlock()
 	}
+}
+
+// GetConnectionsForUser retrieves all connections for a given user
+func (cm *ConnectionManager) GetConnectionsForUser(userID string) []*Connection {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	return cm.userConnMap[userID]
 }

@@ -335,9 +335,9 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 				// fmt.Println("method.RedirectURL", method.RedirectURL)
 
 				if len(method.RedirectURL) > 0 {
-					returnString = fmt.Sprintf(`return nil, htmx.Redirect(c.Response(), c.Request(), "%s")`, method.RedirectURL)
+					returnString = fmt.Sprintf(`return nil, htmx.Redirect(c.Response().Writer, c.Request(), "%s")`, method.RedirectURL)
 				} else {
-					returnString = `return nil, htmx.Redirect(c.Response(), c.Request(), "/replace-me")`
+					returnString = `return nil, htmx.Redirect(c.Response().Writer, c.Request(), "/replace-me")`
 				}
 				requiresTempl = false
 			} else {
