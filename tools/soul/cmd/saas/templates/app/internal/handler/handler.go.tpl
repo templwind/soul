@@ -567,14 +567,21 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 
 
 {{ define "socket-request-block" }}
+	// Extract user ID from context
+	user := session.UserFromContext(c)
+	if user == nil {
+		return echo.ErrUnauthorized
+	}
+	userID := user.ID
+
 	// Upgrade the HTTP connection to a WebSocket connection
 	conn, _, _, err := gobwasWs.UpgradeHTTP(c.Request(), c.Response())
 	if err != nil {
 		return err
 	}
 	connection := wsmanager.NewConnection(conn)
-	manager.AddClient(connection)
-	defer manager.RemoveClient(connection)
+	manager.AddClient(connection, userID)
+	defer manager.RemoveClient(connection, userID)
 	defer conn.Close()
 
 	{{ if gt (len .TopicsFromClient) 0 }}
