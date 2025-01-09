@@ -578,6 +578,7 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 		switch method.Method {
 		case "GET":
 			i.AddExternalImport("github.com/labstack/echo/v4")
+			i.AddExternalImport("github.com/templwind/soul/webserver/wsmanager")
 			if method.ReturnsPartial {
 				i.AddExternalImport("github.com/a-h/templ")
 			}
@@ -594,6 +595,7 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 			}
 			if method.IsSocket {
 				i.AddNativeImport("net")
+
 				// hasSocket = true
 				for _, topic := range method.SocketNode.Topics {
 					// if topic.InitiatedByClient {

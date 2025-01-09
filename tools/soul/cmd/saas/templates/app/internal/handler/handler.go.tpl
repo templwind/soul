@@ -77,7 +77,7 @@ Socket Header
 */}}
 {{ define "handler/socket-header" }}
 // Socket header implementation
-var Manager = wsmanager.NewConnectionManager()
+var manager = wsmanager.NewConnectionManager()
 var subscriptions = make(map[string]events.Subscription)
 var subscriptionMutex sync.RWMutex
 
@@ -295,8 +295,8 @@ Logic Instance
 			return err
 		}
 		connection := wsmanager.NewConnection(conn)
-		Manager.AddClient(connection, userID)
-		defer Manager.RemoveClient(connection, userID)
+		manager.AddClient(connection, userID)
+		defer manager.RemoveClient(connection, userID)
 		defer conn.Close()
 
 		l := {{.LogicName}}.New{{.LogicType}}(c.Request().Context(), svcCtx, conn, c)
@@ -580,13 +580,13 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 		return err
 	}
 	connection := wsmanager.NewConnection(conn)
-	Manager.AddClient(connection, userID)
-	defer Manager.RemoveClient(connection, userID)
+	manager.AddClient(connection, userID)
+	defer manager.RemoveClient(connection, userID)
 	defer conn.Close()
 
 	{{ if gt (len .TopicsFromClient) 0 }}
 	// Create a new ws logic instance
-	l := {{.LogicName}}.New{{.LogicType}}(c.Request().Context(), svcCtx, conn, c)
+	l := {{.LogicName}}.New{{.LogicType}}(c.Request().Context(), svcCtx, conn, c, manager)
 	{{ end }}
 
 	// Handle connect event
@@ -684,9 +684,9 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 					c.Logger().Error(err)
 					break
 				}
-				Manager.Subscribe(connection, topicMsg.Topic)
+				manager.Subscribe(connection, topicMsg.Topic)
 			case "broadcast":
-				Manager.Broadcast(msg, connection)
+				manager.Broadcast(msg, connection)
 			default:
 				log.Printf("Unknown message: %s", data)
 			}

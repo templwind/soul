@@ -11,10 +11,11 @@ type {{.LogicType}} struct {
 	{{- if .hasSocket }}
 	conn   net.Conn
 	echoCtx echo.Context
+	manager *wsmanager.ConnectionManager
 	{{ end }}
 }
 
-func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasSocket}}, conn net.Conn, echoCtx echo.Context{{end}}) *{{.LogicType}} {
+func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasSocket}}, conn net.Conn, echoCtx echo.Context, manager *wsmanager.ConnectionManager{{end}}) *{{.LogicType}} {
 	return &{{.LogicType}}{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
@@ -22,6 +23,7 @@ func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasS
 		{{- if .hasSocket }}
 		conn:   conn,
 		echoCtx: echoCtx,
+		manager: manager,
 		{{- end }}
 	}
 }
