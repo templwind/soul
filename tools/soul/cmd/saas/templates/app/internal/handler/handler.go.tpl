@@ -282,14 +282,21 @@ Logic Instance
 {{ define "logic-instance"}}
 	{{- if .RequiresSocket -}}
 		{{- if .IsSocket -}}
+		// Extract user ID from context
+		user := session.UserFromContext(c)
+		if user == nil {
+			return echo.ErrUnauthorized
+		}
+		userID := user.ID
+		
 		// Upgrade the HTTP connection to a WebSocket connection
 		conn, _, _, err := gobwasWs.UpgradeHTTP(c.Request(), c.Response())
 		if err != nil {
 			return err
 		}
 		connection := wsmanager.NewConnection(conn)
-		manager.AddClient(connection)
-		defer manager.RemoveClient(connection)
+		manager.AddClient(connection, userID)
+		defer manager.RemoveClient(connection, userID)
 		defer conn.Close()
 
 		l := {{.LogicName}}.New{{.LogicType}}(c.Request().Context(), svcCtx, conn, c)
