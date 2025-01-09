@@ -12,7 +12,7 @@ import (
 type ConnectionManager struct {
 	mu            sync.Mutex
 	clients       map[*Connection]bool
-	subscriptions map[string]map[*Connection]bool
+	subscriptions map[any]map[*Connection]bool
 	broadcast     chan Message
 	userConnMap   map[any][]*Connection // Mapping from user ID to connections
 }
@@ -24,7 +24,7 @@ func NewConnectionManager() *ConnectionManager {
 	once.Do(func() {
 		instance = &ConnectionManager{
 			clients:       make(map[*Connection]bool),
-			subscriptions: make(map[string]map[*Connection]bool),
+			subscriptions: make(map[any]map[*Connection]bool),
 			broadcast:     make(chan Message),
 			userConnMap:   make(map[any][]*Connection),
 		}
@@ -126,14 +126,14 @@ func (cm *ConnectionManager) handleBroadcasts() {
 }
 
 // GetConnectionsForUser retrieves all active connections for a given user ID.
-func (cm *ConnectionManager) GetConnectionsForUser(userID string) []*Connection {
+func (cm *ConnectionManager) GetConnectionsForUser(userID any) []*Connection {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	return cm.userConnMap[userID]
 }
 
 // GetSubscribers retrieves all connections subscribed to a given topic.
-func (cm *ConnectionManager) GetSubscribers(topic string) map[*Connection]bool {
+func (cm *ConnectionManager) GetSubscribers(topic any) map[*Connection]bool {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	if subs, exists := cm.subscriptions[topic]; exists {
