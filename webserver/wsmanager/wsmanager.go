@@ -126,7 +126,7 @@ func (cm *ConnectionManager) handleBroadcasts() {
 }
 
 // GetConnectionsForUser retrieves all connections for a given user
-func (cm *ConnectionManager) GetConnectionsForUser(userID string) []*Connection {
+func (cm *ConnectionManager) GetConnectionsForUser(userID any) []*Connection {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	return cm.userConnMap[userID]

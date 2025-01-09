@@ -77,7 +77,7 @@ Socket Header
 */}}
 {{ define "handler/socket-header" }}
 // Socket header implementation
-var manager = wsmanager.NewConnectionManager()
+var Manager = wsmanager.NewConnectionManager()
 var subscriptions = make(map[string]events.Subscription)
 var subscriptionMutex sync.RWMutex
 
@@ -295,8 +295,8 @@ Logic Instance
 			return err
 		}
 		connection := wsmanager.NewConnection(conn)
-		manager.AddClient(connection, userID)
-		defer manager.RemoveClient(connection, userID)
+		Manager.AddClient(connection, userID)
+		defer Manager.RemoveClient(connection, userID)
 		defer conn.Close()
 
 		l := {{.LogicName}}.New{{.LogicType}}(c.Request().Context(), svcCtx, conn, c)
@@ -580,8 +580,8 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 		return err
 	}
 	connection := wsmanager.NewConnection(conn)
-	manager.AddClient(connection, userID)
-	defer manager.RemoveClient(connection, userID)
+	Manager.AddClient(connection, userID)
+	defer Manager.RemoveClient(connection, userID)
 	defer conn.Close()
 
 	{{ if gt (len .TopicsFromClient) 0 }}
@@ -684,9 +684,9 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 					c.Logger().Error(err)
 					break
 				}
-				manager.Subscribe(connection, topicMsg.Topic)
+				Manager.Subscribe(connection, topicMsg.Topic)
 			case "broadcast":
-				manager.Broadcast(msg, connection)
+				Manager.Broadcast(msg, connection)
 			default:
 				log.Printf("Unknown message: %s", data)
 			}
