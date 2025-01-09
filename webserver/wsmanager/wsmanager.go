@@ -125,9 +125,19 @@ func (cm *ConnectionManager) handleBroadcasts() {
 	}
 }
 
-// GetConnectionsForUser retrieves all connections for a given user
-func (cm *ConnectionManager) GetConnectionsForUser(userID any) []*Connection {
+// GetConnectionsForUser retrieves all active connections for a given user ID.
+func (cm *ConnectionManager) GetConnectionsForUser(userID string) []*Connection {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	return cm.userConnMap[userID]
+}
+
+// GetSubscribers retrieves all connections subscribed to a given topic.
+func (cm *ConnectionManager) GetSubscribers(topic string) map[*Connection]bool {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	if subs, exists := cm.subscriptions[topic]; exists {
+		return subs
+	}
+	return nil
 }
