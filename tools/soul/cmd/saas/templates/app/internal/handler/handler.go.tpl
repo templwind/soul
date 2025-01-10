@@ -77,42 +77,57 @@ Socket Header
 */}}
 {{ define "handler/socket-header" }}
 // Socket header implementation
-var manager = wsmanager.NewConnectionManager()
-var subscriptions = make(map[string]events.Subscription)
-var subscriptionMutex sync.RWMutex
+var managers = make(map[string]*wsmanager.ConnectionManager)
+var subscriptions = make(map[string]map[string]events.Subscription)
+var subscriptionMutex = make(map[string]*sync.RWMutex)
 
 func init() {
-	// Initialize subscriptions for known topics
-	{{ range .SocketServerTopics }}
-		// Subscribe to {{.}} event
-		addSubscription(types.{{.}})
-	{{ end}}
+	// Add the managers to the global manager
+	{{- range .Methods}}
+		{{- if .IsSocket}}
+			managers["{{.Route}}"] = wsmanager.NewConnectionManager()
+			wsmanager.AddManager(managers["{{.Route}}"], "{{.Route}}")
+			subscriptions["{{.Route}}"] = make(map[string]events.Subscription)
+			subscriptionMutex["{{.Route}}"] = &sync.RWMutex{}
+			
+			// Initialize subscriptions for known topics
+			{{- $route := .Route }}
+			{{- range $.SocketServerTopics }}
+				// Subscribe to {{.}} event
+				addSubscription("{{$route}}", types.{{.}})
+			{{- end}}
+		{{- end}}
+	{{- end}}
 }
 
-func addSubscription(topic string) {
-	subscriptionMutex.Lock()
-	defer subscriptionMutex.Unlock()
+func addSubscription(route, topic string) {
+	{{- range .Methods}}
+		{{- if .IsSocket}}
+		subscriptionMutex[route].Lock()
+		defer subscriptionMutex[route].Unlock()
 
-	if _, exists := subscriptions[topic]; !exists {
-		subscriptions[topic] = events.Subscribe(topic, func(ctx context.Context, resp any, connection net.Conn) error {
-			payload, err := json.Marshal(resp)
-			if err != nil {
-				return err
-			}
+		if _, exists := subscriptions[route][topic]; !exists {
+			subscriptions[route][topic] = events.Subscribe(topic, func(ctx context.Context, resp any, connection net.Conn) error {
+				payload, err := json.Marshal(resp)
+				if err != nil {
+					return err
+				}
 
-			var msg wsmanager.Message
-			msg.Topic = topic
-			msg.Payload = json.RawMessage(payload)
-			msg.ID = uuid.New().String()
+				var msg wsmanager.Message
+				msg.Topic = topic
+				msg.Payload = json.RawMessage(payload)
+				msg.ID = uuid.New().String()
 
-			out, err := json.Marshal(msg)
-			if err != nil {
-				return err
-			}
+				out, err := json.Marshal(msg)
+				if err != nil {
+					return err
+				}
 
-			return wsutil.WriteServerMessage(connection, gobwasWs.OpText, out)
-		})
-	}
+				return wsutil.WriteServerMessage(connection, gobwasWs.OpText, out)
+			})
+		}
+		{{- end}}
+	{{- end}}
 }
 {{ end }}
 
@@ -295,8 +310,8 @@ Logic Instance
 			return err
 		}
 		connection := wsmanager.NewConnection(conn)
-		manager.AddClient(connection, userID)
-		defer manager.RemoveClient(connection, userID)
+		managers["{{.Route}}"].AddClient(connection, userID)
+		defer managers["{{.Route}}"].RemoveClient(connection, userID)
 		defer conn.Close()
 
 		l := {{.LogicName}}.New{{.LogicType}}(c.Request().Context(), svcCtx, conn, c)
@@ -580,13 +595,13 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 		return err
 	}
 	connection := wsmanager.NewConnection(conn)
-	manager.AddClient(connection, userID)
-	defer manager.RemoveClient(connection, userID)
+	managers["{{.Route}}"].AddClient(connection, userID)
+	defer managers["{{.Route}}"].RemoveClient(connection, userID)
 	defer conn.Close()
 
 	{{ if gt (len .TopicsFromClient) 0 }}
 	// Create a new ws logic instance
-	l := {{.LogicName}}.New{{.LogicType}}(c.Request().Context(), svcCtx, conn, c, manager)
+	l := {{.LogicName}}.New{{.LogicType}}(c.Request().Context(), svcCtx, conn, c)
 	{{ end }}
 
 	// Handle connect event
@@ -622,6 +637,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 
 		if op == gobwasWs.OpText {
 			var msg wsmanager.Message
+			msg.ID = uuid.New().String()
 			if err := json.Unmarshal(data, &msg); err != nil {
 				c.Logger().Error(err)
 				break
@@ -684,9 +700,9 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 					c.Logger().Error(err)
 					break
 				}
-				manager.Subscribe(connection, topicMsg.Topic)
+				managers["{{.Route}}"].Subscribe(connection, topicMsg.Topic)
 			case "broadcast":
-				manager.Broadcast(msg, connection)
+				managers["{{.Route}}"].Broadcast(msg, connection)
 			default:
 				log.Printf("Unknown message: %s", data)
 			}

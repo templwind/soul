@@ -11,11 +11,10 @@ type {{.LogicType}} struct {
 	{{- if .hasSocket }}
 	conn   net.Conn
 	echoCtx echo.Context
-	manager *wsmanager.ConnectionManager
 	{{ end }}
 }
 
-func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasSocket}}, conn net.Conn, echoCtx echo.Context, manager *wsmanager.ConnectionManager{{end}}) *{{.LogicType}} {
+func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasSocket}}, conn net.Conn, echoCtx echo.Context{{end}}) *{{.LogicType}} {
 	return &{{.LogicType}}{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
@@ -23,7 +22,6 @@ func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasS
 		{{- if .hasSocket }}
 		conn:   conn,
 		echoCtx: echoCtx,
-		manager: manager,
 		{{- end }}
 	}
 }
@@ -90,14 +88,24 @@ func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasS
 		func (l *{{.LogicType}}) {{.LogicFunc}}({{.Request}}) {{.ResponseType}} {
 			// shortcut for server initiated events
 			// send the response to the client via the events engine
-			events.Next(types.{{.Topic.Const}}, req)
+			// events.Next(types.{{.Topic.Const}}, req)
+
+			// fmt.Println("{{.Topic.Const}}", req)
+
+			user := session.UserFromContext(l.echoCtx)
+			wsmanager.SendEventToUser("{{.Route}}", user.ID, types.{{.Topic.Const}}, req)
 
 			{{.ReturnString}}
 		}
 		{{ else }}
 		func (l *{{.LogicType}}) {{.LogicFunc}}({{.Request}}) {{.ResponseType}} {
 			// todo: add your logic here and delete this line
-			events.Next(types.{{.Topic.Const}}, req)
+			// events.Next(types.{{.Topic.Const}}, req)
+
+			// fmt.Println("{{.Topic.Const}}", req)
+
+			user := session.UserFromContext(l.echoCtx)
+			wsmanager.SendEventToUser("{{.Route}}", user.ID, types.{{.Topic.Const}}, req)
 			{{.ReturnString}}
 		}
 		{{ end -}}

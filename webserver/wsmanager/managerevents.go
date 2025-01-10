@@ -101,26 +101,40 @@ func SendEventToUser(managerName string, userID any, topic string, payload inter
 		return err
 	}
 
-	// Create a message struct
-	msg := Message{
-		Topic:   topic,
-		Payload: json.RawMessage(payloadBytes),
-		ID:      uuid.New().String(),
-	}
+	var out []byte
 
-	// Marshal the message
-	out, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("Error marshalling message for user %s: %v", userID, err)
-		return err
-	}
-
-	// Send the event to each connection of the user
-	for _, conn := range connections {
-		err := wsutil.WriteServerMessage(conn.Conn, ws.OpText, out)
+	// Try to unmarshal as a plain string first
+	var stringMsg string
+	if err := json.Unmarshal(payloadBytes, &stringMsg); err == nil {
+		// It's a plain string/HTML, send it directly
+		out = []byte(stringMsg)
+		// Send the event to each connection of the user
+		for _, conn := range connections {
+			err := wsutil.WriteServerMessage(conn.Conn, ws.OpText, out)
+			if err != nil {
+				log.Printf("Failed to send event to user %s: %v", userID, err)
+				// Optionally, handle the error (e.g., remove the connection)
+			}
+		}
+	} else {
+		// It's structured data, wrap in Message
+		msg := Message{
+			Topic:   topic,
+			Payload: json.RawMessage(payloadBytes),
+			ID:      uuid.New().String(),
+		}
+		out, err = json.Marshal(msg)
 		if err != nil {
-			log.Printf("Failed to send event to user %s: %v", userID, err)
-			// Optionally, handle the error (e.g., remove the connection)
+			log.Printf("Error marshalling message for user %s: %v", userID, err)
+			return err
+		}
+		// Send the event to each connection of the user
+		for _, conn := range connections {
+			err := wsutil.WriteServerMessage(conn.Conn, ws.OpText, out)
+			if err != nil {
+				log.Printf("Failed to send event to user %s: %v", userID, err)
+				// Optionally, handle the error (e.g., remove the connection)
+			}
 		}
 	}
 

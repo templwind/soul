@@ -595,6 +595,7 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 			}
 			if method.IsSocket {
 				i.AddNativeImport("net")
+				i.AddProjectImport(path.Join(moduleName, types.SessionDir))
 
 				// hasSocket = true
 				for _, topic := range method.SocketNode.Topics {
@@ -602,7 +603,7 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 					if topic.ResponseType != nil || topic.RequestType != nil {
 						i.AddProjectImport(path.Join(moduleName, types.TypesDir))
 					}
-					i.AddProjectImport(path.Join(moduleName, types.EventsDir))
+					// i.AddProjectImport(path.Join(moduleName, types.EventsDir))
 					// }
 				}
 			}

@@ -201,9 +201,41 @@ func TopicResponseGoTypeName(r spec.TopicNode, pkg ...string) string {
 	resp = strings.TrimPrefix(resp, "[]")
 	switch r.ResponseType.(type) {
 	case *spec.StructType:
+		switch resp {
+		case "types.String":
+			return "string"
+		case "types.Int":
+			return "int"
+		case "types.Int32":
+			return "int32"
+		case "types.Int64":
+			return "int64"
+		case "types.Uint":
+			return "uint"
+		case "types.Uint32":
+			return "uint32"
+		case "types.Uint64":
+			return "uint64"
+		case "types.Float32":
+			return "float32"
+		case "types.Float64":
+			return "float64"
+		case "types.Bool":
+			return "bool"
+		case "types.Bytes":
+			return "[]byte"
+		case "types.Time":
+			return "time.Time"
+		case "types.Duration":
+			return "time.Duration"
+		case "types.Any":
+			return "any"
+		}
 		return "*" + resp
 	case *spec.ArrayType:
 		return "*[]" + resp
+	case *spec.PrimitiveType:
+		return resp
 	}
 
 	return resp
