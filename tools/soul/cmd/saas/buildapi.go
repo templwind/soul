@@ -17,8 +17,20 @@ import (
 
 // buildApi processes and generates TypeScript interfaces from Go structs
 func buildApi(builder *SaaSBuilder) error {
+	// remove the index.ts file if it exists
+	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "api", "index.ts")
+	os.Remove(filename)
+
+	// write the index.ts file
+	builder.genFile(fileGenConfig{
+		subdir:       path.Join(builder.ServiceName, types.SrcDir, "api"),
+		templateFile: "templates/app/src/api/index.ts.tpl",
+		data:         builder.Data,
+	})
+
 	allowedTypes := make(map[string]bool)
 
+	constants := make(map[string]string)
 	endpointBuilder := new(strings.Builder)
 	// endpointBuilder.WriteString("\n\n")
 
@@ -30,6 +42,21 @@ func buildApi(builder *SaaSBuilder) error {
 			for _, h := range srv.Handlers {
 			outerLoop:
 				for _, m := range h.Methods {
+
+					if m.IsSocket {
+						for _, node := range m.SocketNode.Topics {
+
+							if node.Topic != "" {
+								// fmt.Println("Socket:", node.Topic)
+								constants[util.ToConstant(fmt.Sprintf("WS_Request_%s", node.Topic))] = node.Topic
+							}
+							if node.ResponseTopic != "" {
+								// fmt.Println("Socket:", node.ResponseTopic)
+								constants[util.ToConstant(fmt.Sprintf("WS_Response_%s", node.ResponseTopic))] = node.ResponseTopic
+							}
+						}
+					}
+					// fmt.Println(constants)
 
 					if m.IsSocket && m.SocketNode != nil {
 						for _, node := range m.SocketNode.Topics {
@@ -104,6 +131,8 @@ func buildApi(builder *SaaSBuilder) error {
 			fmt.Println(util.WrapErr(err, "endpoints.ts generate error"))
 		}
 	}
+
+	writeConstants(builder, constants)
 
 	// Recursively add all necessary types
 	for name := range allowedTypes {
@@ -269,6 +298,44 @@ func genApiTypes(builder *SaaSBuilder, allowedTypes map[string]bool) error {
 	return nil
 }
 
+func writeConstants(builder *SaaSBuilder, constants map[string]string) error {
+	// sort constants in reverse
+	keys := make([]string, 0, len(constants))
+	for key := range constants {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	constantsBuilder := new(strings.Builder)
+	hasBreak := false
+	fmt.Fprintf(constantsBuilder, "// WS Requests\n")
+	for _, key := range keys {
+		if strings.HasPrefix(key, "WS_RESPONSE_") && !hasBreak {
+			fmt.Fprintf(constantsBuilder, "\n// WS Responses\n")
+			hasBreak = true
+		}
+		fmt.Fprintf(constantsBuilder, "export const %s = '%s';\n", key, constants[key])
+	}
+	// fmt.Println(constantsBuilder.String())
+
+	builder.Data["Constants"] = constantsBuilder.String()
+
+	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "api", "constants.ts")
+	// fmt.Println("Removing:", filename)
+	os.Remove(filename)
+
+	// Generate the models.ts file
+	if err := builder.genFile(fileGenConfig{
+		subdir:       path.Join(builder.ServiceName, types.SrcDir, "api"),
+		templateFile: "templates/app/src/api/constants.ts.tpl",
+		data:         builder.Data,
+	}); err != nil {
+		fmt.Println(util.WrapErr(err, "constants.ts generate error"))
+	}
+
+	return nil
+}
+
 func writeApiEndpoint(endpointBuilder io.Writer, requestType, responseType spec.Type, srv spec.Service, h spec.Handler, m spec.Method, routePrefix string) error {
 
 	var reqParams []string
@@ -291,7 +358,7 @@ func writeApiEndpoint(endpointBuilder io.Writer, requestType, responseType spec.
 				reqParams = append(reqParams, fmt.Sprintf("%s: %s", fieldName, ConvertToTypeScriptType(field.Type)))
 			}
 		}
-		if totalFields > 0 {
+		if totalFields > 0 && strings.ToUpper(m.Method) != "GET" {
 			request = fmt.Sprintf("req: models.%s", util.ToTitle(m.RequestType.GetName()))
 		}
 	}
@@ -318,7 +385,7 @@ func writeApiEndpoint(endpointBuilder io.Writer, requestType, responseType spec.
 
 	route := re.ReplaceAllString(path.Join("/", strings.TrimLeft(routePrefix, "/"), m.Route), "${$1}")
 
-	if totalFields > 0 {
+	if totalFields > 0 && strings.ToUpper(m.Method) != "GET" {
 		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`, req)", strings.ToLower(m.Method), util.ToTitle(m.ResponseType.GetName()), route)
 	} else {
 		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`)", strings.ToLower(m.Method), util.ToTitle(m.ResponseType.GetName()), route)

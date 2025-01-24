@@ -610,6 +610,12 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 		return err
 	}
 
+	// handle the connect event
+	l.OnConnect()
+
+	// Use defer to handle disconnect event
+	defer l.OnDisconnect()
+
 	// Handle incoming messages
 	for {
 		data, op, err := wsutil.ReadClientData(conn)
@@ -636,6 +642,18 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 		}
 
 		if op == gobwasWs.OpText {
+			// First try to unmarshal as a plain string
+			var stringMsg string
+			if err := json.Unmarshal(data, &stringMsg); err == nil {
+				// If it's a valid string, send it directly
+				if err := wsutil.WriteServerMessage(conn, gobwasWs.OpText, data); err != nil {
+					c.Logger().Error(err)
+					break
+				}
+				continue
+			}
+
+			// If not a string, handle as envelope message
 			var msg wsmanager.Message
 			msg.ID = uuid.New().String()
 			if err := json.Unmarshal(data, &msg); err != nil {
@@ -701,6 +719,15 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 					break
 				}
 				managers["{{.Route}}"].Subscribe(connection, topicMsg.Topic)
+			case "unsubscribe":
+				var topicMsg struct {
+					Topic string `json:"topic"`
+				}
+				if err := json.Unmarshal(msg.Payload, &topicMsg); err != nil {
+					c.Logger().Error(err)
+					break
+				}
+				managers["{{.Route}}"].Unsubscribe(connection, topicMsg.Topic)
 			case "broadcast":
 				managers["{{.Route}}"].Broadcast(msg, connection)
 			default:

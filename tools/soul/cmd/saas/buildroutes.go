@@ -31,9 +31,9 @@ const (
 			{{.middlewares}}
 		}...,{{end}}
 	)
-	{{.groupName}}.Use(middleware.RemoveTrailingSlashWithConfig(middleware.TrailingSlashConfig{
-		RedirectCode: http.StatusMovedPermanently,
-	}))
+	// {{.groupName}}.Use(middleware.RemoveTrailingSlashWithConfig(middleware.TrailingSlashConfig{
+	// 	RedirectCode: http.StatusMovedPermanently,
+	// }))
 
 	{{.routes}}
 	{{- end }}
@@ -94,6 +94,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 
 	// var fsBuilder strings.Builder
 
+	var hasStaticOverride bool
 	var hasStaticEmbed bool
 	var hasTimeout bool
 	var jwtEnabled bool
@@ -142,12 +143,17 @@ func buildRoutes(builder *SaaSBuilder) error {
 						})
 						builder.HasEmbeddedFS = true
 					} else {
-						overrideBuilder.WriteString(fmt.Sprintf(`server.Group("").Use(middleware.Static("%s"))`,
+						// overrideBuilder.WriteString(fmt.Sprintf(`server.Group("").Use(middleware.Static("%s"))`,
+						// 	strings.TrimPrefix(r.route, "/"),
+						// ))
+
+						overrideBuilder.WriteString(fmt.Sprintf(`server.Group("").Use(customStatic("%s"))`,
 							strings.TrimPrefix(r.route, "/"),
 						))
 					}
 
 					error404Override = overrideBuilder.String()
+					hasStaticOverride = true
 					continue
 				}
 
@@ -256,7 +262,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 	os.Remove(routeFilename)
 
 	builder.Data["hasTimeout"] = hasTimeout
-	builder.Data["imports"] = genRouteImports(builder, builder.ModuleName, builder.Spec, hasStaticEmbed, error404Override, ignorePrefixes)
+	builder.Data["imports"] = genRouteImports(builder, builder.ModuleName, builder.Spec, hasStaticOverride, hasStaticEmbed, error404Override, ignorePrefixes)
 	builder.Data["routesAdditions"] = strings.TrimSpace(routesAdditionsBuilder.String())
 
 	return builder.genFile(fileGenConfig{
@@ -266,7 +272,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 	})
 }
 
-func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec, hasStaticEmbed bool, error404Override string, ignorePrefixes []string) string {
+func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec, hasStaticOverride, hasStaticEmbed bool, error404Override string, ignorePrefixes []string) string {
 	i := imports.New()
 	hasJwt := false
 	for _, server := range site.Servers {
@@ -285,12 +291,18 @@ func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec
 
 	folder := "notfound"
 
-	i.AddNativeImport("net/http")
+	// i.AddNativeImport("net/http")
+
+	if hasStaticOverride {
+		i.AddNativeImport("os")
+		i.AddNativeImport("path/filepath")
+		i.AddNativeImport("strings")
+	}
 
 	// if hasStaticEmbed {
 	// i.AddNativeImport("embed")
 	// i.AddNativeImport("io/fs")
-	i.AddExternalImport("github.com/labstack/echo/v4/middleware")
+	// i.AddExternalImport("github.com/labstack/echo/v4/middleware")
 	// }
 
 	i.AddProjectImport(pathx.JoinPackages(parentPkg, types.ContextDir))

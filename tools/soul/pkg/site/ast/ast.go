@@ -127,18 +127,20 @@ type DocNode struct {
 
 // MenuEntry represents an item in a menu.
 type MenuEntry struct {
-	Title       string `mapstructure:"title,omitempty"`
-	Weight      int    `mapstructure:"weight,omitempty"`
-	Icon        string `mapstructure:"icon,omitempty"`
-	URL         string `mapstructure:"url,omitempty"`
-	Subtitle    string `mapstructure:"subtitle,omitempty"`
-	MobileTitle string `mapstructure:"mobileTitle,omitempty"`
-	Lead        string `mapstructure:"lead,omitempty"`
-	InMobile    bool   `mapstructure:"inMobile,omitempty"`
-	IsAtEnd     bool   `mapstructure:"isAtEnd,omitempty"`
-	IsDropdown  bool   `mapstructure:"isDropdown,omitempty"`
-	HxDisable   bool   `mapstructure:"hxDisable,omitempty"`
-	Parent      string `mapstructure:"parent,omitempty"`
+	Title       string            `mapstructure:"title,omitempty"`
+	Weight      int               `mapstructure:"weight,omitempty"`
+	Icon        string            `mapstructure:"icon,omitempty"`
+	URL         string            `mapstructure:"url,omitempty"`
+	Subtitle    string            `mapstructure:"subtitle,omitempty"`
+	MobileTitle string            `mapstructure:"mobileTitle,omitempty"`
+	Lead        string            `mapstructure:"lead,omitempty"`
+	InMobile    bool              `mapstructure:"inMobile,omitempty"`
+	IsAtEnd     bool              `mapstructure:"isAtEnd,omitempty"`
+	IsDropdown  bool              `mapstructure:"isDropdown,omitempty"`
+	HxDisable   bool              `mapstructure:"hxDisable,omitempty"`
+	Parent      string            `mapstructure:"parent,omitempty"`
+	Attributes  map[string]string `mapstructure:"attributes,omitempty"`
+	IsButton    bool              `mapstructure:"isButton,omitempty"`
 }
 
 // ModulesNode represents one or more modules.

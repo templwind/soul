@@ -121,7 +121,7 @@ export class WsClient {
     this.messageHandlers.set(topic, handler);
   }
 
-  public send(data: any) {
+  public send(data: any): WsClient {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       if (typeof data !== "string") {
         if (!data.id) {
@@ -133,6 +133,7 @@ export class WsClient {
     } else {
       console.error("WebSocket is not open. Unable to send message.");
     }
+    return this;
   }
 
   public close() {
@@ -165,12 +166,24 @@ export class WsClient {
     });
   }
 
-  public subscribe(topic: string, handler?: MessageHandler) {
+  public subscribe(topic: string, handler?: MessageHandler): () => void {
     if (handler) {
       this.onMessage(topic, handler);
     }
     this.send({
       topic: "subscribe",
+      id: uuidv4(),
+      payload: { topic },
+    });
+
+    // Return unsubscribe function
+    return () => this.unsubscribe(topic);
+  }
+
+  public unsubscribe(topic: string) {
+    this.messageHandlers.delete(topic);
+    this.send({
+      topic: "unsubscribe",
       id: uuidv4(),
       payload: { topic },
     });

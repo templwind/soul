@@ -25,6 +25,17 @@ func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasS
 		{{- end }}
 	}
 }
+
+{{if .hasSocket}}
+func (l *{{.LogicType}}) OnConnect() {
+	// todo: add your logic here
+}
+
+func (l *{{.LogicType}}) OnDisconnect() {
+	// todo: add your logic here
+}
+{{end}}
+
 {{range .methods }}
 	{{- if false }}
 	// Detailed Review Against Standards
@@ -92,8 +103,8 @@ func New{{.LogicType}}(ctx context.Context, svcCtx *svc.ServiceContext{{if .hasS
 
 			// fmt.Println("{{.Topic.Const}}", req)
 
-			user := session.UserFromContext(l.echoCtx)
-			wsmanager.SendEventToUser("{{.Route}}", user.ID, types.{{.Topic.Const}}, req)
+			// user := session.UserFromContext(l.echoCtx)
+			// wsmanager.SendEventToUser("{{.Route}}", user.ID, types.{{.Topic.Const}}, req)
 
 			{{.ReturnString}}
 		}

@@ -495,6 +495,15 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 			continue
 
 		case "POST", "PUT", "PATCH", "DELETE":
+			if method.ReturnsRedirect {
+				i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
+				i.AddExternalImport("github.com/templwind/soul")
+				i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
+				i.AddExternalImport("github.com/templwind/soul/htmx")
+				i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
+				i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
+			}
+
 			// POST
 			// post can return full html page, json or partial.
 

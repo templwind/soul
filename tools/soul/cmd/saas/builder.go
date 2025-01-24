@@ -43,6 +43,7 @@ type SaaSBuilder struct {
 	OverwriteFiles        map[string]bool
 	IsService             bool
 	ExternalDockerNetwork string
+	TemplateFuncs         template.FuncMap
 }
 
 type customFunc func(saasBuilder *SaaSBuilder) error
@@ -80,6 +81,7 @@ func defaultProps() *SaaSBuilder {
 		RenameFiles:    make(map[string]string),
 		IsService:      false,
 		Themes:         make(map[string]string),
+		TemplateFuncs:  template.FuncMap{},
 	}
 }
 
@@ -182,11 +184,19 @@ func (sb *SaaSBuilder) WithCustomFunc(filePath string, fn customFunc) {
 	sb.CustomFuncs[filePath] = fn
 }
 
+func (sb *SaaSBuilder) WithTemplateFunc(name string, fn interface{}) {
+	if sb.TemplateFuncs == nil {
+		sb.TemplateFuncs = template.FuncMap{}
+	}
+	sb.TemplateFuncs[name] = fn
+}
+
 type fileGenConfig struct {
-	subdir       string
-	templateFile string
-	data         map[string]any
-	customFunc   customFunc
+	subdir        string
+	templateFile  string
+	data          map[string]any
+	customFunc    customFunc
+	templateFuncs template.FuncMap
 }
 
 func (sb *SaaSBuilder) shouldIgnore(path string) bool {
@@ -274,11 +284,25 @@ func (sb *SaaSBuilder) genFile(c fileGenConfig) error {
 		return fmt.Errorf("template %s not found: %w", c.templateFile, err)
 	}
 
-	t := template.Must(
-		template.New(
-			filepath.Base(c.templateFile),
-		).Parse(string(text)),
-	)
+	t := template.New(filepath.Base(c.templateFile))
+
+	// Merge the builder's template functions with the file-specific ones
+	mergedFuncs := template.FuncMap{}
+	for name, fn := range sb.TemplateFuncs {
+		mergedFuncs[name] = fn
+	}
+	for name, fn := range c.templateFuncs {
+		mergedFuncs[name] = fn
+	}
+
+	// Add the merged template functions
+	t.Funcs(mergedFuncs)
+
+	t, err = t.Parse(string(text))
+	if err != nil {
+		return fmt.Errorf("failed to parse template %s: %w", c.templateFile, err)
+	}
+
 	buffer := new(bytes.Buffer)
 	// fmt.Printf("With data %v\n", c.data)
 

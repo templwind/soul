@@ -940,6 +940,7 @@ func convertAttributes(attrs map[string]interface{}, targetStruct interface{}) m
 	targetType := reflect.TypeOf(targetStruct)
 
 	for key, value := range attrs {
+
 		// Find the corresponding struct field by matching the mapstructure tag
 		for i := 0; i < targetType.NumField(); i++ {
 			field := targetType.Field(i)
@@ -965,6 +966,19 @@ func convertAttributes(attrs map[string]interface{}, targetStruct interface{}) m
 						}
 					} else {
 						converted[key] = value
+					}
+				case reflect.Map:
+					if key == "attributes" {
+						// attributes are in this format
+						// for="my-drawer",class="drawer-button"
+						// we need to split them into a map
+						// we should remove the quotes from the values
+						attrs := strings.Split(value.(string), ",")
+						attrMap := make(map[string]string)
+						for _, attr := range attrs {
+							attrMap[strings.Split(attr, "=")[0]] = strings.ReplaceAll(strings.Split(attr, "=")[1], "\"", "")
+						}
+						converted[key] = attrMap
 					}
 				case reflect.String:
 					converted[key] = value
@@ -993,7 +1007,6 @@ func (p *Parser) parseMenus() map[string][]*ast.MenuEntry {
 		if objMap, ok := obj.(map[string]interface{}); ok {
 			// Convert attributes using reflection
 			convertedAttrs := convertAttributes(objMap, ast.MenuEntry{})
-			// fmt.Println("CONVERTED", convertedAttrs)
 			entry := ast.MenuEntry{}
 			if err := mapstructure.Decode(convertedAttrs, &entry); err == nil {
 				active[name] = append(active[name], &entry)

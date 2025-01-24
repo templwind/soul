@@ -79,6 +79,16 @@ func (cm *ConnectionManager) Subscribe(conn *Connection, topic string) {
 	log.Printf("Client subscribed to topic %s: %v", topic, conn)
 }
 
+func (cm *ConnectionManager) Unsubscribe(conn *Connection, topic string) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	delete(cm.subscriptions[topic], conn)
+	if len(cm.subscriptions[topic]) == 0 {
+		delete(cm.subscriptions, topic)
+	}
+	log.Printf("Client unsubscribed from topic %s: %v", topic, conn)
+}
+
 func (cm *ConnectionManager) Broadcast(msg Message, sender *Connection) {
 	msg.Sender = sender
 	log.Printf("Broadcasting message: %v", msg)

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"text/template"
 
 	"github.com/templwind/soul/tools/soul/internal/types"
 	"github.com/templwind/soul/tools/soul/pkg/site/spec"
@@ -29,6 +30,9 @@ func buildMenus(builder *SaaSBuilder) error {
 		subdir:       builder.ServiceName + "/internal/config",
 		templateFile: "templates/app/internal/config/menus.go.tpl",
 		data:         builder.Data,
+		templateFuncs: template.FuncMap{
+			"ConvertAttributesToMap": convertAttributesToMap,
+		},
 	})
 }
 
@@ -60,13 +64,15 @@ func sortMenuEntriesByWeight(entries []spec.MenuEntry) {
 	}
 }
 
-// func sortMenuEntriesByWeight(entries []spec.MenuEntry) {
-// 	sort.SliceStable(entries, func(i, j int) bool {
-// 		return entries[i].Weight < entries[j].Weight
-// 	})
-// 	for i := range entries {
-// 		if len(entries[i].Children) > 0 {
-// 			sortMenuEntriesByWeight(entries[i].Children)
-// 		}
-// 	}
-// }
+// write a function that converts the attributes to a string
+func convertAttributesToMap(attributes map[string]string) string {
+	// Attributes: map[class:drawer-button for:my-drawer],
+	// should be converted to:
+	// Attributes: map[class:drawer-button for:my-drawer],
+	attrString := "map[string]string{"
+	for key, value := range attributes {
+		attrString += fmt.Sprintf("\"%s\":`%s`,", key, value)
+	}
+	attrString += "}"
+	return attrString
+}

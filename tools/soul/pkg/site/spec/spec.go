@@ -188,6 +188,8 @@ type (
 		HxDisable   bool
 		Parent      string
 		Children    []MenuEntry
+		Attributes  map[string]string
+		IsButton    bool
 	}
 )
 
@@ -356,6 +358,8 @@ func NewMenuEntry(entry ast.MenuEntry) MenuEntry {
 		IsDropdown:  entry.IsDropdown,
 		HxDisable:   entry.HxDisable,
 		Parent:      entry.Parent,
+		Attributes:  entry.Attributes,
+		IsButton:    entry.IsButton,
 	}
 }
 

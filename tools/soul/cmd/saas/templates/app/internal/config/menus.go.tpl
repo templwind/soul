@@ -21,6 +21,8 @@ type MenuEntry struct {
 	IsDropdown  bool
 	HxDisable   bool
 	Weight	    int
+	Attributes  map[string]string
+	IsButton    bool
 	Children    []MenuEntry
 }
 
@@ -150,6 +152,12 @@ func (c *Config) InitMenus() Menus {
 	{{- end }}
 	{{- if .Weight }}
 	Weight: {{ .Weight }},
+	{{- end }}
+	{{- if .Attributes }}
+	Attributes: {{ ConvertAttributesToMap .Attributes }},
+	{{- end }}
+	{{- if .IsButton }}
+	IsButton: {{ .IsButton }},
 	{{- end }}
 	{{- if len .Children }}
 	Children: []MenuEntry{
