@@ -315,6 +315,7 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 			TopicsFromClient:   topicsFromClient,
 			TopicsFromServer:   topicsFromServer,
 			ReturnsPartial:     method.ReturnsPartial,
+			ReturnsImage:       method.ReturnsImage,
 			ReturnsPlainText:   method.ReturnsPlainText,
 			ReturnsRedirect:    method.ReturnsRedirect,
 			AssetGroup:         assetGroup,

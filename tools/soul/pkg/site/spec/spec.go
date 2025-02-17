@@ -68,6 +68,7 @@ type (
 		HasResponseType    bool
 		HasPage            bool
 		ReturnsPartial     bool
+		ReturnsImage       bool
 		ReturnsPlainText   bool
 		ReturnsJson        bool
 		ReturnsRedirect    bool
@@ -283,6 +284,7 @@ func NewMethod(m ast.MethodNode,
 		SocketNode:         socketNode,
 		PubSubNode:         pubSubNode,
 		ReturnsPartial:     m.ReturnsPartial,
+		ReturnsImage:       m.ReturnsImage,
 		ReturnsPlainText:   m.ReturnsPlainText,
 		ReturnsJson:        m.ReturnsJson,
 		ReturnsRedirect:    m.ReturnsRedirect,

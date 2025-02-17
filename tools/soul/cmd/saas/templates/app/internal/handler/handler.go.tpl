@@ -34,6 +34,7 @@ import (
 	// HasPage:          {{if .HasPage}}true{{else}}false{{end}}     
 	// HasBaseProps:     {{if .HasBaseProps}}true{{else}}false{{end}}   
 	// ReturnsPartial:   {{if .ReturnsPartial}}true{{else}}false{{end}} 
+	// ReturnsImage:     {{if .ReturnsImage}}true{{else}}false{{end}}
 	// ReturnsJson:      {{if .ReturnsJson}}true{{else}}false{{end}}    
 	// ReturnsPlainText: {{if .ReturnsPlainText}}true{{else}}false{{end}}
 	// ReturnsNoOutput:  {{if .ReturnsNoOutput}}true{{else}}false{{end}}   
@@ -157,6 +158,7 @@ GET Handler
 		{{- template "request-block" . -}}
 		{{- template "logic-instance" . -}}
 		{{- template "html-response-block" . -}}
+		{{- template "image-response-block" . -}}
 		{{- template "json-response-block" . -}}
 		{{- template "plain-text-response-block" . -}}
 		{{- template "no-response-block" . -}}
@@ -250,6 +252,8 @@ Response Block
 		{{- end -}}
 	{{- else if .ReturnsPartial }}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
+	{{- else if .ReturnsImage }}
+		resp, mimeType, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
 	{{- else if .ReturnsRedirect }}
 		resp, err := l.{{.LogicFunc}}(c{{if .HasRequestType}}, &req{{end}})
 	{{- else if .ReturnsPlainText }}
@@ -270,6 +274,8 @@ Error Response Block
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	{{- else if .ReturnsPlainText }}
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	{{- else if .ReturnsImage }}
+		return c.String(http.StatusInternalServerError, err.Error())
 	{{- else }}
 		{{- if .HasResponseType }}
 				return c.JSON(http.StatusInternalServerError, map[string]interface{}{
@@ -374,7 +380,28 @@ Plain Text Response Block
 			{{- template "error-response-block" . -}}
 		}
 		return c.String(http.StatusOK, resp)
-	{{- end }}
+	{{- end -}}
+{{ end }}
+
+{{/*
+--------------------------------
+Image Response Block
+--------------------------------
+*/}}
+{{ define "image-response-block" }}
+	{{- if .ReturnsImage }}
+		{{- template "response-block" . -}}
+		if err != nil {
+			{{- template "error-response-block" . -}}
+		}
+		// Set response headers
+		c.Response().Header().Set("Content-Type", mimeType)
+		c.Response().Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		c.Response().Header().Set("Pragma", "no-cache")
+		c.Response().Header().Set("Expires", "0")
+
+		return c.Blob(http.StatusOK, mimeType, resp)
+	{{- end -}}
 {{ end }}
 
 {{/*
@@ -680,7 +707,7 @@ func {{.HandlerName}}(svcCtx *svc.ServiceContext, topic, group string) {
 					{{- if .HasReqType -}}
 					var req {{if .HasPointerRequest}}*{{end}}{{if .HasArrayRequest}}[]{{end}}types.{{.RequestType}}
 					if err := httpx.Parse(echoCtx, &req, path); err != nil {
-						c.Logger().Error(err)
+						c.Logger().Error(string(types.{{.Topic}})," :: ", err)
 					}
 					echoCtx = nil
 					{{end -}}

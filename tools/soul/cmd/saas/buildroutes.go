@@ -36,6 +36,9 @@ const (
 	// }))
 
 	{{.routes}}
+	{{- if .hasStaticFallback -}}
+	// {{.groupName}}.Any("/*", fallbackHandler)
+	{{- end }}
 	{{- end }}
 	`
 	timeoutThreshold = time.Millisecond
@@ -93,7 +96,8 @@ func buildRoutes(builder *SaaSBuilder) error {
 	routeFilename := path.Join(builder.Dir, builder.ServiceName, types.HandlerDir, "routes.go")
 
 	// var fsBuilder strings.Builder
-
+	var overrideStaticDir string
+	var hasStaticFallback bool
 	var hasStaticOverride bool
 	var hasStaticEmbed bool
 	var hasTimeout bool
@@ -105,6 +109,27 @@ func buildRoutes(builder *SaaSBuilder) error {
 	for _, g := range groups {
 		var hasMethods bool
 		var routesBuilder strings.Builder
+
+		for i := range g.middlewares {
+			g.middlewares[i] = "svcCtx." + util.ToTitle(g.middlewares[i]) + ","
+		}
+
+		if g.jwtEnabled {
+			jwtEnabled = true
+			jwtMiddleware := `echojwt.WithConfig(echojwt.Config{
+				NewClaimsFunc: func(c echo.Context) jwt.Claims { return new(jwtCustomClaims) },
+				SigningKey: []byte(svcCtx.Config.` + g.authName + `.AccessSecret),
+				TokenLookup:  "cookie:auth",
+				ErrorHandler: func(c echo.Context, err error) error {
+					c.Redirect(302, "/auth/login")
+					return nil
+				},
+			}),`
+
+			// Prepend jwt middleware
+			g.middlewares = append([]string{jwtMiddleware}, g.middlewares...)
+		}
+
 		for _, r := range g.routes {
 			if len(r.doc) > 0 {
 				routesBuilder.WriteString(fmt.Sprintf("\n%s\n", util.GetDoc(r.doc)))
@@ -147,9 +172,29 @@ func buildRoutes(builder *SaaSBuilder) error {
 						// 	strings.TrimPrefix(r.route, "/"),
 						// ))
 
-						overrideBuilder.WriteString(fmt.Sprintf(`server.Group("").Use(customStatic("%s"))`,
+						overrideBuilder.WriteString(fmt.Sprintf(`server.Group("",
+								[]echo.MiddlewareFunc{
+									echojwt.WithConfig(echojwt.Config{
+										NewClaimsFunc: 	        func(c echo.Context) jwt.Claims { return new(jwtCustomClaims) },
+										SigningKey:             []byte(svcCtx.Config.Auth.AccessSecret),
+										TokenLookup:   		    "cookie:auth",
+										ContinueOnIgnoredError: true,
+										ErrorHandler: func(c echo.Context, err error) error {
+											// Simply continue to next middleware without error
+											return nil
+										},
+									}),
+									%s
+									// customStatic("%s"),
+								}...,
+							)
+						`,
+							strings.Join(g.middlewares, "\n\t\t\t"),
 							strings.TrimPrefix(r.route, "/"),
 						))
+
+						overrideStaticDir = strings.TrimPrefix(r.route, "/")
+						hasStaticFallback = true
 					}
 
 					error404Override = overrideBuilder.String()
@@ -222,26 +267,6 @@ func buildRoutes(builder *SaaSBuilder) error {
 			continue
 		}
 
-		for i := range g.middlewares {
-			g.middlewares[i] = "svcCtx." + util.ToTitle(g.middlewares[i]) + ","
-		}
-
-		if g.jwtEnabled {
-			jwtEnabled = true
-			jwtMiddleware := `echojwt.WithConfig(echojwt.Config{
-				NewClaimsFunc: func(c echo.Context) jwt.Claims { return new(jwtCustomClaims) },
-				SigningKey: []byte(svcCtx.Config.` + g.authName + `.AccessSecret),
-				TokenLookup:  "cookie:auth",
-				ErrorHandler: func(c echo.Context, err error) error {
-					c.Redirect(302, "/auth/login")
-					return nil
-				},
-			}),`
-
-			// Prepend jwt middleware
-			g.middlewares = append([]string{jwtMiddleware}, g.middlewares...)
-		}
-
 		builder.Data["jwtEnabled"] = jwtEnabled
 		builder.Data["groupName"] = util.ToCamel(g.name) + "Group"
 		builder.Data["middlewares"] = strings.Join(g.middlewares, "\n\t\t\t")
@@ -250,6 +275,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 		builder.Data["isPubSub"] = isPubSub
 		builder.Data["isService"] = builder.IsService
 		builder.Data["error404Override"] = error404Override
+		builder.Data["hasStaticFallback"] = hasStaticFallback
 		if err := gt.Execute(&routesAdditionsBuilder, builder.Data); err != nil {
 			return err
 		}
@@ -261,6 +287,7 @@ func buildRoutes(builder *SaaSBuilder) error {
 
 	os.Remove(routeFilename)
 
+	builder.Data["staticDir"] = overrideStaticDir
 	builder.Data["hasTimeout"] = hasTimeout
 	builder.Data["imports"] = genRouteImports(builder, builder.ModuleName, builder.Spec, hasStaticOverride, hasStaticEmbed, error404Override, ignorePrefixes)
 	builder.Data["routesAdditions"] = strings.TrimSpace(routesAdditionsBuilder.String())
@@ -294,9 +321,9 @@ func genRouteImports(builder *SaaSBuilder, parentPkg string, site *spec.SiteSpec
 	// i.AddNativeImport("net/http")
 
 	if hasStaticOverride {
-		i.AddNativeImport("os")
-		i.AddNativeImport("path/filepath")
-		i.AddNativeImport("strings")
+		// i.AddNativeImport("os")
+		// i.AddNativeImport("path/filepath")
+		// i.AddNativeImport("strings")
 	}
 
 	// if hasStaticEmbed {

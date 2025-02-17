@@ -1,9 +1,8 @@
 // api.ts
+import { getApiUrl } from "$lib/utils";
 
+// Define the method type
 type Method = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-
-// Access the base URL from environment variables
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 // The `request` function is now a private function within the module
 async function request({
@@ -11,11 +10,13 @@ async function request({
   url,
   data,
   config = {},
+  customFetch,
 }: {
   method: Method;
   url: string;
   data?: unknown;
   config?: RequestInit;
+  customFetch?: typeof fetch;
 }) {
   const headers = new Headers(config.headers || {});
   headers.set("Content-Type", "application/json");
@@ -34,8 +35,10 @@ async function request({
 
   try {
     // Prepend the base URL to the endpoint URL
-    const fullUrl = `${BASE_URL}${url}`;
-    const response = await fetch(fullUrl, finalConfig);
+    const fullUrl = getApiUrl(url);
+    // Use customFetch if provided, otherwise fall back to global fetch
+    const fetchFunc = customFetch || fetch;
+    const response = await fetchFunc(fullUrl, finalConfig);
 
     if (!response.ok) {
       const errorResponse = await response.json();
@@ -52,20 +55,20 @@ async function request({
 
 // Exporting an object with methods to interact with the API
 const api = {
-  get<T>(url: string, config?: RequestInit): Promise<T> {
-    return request({ method: "GET", url, config });
+  get<T>(url: string, config?: RequestInit, customFetch?: typeof fetch): Promise<T> {
+    return request({ method: "GET", url, config, customFetch });
   },
-  post<T>(url: string, data?: unknown, config?: RequestInit): Promise<T> {
-    return request({ method: "POST", url, data, config });
+  post<T>(url: string, data?: unknown, config?: RequestInit, customFetch?: typeof fetch): Promise<T> {
+    return request({ method: "POST", url, data, config, customFetch });
   },
-  put<T>(url: string, data?: unknown, config?: RequestInit): Promise<T> {
-    return request({ method: "PUT", url, data, config });
+  put<T>(url: string, data?: unknown, config?: RequestInit, customFetch?: typeof fetch): Promise<T> {
+    return request({ method: "PUT", url, data, config, customFetch });
   },
-  delete<T>(url: string, config?: RequestInit): Promise<T> {
-    return request({ method: "DELETE", url, config });
+  delete<T>(url: string, config?: RequestInit, customFetch?: typeof fetch): Promise<T> {
+    return request({ method: "DELETE", url, config, customFetch });
   },
-  patch<T>(url: string, data?: unknown, config?: RequestInit): Promise<T> {
-    return request({ method: "PATCH", url, data, config });
+  patch<T>(url: string, data?: unknown, config?: RequestInit, customFetch?: typeof fetch): Promise<T> {
+    return request({ method: "PATCH", url, data, config, customFetch });
   },
 };
 

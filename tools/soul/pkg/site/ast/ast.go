@@ -68,6 +68,7 @@ type MethodNode struct {
 	HasRequestType     bool
 	HasResponseType    bool
 	HasPage            bool
+	ReturnsImage       bool
 	ReturnsPartial     bool
 	ReturnsPlainText   bool
 	ReturnsJson        bool

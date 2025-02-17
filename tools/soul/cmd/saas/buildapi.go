@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -18,13 +19,13 @@ import (
 // buildApi processes and generates TypeScript interfaces from Go structs
 func buildApi(builder *SaaSBuilder) error {
 	// remove the index.ts file if it exists
-	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "api", "index.ts")
+	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "lib", "api", "index.ts")
 	os.Remove(filename)
 
 	// write the index.ts file
 	builder.genFile(fileGenConfig{
-		subdir:       path.Join(builder.ServiceName, types.SrcDir, "api"),
-		templateFile: "templates/app/src/api/index.ts.tpl",
+		subdir:       path.Join(builder.ServiceName, types.SrcDir, "lib", "api"),
+		templateFile: "templates/app/src/lib/api/index.ts.tpl",
 		data:         builder.Data,
 	})
 
@@ -48,11 +49,11 @@ func buildApi(builder *SaaSBuilder) error {
 
 							if node.Topic != "" {
 								// fmt.Println("Socket:", node.Topic)
-								constants[util.ToConstant(fmt.Sprintf("WS_Request_%s", node.Topic))] = node.Topic
+								constants[util.ToPascal(fmt.Sprintf("Topic_%s", node.Topic))] = node.Topic
 							}
 							if node.ResponseTopic != "" {
 								// fmt.Println("Socket:", node.ResponseTopic)
-								constants[util.ToConstant(fmt.Sprintf("WS_Response_%s", node.ResponseTopic))] = node.ResponseTopic
+								constants[util.ToPascal(fmt.Sprintf("Topic_%s", node.ResponseTopic))] = node.ResponseTopic
 							}
 						}
 					}
@@ -71,6 +72,7 @@ func buildApi(builder *SaaSBuilder) error {
 						}
 						// fmt.Println("Socket:", m.SocketNode)
 					}
+
 					// fmt.Println("Method:", m.GetName(), m.RequestType, m.ResponseType)
 					// if m.RequestType != nil {
 					// 	fmt.Println("Method:", m.RequestType.GetName(), m.GetName(), m.ReturnsJson)
@@ -106,7 +108,7 @@ func buildApi(builder *SaaSBuilder) error {
 							continue outerLoop
 						}
 
-						writeApiEndpoint(endpointBuilder, requestType, responseType, srv, h, m, routePrefix)
+						writeApiEndpoint(builder, endpointBuilder, requestType, responseType, h, m, routePrefix)
 						// fmt.Println("Endpoint:", endpointBuilder.String())
 					}
 				}
@@ -119,13 +121,13 @@ func buildApi(builder *SaaSBuilder) error {
 
 	// fmt.Println(builder.Data["Endpoints"])
 	if !builder.IsService {
-		filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "api", "endpoints.ts")
+		filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "lib", "api", "endpoints.ts")
 		// fmt.Println("Removing:", filename)
 		os.Remove(filename)
 		// Generate the endpoints.ts file
 		if err := builder.genFile(fileGenConfig{
-			subdir:       path.Join(builder.ServiceName, types.SrcDir, "api"),
-			templateFile: "templates/app/src/api/endpoints.ts.tpl",
+			subdir:       path.Join(builder.ServiceName, types.SrcDir, "lib", "api"),
+			templateFile: "templates/app/src/lib/api/endpoints.ts.tpl",
 			data:         builder.Data,
 		}); err != nil {
 			fmt.Println(util.WrapErr(err, "endpoints.ts generate error"))
@@ -226,7 +228,18 @@ func isPrimitive(tp string) bool {
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
 		"float32", "float64",
-		"bool", "string", "[]byte", "time.Time", "time.Duration":
+		"map[string]string",
+		"map[string]int",
+		"map[string]float64",
+		"map[string]bool",
+		"map[string]interface{}",
+		"any",
+		"string",
+		"[]string",
+		"bool",
+		"[]byte",
+		"time.Time",
+		"time.Duration":
 		return true
 	default:
 		return false
@@ -267,17 +280,20 @@ func genApiTypes(builder *SaaSBuilder, allowedTypes map[string]bool) error {
 
 	// Iterate through sorted keys and write the types
 	for _, key := range sortedKeys {
+		// fmt.Println("Writing:", key)
 		tp := allowedMap[key] // Get the corresponding type from the map
-		if !first {
-			modelBuilder.WriteString("\n\n")
-		}
-		first = false
-		if err := writeApiType(&modelBuilder, tp); err != nil {
-			return util.WrapErr(err, tp.GetName()+" generate error")
+		if tp != nil {
+			if !first {
+				modelBuilder.WriteString("\n\n")
+			}
+			first = false
+			if err := writeApiType(builder, &modelBuilder, tp); err != nil {
+				return util.WrapErr(err, tp.GetName()+" generate error")
+			}
 		}
 	}
 
-	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "api", "models.ts")
+	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "lib", "api", "models.ts")
 	// fmt.Println("Removing:", filename)
 	os.Remove(filename)
 
@@ -288,8 +304,8 @@ func genApiTypes(builder *SaaSBuilder, allowedTypes map[string]bool) error {
 
 	// Generate the models.ts file
 	if err := builder.genFile(fileGenConfig{
-		subdir:       path.Join(builder.ServiceName, types.SrcDir, "api"),
-		templateFile: "templates/app/src/api/models.ts.tpl",
+		subdir:       path.Join(builder.ServiceName, types.SrcDir, "lib", "api"),
+		templateFile: "templates/app/src/lib/api/models.ts.tpl",
 		data:         builder.Data,
 	}); err != nil {
 		fmt.Println(util.WrapErr(err, "models.ts generate error"))
@@ -320,14 +336,14 @@ func writeConstants(builder *SaaSBuilder, constants map[string]string) error {
 
 	builder.Data["Constants"] = constantsBuilder.String()
 
-	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "api", "constants.ts")
+	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "lib", "api", "constants.ts")
 	// fmt.Println("Removing:", filename)
 	os.Remove(filename)
 
 	// Generate the models.ts file
 	if err := builder.genFile(fileGenConfig{
-		subdir:       path.Join(builder.ServiceName, types.SrcDir, "api"),
-		templateFile: "templates/app/src/api/constants.ts.tpl",
+		subdir:       path.Join(builder.ServiceName, types.SrcDir, "lib", "api"),
+		templateFile: "templates/app/src/lib/api/constants.ts.tpl",
 		data:         builder.Data,
 	}); err != nil {
 		fmt.Println(util.WrapErr(err, "constants.ts generate error"))
@@ -336,72 +352,205 @@ func writeConstants(builder *SaaSBuilder, constants map[string]string) error {
 	return nil
 }
 
-func writeApiEndpoint(endpointBuilder io.Writer, requestType, responseType spec.Type, srv spec.Service, h spec.Handler, m spec.Method, routePrefix string) error {
-
+func writeApiEndpoint(builder *SaaSBuilder, endpointBuilder io.Writer, requestType, responseType spec.Type, h spec.Handler, m spec.Method, routePrefix string) error {
 	var reqParams []string
 	var request, response string
 	var totalFields int
+	var queryParams []string
+	pathParams := make(map[string]string)
+
+	hasRequestObject := false
 	if requestType != nil {
 		totalFields = len(requestType.GetFields())
+		allFieldsArePath := true
 
-		// fmt.Println("RequestType:", requestType)
+		// Check all fields first to determine if they're all path parameters
 		for _, field := range requestType.GetFields() {
-			// fmt.Println("Tag:", field.Tag)
-			if strings.Contains(field.Tag, "path:") {
-				totalFields--
-				var fieldName string
-				if len(field.Name) > 3 {
-					fieldName = util.FirstToLower(field.Name)
-				} else {
-					fieldName = strings.ToLower(field.Name)
-				}
-				reqParams = append(reqParams, fmt.Sprintf("%s: %s", fieldName, ConvertToTypeScriptType(field.Type)))
+			if !strings.Contains(field.Tag, "path:") {
+				allFieldsArePath = false
+				break
 			}
 		}
-		if totalFields > 0 && strings.ToUpper(m.Method) != "GET" {
-			request = fmt.Sprintf("req: models.%s", util.ToTitle(m.RequestType.GetName()))
+
+		// Only add request object if it's not a GET or if there are non-path fields
+		if !strings.Contains(m.Route, ":") && totalFields > 0 && !(strings.ToUpper(m.Method) == "GET" && allFieldsArePath) {
+			request = fmt.Sprintf("req: models.%s", requestType.GetName())
+			hasRequestObject = true
+		}
+
+		// Handle parameters
+		for _, field := range requestType.GetFields() {
+			fieldName := util.FirstToLower(field.Name)
+			if len(field.Name) <= 3 {
+				fieldName = strings.ToLower(field.Name)
+			}
+
+			if strings.Contains(field.Tag, "path:") {
+				// Handle path parameters
+				totalFields--
+				reqParams = append(reqParams, fmt.Sprintf("%s: %s", fieldName, ConvertToTypeScriptType(builder, field.Type)))
+
+				// Extract the path parameter name from the tag
+				re := regexp.MustCompile(`path:"([^"]+)"`)
+				if matches := re.FindStringSubmatch(field.Tag); len(matches) > 1 {
+					pathParams[matches[1]] = fieldName
+				} else {
+					pathParams[strings.ToLower(field.Name)] = fieldName
+				}
+			} else if strings.Contains(field.Tag, "query:") || strings.ToUpper(m.Method) == "GET" {
+				// Handle query parameters
+				totalFields--
+				reqParams = append(reqParams, fmt.Sprintf("%s: %s", fieldName, ConvertToTypeScriptType(builder, field.Type)))
+				queryParams = append(queryParams, fmt.Sprintf("%s=${%s}", fieldName, fieldName))
+			}
 		}
 	}
 
-	// format params
-	params := ""
+	// Add any primitive parameters that appear before 'options' as path parameters
+	primitiveParams := []string{}
 	if len(reqParams) > 0 {
-		params = strings.Join(reqParams, ", ")
-		if request != "" {
-			params += ", "
+		for _, param := range reqParams {
+			if !strings.Contains(param, "req:") && !strings.Contains(param, "options?:") {
+				parts := strings.Split(param, ":")
+				if len(parts) == 2 {
+					paramName := strings.TrimSpace(parts[0])
+					primitiveParams = append(primitiveParams, paramName)
+				}
+			}
 		}
 	}
+
+	// Format parameters
+	params := strings.Join(reqParams, ", ")
+	if request != "" {
+		if params != "" {
+			params += ", "
+		}
+		params += request
+	}
+	if params != "" {
+		params += ", "
+	}
+	params += "options?: { fetch?: typeof fetch }"
 
 	if responseType != nil {
 		response = fmt.Sprintf(": Promise<models.%s>", util.ToTitle(m.ResponseType.GetName()))
 	}
 
 	handlerName := strings.Replace(util.ToPascal(getHandlerName(h, &m)), "Handler", "", -1)
-
-	fmt.Fprintf(endpointBuilder, "export function %s(%s%s)%s {\n", handlerName, params, request, response)
+	fmt.Fprintf(endpointBuilder, "export function %s(%s)%s {\n", handlerName, params, response)
 	util.WriteIndent(endpointBuilder, 1)
 
-	re := regexp.MustCompile(`:(\w+)`)
+	route := path.Join("/", strings.TrimLeft(routePrefix, "/"), m.Route)
 
-	route := re.ReplaceAllString(path.Join("/", strings.TrimLeft(routePrefix, "/"), m.Route), "${$1}")
+	// First, extract all :param patterns from the route
+	routeParamRegex := regexp.MustCompile(`:(\w+)`)
+	routeParams := routeParamRegex.FindAllStringSubmatch(route, -1)
 
-	if totalFields > 0 && strings.ToUpper(m.Method) != "GET" {
-		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`, req)", strings.ToLower(m.Method), util.ToTitle(m.ResponseType.GetName()), route)
-	} else {
-		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`)", strings.ToLower(m.Method), util.ToTitle(m.ResponseType.GetName()), route)
+	// Add route parameters to pathParams if they're not already there
+	for _, param := range routeParams {
+		if param[1] != "" && pathParams[param[1]] == "" {
+			// Convert the parameter name to camelCase if needed
+			paramName := util.FirstToLower(param[1])
+			pathParams[param[1]] = paramName
+		}
 	}
+
+	// Replace path parameters in the route
+	for param, varName := range pathParams {
+		route = strings.ReplaceAll(route, ":"+param, "${"+varName+"}")
+	}
+
+	// Only append primitive parameters if they don't correspond to path parameters
+	for _, param := range primitiveParams {
+		// Check if this parameter is already used as a path parameter
+		isPathParam := false
+		for _, pathVar := range pathParams {
+			if pathVar == param {
+				isPathParam = true
+				break
+			}
+		}
+		if !isPathParam {
+			route = fmt.Sprintf("%s/${%s}", route, param)
+		}
+	}
+
+	// Append query parameters if present
+	if len(queryParams) > 0 {
+		route = fmt.Sprintf("%s?%s", route, strings.Join(queryParams, "&"))
+	}
+
+	method := strings.ToLower(m.Method)
+	if method == "get" {
+		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`, undefined, options?.fetch)",
+			method,
+			util.ToTitle(m.ResponseType.GetName()),
+			route)
+	} else if hasRequestObject {
+		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`, req, undefined, options?.fetch)",
+			method,
+			util.ToTitle(m.ResponseType.GetName()),
+			route)
+	} else {
+		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`, undefined, undefined, options?.fetch)",
+			method,
+			util.ToTitle(m.ResponseType.GetName()),
+			route)
+	}
+
 	fmt.Fprintf(endpointBuilder, "\n}\n\n")
 	return nil
 }
 
+func findFieldType(builder *SaaSBuilder, name string) *string {
+	// fmt.Println("Finding:", name)
+	// search the types folder for files containing the type name
+	files, err := filepath.Glob(path.Join(builder.ServiceName, types.TypesDir, "*.go"))
+	if err != nil {
+		return nil
+	}
+	for _, file := range files {
+		// fmt.Println("Searching:", file)
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return nil
+		}
+		// look at the file line by line
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			// ignore comments
+			if strings.HasPrefix(line, "//") {
+				continue
+			}
+			re := regexp.MustCompile(`^type\s+` + regexp.QuoteMeta(name) + `\s+`)
+			if re.MatchString(line) {
+				// determine the type of the field
+				typeRe := regexp.MustCompile(`type\s+(\w+)\s+(\w+)`)
+				out := typeRe.FindAllStringSubmatch(string(content), -1)
+				if len(out) > 0 && len(out[0]) > 2 {
+					// fmt.Println("Found:", name, "in", file, "of type", out[0][2])
+					// fmt.Printf("Type: %v\n", out[0])
+					if out[0][2] == "string" {
+						return &out[0][2]
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // writeApiType writes the TypeScript interface definition for a given type
-func writeApiType(modelBuilder io.Writer, tp spec.Type) error {
+func writeApiType(builder *SaaSBuilder, modelBuilder io.Writer, tp spec.Type) error {
 	if tp != nil {
 		fmt.Fprintf(modelBuilder, "export interface %s {\n", util.ToTitle(tp.GetName()))
+
 		for _, member := range tp.GetFields() {
 			isOptional := strings.Contains(member.Tag, "omitempty")
 			fieldName := extractFieldName(member.Tag, member.Name)
-			if err := WriteApiProperty(modelBuilder, fieldName, member.Type, isOptional, 1); err != nil {
+			if err := WriteApiProperty(builder, modelBuilder, fieldName, member.Type, isOptional, 1); err != nil {
 				return err
 			}
 		}
@@ -421,7 +570,7 @@ func extractFieldName(tag, defaultName string) string {
 }
 
 // WriteApiProperty writes a TypeScript property definition
-func WriteApiProperty(writer io.Writer, name, tp string, isOptional bool, indent int) error {
+func WriteApiProperty(builder *SaaSBuilder, writer io.Writer, name, tp string, isOptional bool, indent int) error {
 	// Use a utility function to write indentation
 	util.WriteIndent(writer, indent)
 
@@ -429,7 +578,7 @@ func WriteApiProperty(writer io.Writer, name, tp string, isOptional bool, indent
 	tp = strings.ReplaceAll(tp, "*", "")
 
 	// Convert Go-specific types to TypeScript
-	tsType := ConvertToTypeScriptType(tp)
+	tsType := ConvertToTypeScriptType(builder, tp)
 
 	// Determine if the property is optional
 	optionalMark := ""
@@ -444,7 +593,15 @@ func WriteApiProperty(writer io.Writer, name, tp string, isOptional bool, indent
 }
 
 // ConvertToTypeScriptType converts Go types to TypeScript types
-func ConvertToTypeScriptType(goType string) string {
+func ConvertToTypeScriptType(builder *SaaSBuilder, goType string) string {
+	// fmt.Println("Converting:", goType)
+	fieldType := findFieldType(builder, goType)
+	if fieldType != nil {
+		// fmt.Println("Member:", member.Name, member.Type, member.Tag)
+		goType = *fieldType
+		// fmt.Println("Converted:", goType)
+	}
+
 	switch goType {
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
@@ -464,14 +621,14 @@ func ConvertToTypeScriptType(goType string) string {
 		// Handle slices and maps
 		if strings.HasPrefix(goType, "[]") {
 			elementType := goType[2:]
-			return fmt.Sprintf("%s[]", ConvertToTypeScriptType(elementType))
+			return fmt.Sprintf("%s[]", ConvertToTypeScriptType(builder, elementType))
 		}
 		if strings.HasPrefix(goType, "map[") && strings.Contains(goType, "]") {
 			keyValueTypes := goType[4:]
 			parts := strings.SplitN(keyValueTypes, "]", 2)
 			if len(parts) == 2 {
-				keyType := ConvertToTypeScriptType(parts[0])
-				valueType := ConvertToTypeScriptType(parts[1])
+				keyType := ConvertToTypeScriptType(builder, parts[0])
+				valueType := ConvertToTypeScriptType(builder, parts[1])
 				return fmt.Sprintf("Record<%s, %s>", keyType, valueType)
 			}
 		}

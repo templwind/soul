@@ -248,6 +248,7 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 			strings.EqualFold(part, "socket") ||
 			strings.EqualFold(part, "sse") ||
 			strings.EqualFold(part, "video") ||
+			strings.EqualFold(part, "image") ||
 			strings.EqualFold(part, "audio") ||
 			strings.EqualFold(part, "file") ||
 			strings.EqualFold(part, "download")
@@ -376,6 +377,11 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 				method.ReturnsPlainText = true
 			}
 
+			if strings.Contains(part, "image") {
+				method.NoOutput = false
+				method.ReturnsImage = true
+			}
+
 			if method.Method == "GET" && strings.Contains(part, "204") {
 				fmt.Println("Error: GET methods cannot return a 204 No Content status code")
 				os.Exit(0)
@@ -409,6 +415,7 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 	}
 
 	if method.Method == "GET" &&
+		!method.ReturnsImage &&
 		!method.ReturnsPartial &&
 		!method.ReturnsJson &&
 		!method.ReturnsPlainText &&

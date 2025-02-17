@@ -47,6 +47,7 @@ type MethodConfig struct {
 	ReturnString       string
 	ResponseString     string
 	ReturnsPartial     bool
+	ReturnsImage       bool
 	ReturnsFullHTML    bool
 	ReturnsPlainText   bool
 	ReturnsNoOutput    bool
