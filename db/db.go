@@ -88,6 +88,7 @@ func connect(opts *DBConfig) (*sqlx.DB, error) {
 		return nil, err
 	}
 
+	// Handle SQLite3 specific logic
 	if u.Driver == "sqlite3" {
 		// Ensure the database file and directory exist
 		dbPath := u.DSN
@@ -100,6 +101,8 @@ func connect(opts *DBConfig) (*sqlx.DB, error) {
 		}
 	}
 
+	fmt.Println("Connecting to database:", u.Driver, u.DSN)
+	// Use sqlx.Connect with the parsed driver and DSN
 	dbConn, err := sqlx.Connect(u.Driver, u.DSN)
 	if err != nil {
 		return nil, err
