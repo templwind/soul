@@ -56,7 +56,7 @@ type ChatGPTService struct {
 
 // NewChatGPTClient creates a new ChatGPTClient
 func NewChatGPTClient(cfg *config.GPT, rateLimiter *ratelimiter.RateLimiter) (*ChatGPTClient, error) {
-	log.Println("Initializing ChatGPTClient")
+	// log.Println("Initializing ChatGPTClient")
 	client := &http.Client{}
 
 	chatGPTClient := &ChatGPTClient{
@@ -240,7 +240,7 @@ func (c *ChatGPTClient) GenerateResponse(prompt string, stream bool, conversatio
 
 // MustNewChatGPTService creates a new ChatGPTService or panics if an error occurs
 func MustNewChatGPTService(cfg *config.GPT, rateLimiter *ratelimiter.RateLimiter) *ChatGPTService {
-	log.Println("Creating new ChatGPTService")
+	// log.Println("Creating new ChatGPTService")
 	chatGPTClient, err := NewChatGPTClient(cfg, rateLimiter)
 	if err != nil {
 		log.Panicf("Failed to create ChatGPTClient: %v", err)

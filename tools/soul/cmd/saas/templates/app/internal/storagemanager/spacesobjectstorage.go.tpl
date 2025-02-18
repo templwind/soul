@@ -73,7 +73,7 @@ func NewStorageManager(ctx context.Context, c *config.Config, db *sqlx.DB, thres
 		S3ForcePathStyle: aws.Bool(false), // Required for DigitalOcean Spaces
 	})))
 
-	fmt.Println("Using DigitalOcean Spaces for object storage", s3Client.Config.Endpoint)
+	// fmt.Println("Using DigitalOcean Spaces for object storage", s3Client.Config.Endpoint)
 
 	return &StorageManager{
 		ctx:          ctx,

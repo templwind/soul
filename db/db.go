@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -10,13 +11,15 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/xo/dburl"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // PersistentSQLx contains the persistent database connection
 type PersistentSQLx struct {
-	db   *sqlx.DB
-	dsn  string
-	opts *DBConfig
+	db    *sqlx.DB
+	dsn   string
+	opts  *DBConfig
+	debug bool
 }
 
 // OptFunc defines the signature for an option function
@@ -37,9 +40,10 @@ func NewWithOptions(opts *DBConfig) *PersistentSQLx {
 	}
 
 	psqlx := &PersistentSQLx{
-		db:   db,
-		dsn:  dsn,
-		opts: opts,
+		db:    db,
+		dsn:   dsn,
+		opts:  opts,
+		debug: false,
 	}
 
 	// Start a go-routine to continuously check connection health
@@ -78,30 +82,37 @@ func WithEnableWALMode(enable bool) OptFunc[DBConfig] {
 	}
 }
 
+// SetDebug enables or disables debug logging
+func (psqlx *PersistentSQLx) SetDebug(enabled bool) {
+	psqlx.debug = enabled
+}
+
+// debugLog logs messages only when debug mode is enabled
+func (psqlx *PersistentSQLx) debugLog(msg string, fields ...logx.LogField) {
+	if psqlx.debug {
+		logx.WithContext(context.Background()).Infow(msg, fields...)
+	}
+}
+
 // connect establishes a new database connection
 func connect(opts *DBConfig) (*sqlx.DB, error) {
-	// fmt.Println("Connecting to database:", opts.DSN)
-
 	u, err := dburl.Parse(opts.DSN)
 	if err != nil {
-		fmt.Println("Failed to parse DSN:", err)
+		logx.Error("Failed to parse DSN", logx.Field("error", err))
 		return nil, err
 	}
 
 	// Handle SQLite3 specific logic
 	if u.Driver == "sqlite3" {
-		// Ensure the database file and directory exist
 		dbPath := u.DSN
 		if dbPath[0] == '/' {
 			dbPath = dbPath[1:]
 		}
-
 		if err := ensureSQLiteFile(dbPath); err != nil {
 			return nil, err
 		}
 	}
 
-	fmt.Println("Connecting to database:", u.Driver, u.DSN)
 	// Use sqlx.Connect with the parsed driver and DSN
 	dbConn, err := sqlx.Connect(u.Driver, u.DSN)
 	if err != nil {
@@ -143,24 +154,27 @@ func (psqlx *PersistentSQLx) GetDB() *sqlx.DB {
 
 // reconnect attempts to re-establish the database connection with exponential backoff
 func (psqlx *PersistentSQLx) reconnect() error {
-	// Exponential backoff parameters
 	const maxBackoff = 5 * time.Minute
 	baseDelay := 500 * time.Millisecond
 
 	for attempts := 0; ; attempts++ {
+		psqlx.debugLog("Attempting to reconnect", logx.Field("attempt", attempts))
+
 		db, err := connect(psqlx.opts)
 		if err == nil {
 			psqlx.db = db
+			psqlx.debugLog("Successfully reconnected to database")
 			return nil
 		}
 
 		if attempts > 0 {
-			// Exponential backoff calculation
 			backoff := time.Duration(math.Pow(2, float64(attempts))) * baseDelay
 			if backoff > maxBackoff {
 				backoff = maxBackoff
 			}
-
+			psqlx.debugLog("Reconnection failed, waiting before retry",
+				logx.Field("backoff", backoff),
+				logx.Field("error", err))
 			time.Sleep(backoff)
 		}
 	}
@@ -169,13 +183,10 @@ func (psqlx *PersistentSQLx) reconnect() error {
 // ensureConnection continuously checks the health of the database connection
 func (psqlx *PersistentSQLx) ensureConnection() {
 	for {
-		// Implement a simple ping check
 		if err := psqlx.db.Ping(); err != nil {
-			// If ping fails, try to reconnect
+			psqlx.debugLog("Ping failed, attempting reconnect", logx.Field("error", err))
 			psqlx.reconnect()
 		}
-
-		// Sleep for some time before the next health check
 		time.Sleep(1 * time.Minute)
 	}
 }
