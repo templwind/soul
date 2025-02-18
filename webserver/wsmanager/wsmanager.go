@@ -1,12 +1,13 @@
 package wsmanager
 
 import (
+	"context"
 	"encoding/json"
-	"log"
 	"sync"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type ConnectionManager struct {
@@ -15,6 +16,7 @@ type ConnectionManager struct {
 	subscriptions map[any]map[*Connection]bool
 	broadcast     chan Message
 	userConnMap   map[any][]*Connection // Mapping from user ID to connections
+	debug         bool                  // Add debug flag
 }
 
 var instance *ConnectionManager
@@ -27,11 +29,26 @@ func NewConnectionManager() *ConnectionManager {
 			subscriptions: make(map[any]map[*Connection]bool),
 			broadcast:     make(chan Message),
 			userConnMap:   make(map[any][]*Connection),
+			debug:         false, // Default to false
 		}
 		// Optionally start handling broadcasts
 		go instance.handleBroadcasts()
 	})
 	return instance
+}
+
+// SetDebug enables or disables debug logging
+func (cm *ConnectionManager) SetDebug(enabled bool) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.debug = enabled
+}
+
+// debugLog logs messages only when debug mode is enabled
+func (cm *ConnectionManager) debugLog(msg string, fields ...logx.LogField) {
+	if cm.debug {
+		logx.WithContext(context.Background()).Infow(msg, fields...)
+	}
 }
 
 func (cm *ConnectionManager) AddClient(conn *Connection, userID any) {
@@ -41,7 +58,7 @@ func (cm *ConnectionManager) AddClient(conn *Connection, userID any) {
 	if userID != "" {
 		cm.userConnMap[userID] = append(cm.userConnMap[userID], conn)
 	}
-	log.Println("Client added:", conn)
+	cm.debugLog("Client added", logx.Field("connection", conn), logx.Field("userID", userID))
 }
 
 func (cm *ConnectionManager) RemoveClient(conn *Connection, userID any) {
@@ -66,7 +83,7 @@ func (cm *ConnectionManager) RemoveClient(conn *Connection, userID any) {
 			delete(cm.subscriptions, topic)
 		}
 	}
-	log.Println("Client removed:", conn)
+	cm.debugLog("Client removed", logx.Field("connection", conn))
 }
 
 func (cm *ConnectionManager) Subscribe(conn *Connection, topic string) {
@@ -76,7 +93,7 @@ func (cm *ConnectionManager) Subscribe(conn *Connection, topic string) {
 		cm.subscriptions[topic] = make(map[*Connection]bool)
 	}
 	cm.subscriptions[topic][conn] = true
-	log.Printf("Client subscribed to topic %s: %v", topic, conn)
+	cm.debugLog("Client subscribed to topic", logx.Field("topic", topic), logx.Field("connection", conn))
 }
 
 func (cm *ConnectionManager) Unsubscribe(conn *Connection, topic string) {
@@ -86,12 +103,14 @@ func (cm *ConnectionManager) Unsubscribe(conn *Connection, topic string) {
 	if len(cm.subscriptions[topic]) == 0 {
 		delete(cm.subscriptions, topic)
 	}
-	log.Printf("Client unsubscribed from topic %s: %v", topic, conn)
+	cm.debugLog("Client unsubscribed from topic", logx.Field("topic", topic), logx.Field("connection", conn))
 }
 
 func (cm *ConnectionManager) Broadcast(msg Message, sender *Connection) {
 	msg.Sender = sender
-	log.Printf("Broadcasting message: %v", msg)
+	cm.debugLog("Broadcasting message",
+		logx.Field("message", msg),
+		logx.Field("sender", sender))
 	cm.broadcast <- msg
 }
 
@@ -104,15 +123,17 @@ func (cm *ConnectionManager) handleBroadcasts() {
 			Payload json.RawMessage `json:"payload"`
 		}{}
 		if err := json.Unmarshal(msg.Payload, &topicPayload); err != nil {
-			log.Printf("Error unmarshaling broadcast payload: %v", err)
+			logx.Error("Error unmarshaling broadcast payload", logx.Field("error", err))
 			cm.mu.Unlock()
 			continue
 		}
 		subscribers, exists := cm.subscriptions[topicPayload.Topic]
 		if !exists {
-			log.Printf("No subscribers for topic %s", topicPayload.Topic)
+			cm.debugLog("No subscribers found", logx.Field("topic", topicPayload.Topic))
 		} else {
-			log.Printf("Found %d subscribers for topic %s", len(subscribers), topicPayload.Topic)
+			cm.debugLog("Found subscribers",
+				logx.Field("topic", topicPayload.Topic),
+				logx.Field("count", len(subscribers)))
 		}
 		for client := range subscribers {
 			if client == msg.Sender {
@@ -123,11 +144,11 @@ func (cm *ConnectionManager) handleBroadcasts() {
 				defer client.mu.Unlock()
 				err := wsutil.WriteServerMessage(client.Conn, ws.OpText, topicPayload.Payload)
 				if err != nil {
-					log.Printf("Error sending message to client: %v", err)
+					logx.Error("Error sending message to client", logx.Field("error", err))
 					client.Conn.Close()
 					// Depending on your policy, you might want to retry, log, or handle the error differently
 				} else {
-					log.Printf("Message sent to client: %v", client)
+					logx.Info("Message sent to client", logx.Field("client", client))
 				}
 			}(client)
 		}
