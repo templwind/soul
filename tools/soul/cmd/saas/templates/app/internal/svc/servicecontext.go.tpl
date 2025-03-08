@@ -60,6 +60,8 @@ func NewServiceContext(c *{{.config}}) *ServiceContext {
 	// Initialize the job manager
 	jobManager := jobs.NewJobManager()
 
+	// customStatic := middleware.CustomStaticMiddleware("build", c.EmbeddedFS["build"], c.Environment == "production")
+
 	return &ServiceContext{
 		Config: c,
 		DB:  sqlxDB,

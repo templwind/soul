@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -269,12 +270,25 @@ func ParseHeader(headerValue string) map[string]string {
 //   - c: The Echo context containing the HTTP request
 //   - v: A pointer to the struct where JSON data will be decoded
 //
+// ParseJsonBody extracts and parses the JSON body of an HTTP request into the target struct.
 // The body size is limited to maxBodyLen (8MB) to prevent memory exhaustion.
 // Returns an error if JSON decoding fails.
 func ParseJsonBody(c echo.Context, v any) error {
 	if withJsonBody(c.Request()) {
-		reader := io.LimitReader(c.Request().Body, maxBodyLen)
-		return json.NewDecoder(reader).Decode(v)
+		// Create a buffer to store the body
+		var bodyBuffer bytes.Buffer
+
+		// Use TeeReader to read the body while simultaneously copying it to the buffer
+		// This also applies the maxBodyLen limit to prevent memory exhaustion
+		teeReader := io.TeeReader(io.LimitReader(c.Request().Body, maxBodyLen), &bodyBuffer)
+
+		// Decode the JSON directly from the teeReader
+		err := json.NewDecoder(teeReader).Decode(v)
+
+		// Restore the body for later use
+		c.Request().Body = io.NopCloser(&bodyBuffer)
+
+		return err
 	}
 
 	return nil
