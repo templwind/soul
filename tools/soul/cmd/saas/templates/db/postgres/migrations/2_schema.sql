@@ -1,8 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE accounts(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_name text,
     address_1 text,
     address_2 text,
@@ -13,23 +12,30 @@ CREATE TABLE accounts(
     phone text,
     email text,
     website text,
-    primary_user_id bigint NOT NULL,
+    primary_user_id uuid NOT NULL,
     created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER trigger_accounts_genid
+-- Trigger to update timestamps for accounts table
+CREATE TRIGGER set_timestamp_accounts
     BEFORE INSERT ON accounts
     FOR EACH ROW
-    EXECUTE FUNCTION generate_public_id();
+    EXECUTE FUNCTION set_timestamp_columns();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
+CREATE TRIGGER update_timestamp_accounts
+    BEFORE UPDATE ON accounts
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 
 -- +goose StatementEnd
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS user_types(
     id bigserial PRIMARY KEY,
-    public_id text UNIQUE, -- Assuming PUBLIC_ID is a text type
     type_name text NOT NULL,
     description text NOT NULL
 );
@@ -37,26 +43,18 @@ CREATE TABLE IF NOT EXISTS user_types(
 -- +goose StatementEnd
 -- +goose StatementBegin
 -- Insert default user types
-INSERT INTO user_types(id, public_id, type_name, description)
-    VALUES (1, 'superAdmin', 'Super Admin', 'Super administrator with full access'),
-(2, 'companyUser', 'Company User', 'User with company-level access'),
-(3, 'masterUser', 'Master User', 'Master user with elevated privileges'),
-(4, 'serviceUser', 'Service User', 'Service user with basic access')
+INSERT INTO user_types(id, type_name, description)
+    VALUES (1, 'Super Admin', 'Super administrator with full access'),
+(2, 'Company User', 'User with company-level access'),
+(3, 'Master User', 'Master user with elevated privileges'),
+(4, 'Service User', 'Service user with basic access')
 ON CONFLICT (id)
     DO NOTHING;
 
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER trigger_user_types_genid
-    BEFORE INSERT ON user_types
-    FOR EACH ROW
-    EXECUTE FUNCTION generate_public_id();
-
--- +goose StatementEnd
--- +goose StatementBegin
 CREATE TABLE users(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     first_name text DEFAULT '' NOT NULL,
     last_name text DEFAULT '' NOT NULL,
     title text DEFAULT '' NOT NULL,
@@ -77,16 +75,30 @@ CREATE TABLE users(
 
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER trigger_users_genid
+-- Trigger to update timestamps for users table
+CREATE TRIGGER set_timestamp_users
     BEFORE INSERT ON users
     FOR EACH ROW
-    EXECUTE FUNCTION generate_public_id();
+    EXECUTE FUNCTION set_timestamp_columns();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
+CREATE TRIGGER update_timestamp_users
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
+-- Add foreign key constraint for accounts.primary_user_id after users table is created
+ALTER TABLE accounts
+    ADD CONSTRAINT fk_accounts_primary_user FOREIGN KEY (primary_user_id) REFERENCES users(id) ON DELETE RESTRICT;
 
 -- +goose StatementEnd
 -- +goose StatementBegin
 CREATE TABLE user_accounts(
-    user_id bigint NOT NULL,
-    account_id bigint NOT NULL,
+    user_id uuid NOT NULL,
+    account_id uuid NOT NULL,
     PRIMARY KEY (user_id, account_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
@@ -99,8 +111,7 @@ CREATE INDEX idx_user_accounts_user_id ON user_accounts(user_id);
 -- +goose StatementEnd
 -- +goose StatementBegin
 CREATE TABLE products(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     name text NOT NULL,
     description text,
     price DECIMAL NOT NULL,
@@ -111,18 +122,25 @@ CREATE TABLE products(
 
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER trigger_products_genid
+-- Trigger to update timestamps for products table
+CREATE TRIGGER set_timestamp_products
     BEFORE INSERT ON products
     FOR EACH ROW
-    EXECUTE FUNCTION generate_public_id();
+    EXECUTE FUNCTION set_timestamp_columns();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
+CREATE TRIGGER update_timestamp_products
+    BEFORE UPDATE ON products
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 
 -- +goose StatementEnd
 -- +goose StatementBegin
 CREATE TABLE subscriptions(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    user_id bigint NOT NULL,
-    product_id bigint NOT NULL,
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id uuid NOT NULL,
+    product_id uuid NOT NULL,
     start_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
     end_date timestamp,
     status text NOT NULL,
@@ -134,6 +152,21 @@ CREATE TABLE subscriptions(
 
 -- +goose StatementEnd
 -- +goose StatementBegin
+-- Trigger to update timestamps for subscriptions table
+CREATE TRIGGER set_timestamp_subscriptions
+    BEFORE INSERT ON subscriptions
+    FOR EACH ROW
+    EXECUTE FUNCTION set_timestamp_columns();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
+CREATE TRIGGER update_timestamp_subscriptions
+    BEFORE UPDATE ON subscriptions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
 CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
 
 -- +goose StatementEnd
@@ -142,29 +175,10 @@ CREATE INDEX idx_subscriptions_product_id ON subscriptions(product_id);
 
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TABLE payment_methods(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    user_id bigint NOT NULL,
-    type TEXT NOT NULL, -- e.g., 'Visa', 'Mastercard'
-    details text NOT NULL, -- e.g., 'Visa •••• 1867'
-    is_primary boolean DEFAULT FALSE NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_payment_methods_user_id ON payment_methods(user_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
 CREATE TABLE invoices(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    user_id bigint NOT NULL,
-    subscription_id bigint,
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id uuid NOT NULL,
+    subscription_id uuid,
     amount DECIMAL NOT NULL,
     status text NOT NULL,
     invoice_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -178,6 +192,21 @@ CREATE TABLE invoices(
 
 -- +goose StatementEnd
 -- +goose StatementBegin
+-- Trigger to update timestamps for invoices table
+CREATE TRIGGER set_timestamp_invoices
+    BEFORE INSERT ON invoices
+    FOR EACH ROW
+    EXECUTE FUNCTION set_timestamp_columns();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
+CREATE TRIGGER update_timestamp_invoices
+    BEFORE UPDATE ON invoices
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
 CREATE INDEX idx_invoices_user_id ON invoices(user_id);
 
 -- +goose StatementEnd
@@ -186,235 +215,32 @@ CREATE INDEX idx_invoices_subscription_id ON invoices(subscription_id);
 
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TABLE payment_attempts(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    invoice_id bigint NOT NULL,
-    amount DECIMAL NOT NULL,
-    status text NOT NULL,
-    gateway_response text,
-    attempt_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_payment_attempts_invoice_id ON payment_attempts(invoice_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
 CREATE TABLE oauth_states(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     provider text NOT NULL,
-    user_id bigint,
+    user_id uuid,
     user_role_id bigint REFERENCES user_types(id) DEFAULT 2,
     data jsonb NOT NULL DEFAULT '{}',
     used boolean DEFAULT FALSE,
     jwt_generated boolean DEFAULT FALSE,
     created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-    expires_at timestamp DEFAULT CURRENT_TIMESTAMP
+    expires_at timestamp DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER trigger_oauth_states_genid
+-- Trigger to update timestamps for oauth_states table
+CREATE TRIGGER set_timestamp_oauth_states
     BEFORE INSERT ON oauth_states
     FOR EACH ROW
-    EXECUTE FUNCTION generate_public_id();
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE posts(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    user_id bigint NOT NULL,
-    title text NOT NULL,
-    content text NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_posts_user_id ON posts(user_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE comments(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    post_id bigint NOT NULL,
-    user_id bigint NOT NULL,
-    content text NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_comments_post_id ON comments(post_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_comments_user_id ON comments(user_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE tags(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    tag text NOT NULL,
-    post_id bigint, -- linkage to a blog post
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_tags_post_id ON tags(post_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE reviews(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    product_id bigint NOT NULL,
-    user_id bigint NOT NULL,
-    rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
-    content text,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_reviews_product_id ON reviews(product_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_reviews_user_id ON reviews(user_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE audit_logs(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    user_id bigint NOT NULL,
-    action text NOT NULL,
-    entity text NOT NULL,
-    entity_id bigint NOT NULL,
-    details text,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE roles(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    name text NOT NULL,
-    description text NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TRIGGER trigger_roles_genid
-    BEFORE INSERT ON roles
-    FOR EACH ROW
-    EXECUTE FUNCTION generate_public_id();
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE permissions(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    name text NOT NULL,
-    description text NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TRIGGER trigger_permissions_genid
-    BEFORE INSERT ON permissions
-    FOR EACH ROW
-    EXECUTE FUNCTION generate_public_id();
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE role_permissions(
-    role_id bigint NOT NULL,
-    permission_id bigint NOT NULL,
-    PRIMARY KEY (role_id, permission_id),
-    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
-    FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_role_permissions_role_id ON role_permissions(role_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_role_permissions_permission_id ON role_permissions(permission_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE user_roles(
-    user_id bigint NOT NULL,
-    role_id bigint NOT NULL,
-    PRIMARY KEY (user_id, role_id),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE notifications(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    user_id bigint NOT NULL,
-    message text NOT NULL,
-    read boolean DEFAULT FALSE NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+    EXECUTE FUNCTION set_timestamp_columns();
 
 -- +goose StatementEnd
 -- +goose StatementBegin
 CREATE TABLE settings(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    user_id bigint,
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id uuid,
     key TEXT NOT NULL,
     value text NOT NULL,
     created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -424,60 +250,31 @@ CREATE TABLE settings(
 
 -- +goose StatementEnd
 -- +goose StatementBegin
+-- Trigger to update timestamps for settings table
+CREATE TRIGGER set_timestamp_settings
+    BEFORE INSERT ON settings
+    FOR EACH ROW
+    EXECUTE FUNCTION set_timestamp_columns();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
+CREATE TRIGGER update_timestamp_settings
+    BEFORE UPDATE ON settings
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- +goose StatementEnd
+-- +goose StatementBegin
 CREATE INDEX idx_settings_user_id ON settings(user_id);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE TABLE attachments(
-    id bigserial PRIMARY KEY,
-    public_id PUBLIC_ID UNIQUE,
-    user_id bigint NOT NULL,
-    file_name text NOT NULL,
-    file_url text NOT NULL,
-    file_size integer NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- +goose StatementEnd
--- +goose StatementBegin
-CREATE INDEX idx_attachments_user_id ON attachments(user_id);
 
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE IF EXISTS attachments;
-
 DROP TABLE IF EXISTS settings;
-
-DROP TABLE IF EXISTS notifications;
-
-DROP TABLE IF EXISTS user_roles;
-
-DROP TABLE IF EXISTS role_permissions;
-
-DROP TABLE IF EXISTS permissions;
-
-DROP TABLE IF EXISTS roles;
-
-DROP TABLE IF EXISTS audit_logs;
-
-DROP TABLE IF EXISTS reviews;
-
-DROP TABLE IF EXISTS tags;
-
-DROP TABLE IF EXISTS comments;
-
-DROP TABLE IF EXISTS posts;
 
 DROP TABLE IF EXISTS oauth_states;
 
-DROP TABLE IF EXISTS payment_attempts;
-
 DROP TABLE IF EXISTS invoices;
-
-DROP TABLE IF EXISTS payment_methods;
 
 DROP TABLE IF EXISTS subscriptions;
 
