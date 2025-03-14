@@ -12,7 +12,7 @@ import (
 
 var (
 	UserAccountTableName                = "user_accounts"
-	UserAccountFieldNames               = []string{"user_id", "account_id"}
+	UserAccountFieldNames               = []string{"user_id","account_id"}
 	UserAccountRows                     = "user_id,account_id"
 	UserAccountRowsExpectAutoSet        = "user_id,account_id"
 	UserAccountRowsWithPlaceHolder      = "user_id = $2, account_id = $3"
@@ -20,32 +20,32 @@ var (
 )
 
 func FindAllUserAccounts(ctx context.Context, db SqlxDB, page int, pageSize int) ([]*UserAccount, error) {
-	var query string
-	if pageSize == 0 {
-		query = fmt.Sprintf(`SELECT %s FROM %s`, UserAccountRows, UserAccountTableName)
-	} else {
-		offset := (page - 1) * pageSize
-		query = fmt.Sprintf(`SELECT %s FROM %s LIMIT %d OFFSET %d`, UserAccountRows, UserAccountTableName, pageSize, offset)
-	}
+    var query string
+    if pageSize == 0{
+        query = fmt.Sprintf(`SELECT %s FROM %s`, UserAccountRows, UserAccountTableName)
+    } else {
+        offset := (page - 1) * pageSize
+        query = fmt.Sprintf(`SELECT %s FROM %s LIMIT %d OFFSET %d`, UserAccountRows, UserAccountTableName, pageSize, offset)
+    }
 
-	var results []*UserAccount
-	err := db.SelectContext(ctx, &results, query)
-	if err != nil {
-		return nil, err
-	}
-	return results, nil
+    var results []*UserAccount
+    err := db.SelectContext(ctx, &results, query)
+    if err != nil {
+        return nil, err
+    }
+    return results, nil
 }
 
 // response type
 type SearchUserAccountResponse struct {
 	UserAccounts []UserAccount
-	PagingStats  types.PagingStats
+	PagingStats    types.PagingStats
 }
 
 func SearchUserAccounts(ctx context.Context, db SqlxDB, currentPage, pageSize int64, filter string) (res *SearchUserAccountResponse, err error) {
 	var builder = buildsql.NewQueryBuilder()
 	where, orderBy, namedParamMap, err := builder.Build(filter, map[string]interface{}{
-		"U": UserAccount{},
+		"u": UserAccount{},
 	})
 	if err != nil {
 		return nil, err
@@ -57,14 +57,14 @@ func SearchUserAccounts(ctx context.Context, db SqlxDB, currentPage, pageSize in
 
 	// set a default order by
 	if orderBy == "" {
-		orderBy = "ORDER BY U.id DESC"
+		orderBy = "ORDER BY u.id DESC"
 	}
 	limit := fmt.Sprintf("LIMIT %d OFFSET %d", pageSize, currentPage*pageSize)
 
 	// field names
 	var fieldNames []string
 	for _, fieldName := range UserAccountFieldNames {
-		fieldNames = append(fieldNames, fmt.Sprintf("U.%s as \"%s.%s\"", fieldName, UserAccountTableName, fieldName))
+		fieldNames = append(fieldNames, fmt.Sprintf("u.%s as \"%s.%s\"", fieldName, UserAccountTableName, fieldName))
 	}
 
 	// fmt.Println("fieldNames:", fieldNames)
@@ -76,7 +76,7 @@ func SearchUserAccounts(ctx context.Context, db SqlxDB, currentPage, pageSize in
 			%s,
 			-- stats
 			COUNT(*) OVER() AS "pagingstats.total_records"
-		FROM user_accounts U
+		FROM user_accounts u
 		%s
 		%s
 		%s
@@ -89,8 +89,8 @@ func SearchUserAccounts(ctx context.Context, db SqlxDB, currentPage, pageSize in
 	}
 
 	var result []struct {
-		UserAccount UserAccount       `db:"user_accounts"`
-		PagingStats types.PagingStats `db:"pagingstats"`
+		UserAccount UserAccount    `db:"user_accounts"`
+		PagingStats   types.PagingStats  `db:"pagingstats"`
 	}
 
 	namedParamMap["offset"] = currentPage * pageSize
@@ -113,7 +113,7 @@ func SearchUserAccounts(ctx context.Context, db SqlxDB, currentPage, pageSize in
 
 	out := &SearchUserAccountResponse{
 		UserAccounts: records,
-		PagingStats:  *stats,
+		PagingStats:    *stats,
 	}
 
 	return out, err

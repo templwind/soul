@@ -245,10 +245,11 @@ func doGenProject(opts doGenProjectOptions) error {
 
 	// set the files to rename
 	builder.WithRenameFiles(map[string]string{
-		// "app/air.toml":     "app/.air.toml",
-		// "env":              ".env",
-		// "app/gitignore":    "app/.gitignore",
-		// "app/dockerignore": "app/.dockerignore",
+		serviceName + "/air.toml":        serviceName + "/.air.toml",
+		serviceName + "/prettyrc":        serviceName + "/.prettierrc",
+		serviceName + "/prettierignore":  serviceName + "/.prettierignore",
+		serviceName + "/gitignore":       serviceName + "/.gitignore",
+		serviceName + "/dockerignore":    serviceName + "/.dockerignore",
 		serviceName + "/assets/keep":     serviceName + "/assets/.keep",
 		serviceName + "/static/keep":     serviceName + "/static/.keep",
 		serviceName + "/main.go":         serviceName + "/" + strings.ToLower(siteSpec.Name) + ".go",

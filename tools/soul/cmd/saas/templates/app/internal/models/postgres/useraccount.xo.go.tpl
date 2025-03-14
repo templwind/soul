@@ -4,12 +4,14 @@ package models
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 // UserAccount represents a row from 'public.user_accounts'.
 type UserAccount struct {
-	UserID    int64 `json:"user_id" db:"user_id" form:"user_id"`          // user_id
-	AccountID int64 `json:"account_id" db:"account_id" form:"account_id"` // account_id
+	UserID    uuid.UUID `json:"user_id" db:"user_id" form:"user_id"`          // user_id
+	AccountID uuid.UUID `json:"account_id" db:"account_id" form:"account_id"` // account_id
 	// xo fields
 	_exists, _deleted bool
 }
@@ -75,7 +77,7 @@ func (ua *UserAccount) Delete(ctx context.Context, db DB) error {
 // UserAccountsByUserID retrieves a row from 'public.user_accounts' as a [UserAccount].
 //
 // Generated from index 'idx_user_accounts_user_id'.
-func UserAccountsByUserID(ctx context.Context, db DB, userID int64) ([]*UserAccount, error) {
+func UserAccountsByUserID(ctx context.Context, db DB, userID uuid.UUID) ([]*UserAccount, error) {
 	// query
 	const sqlstr = `SELECT ` +
 		`user_id, account_id ` +
@@ -109,7 +111,7 @@ func UserAccountsByUserID(ctx context.Context, db DB, userID int64) ([]*UserAcco
 // UserAccountByUserIDAccountID retrieves a row from 'public.user_accounts' as a [UserAccount].
 //
 // Generated from index 'user_accounts_pkey'.
-func UserAccountByUserIDAccountID(ctx context.Context, db DB, userID, accountID int64) (*UserAccount, error) {
+func UserAccountByUserIDAccountID(ctx context.Context, db DB, userID, accountID uuid.UUID) (*UserAccount, error) {
 	// query
 	const sqlstr = `SELECT ` +
 		`user_id, account_id ` +

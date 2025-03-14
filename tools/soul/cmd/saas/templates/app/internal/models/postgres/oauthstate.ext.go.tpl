@@ -12,11 +12,11 @@ import (
 
 var (
 	OauthStateTableName                = "oauth_states"
-	OauthStateFieldNames               = []string{"id","public_id","provider","user_id","user_role_id","data","used","jwt_generated","created_at","expires_at"}
-	OauthStateRows                     = "id,public_id,provider,user_id,user_role_id,data,used,jwt_generated,created_at,expires_at"
-	OauthStateRowsExpectAutoSet        = "public_id,provider,user_id,user_role_id,data,used,jwt_generated,created_at,expires_at"
-	OauthStateRowsWithPlaceHolder      = "public_id = $2, provider = $3, user_id = $4, user_role_id = $5, data = $6, used = $7, jwt_generated = $8, created_at = $9, expires_at = $10"
-	OauthStateRowsWithNamedPlaceHolder = "public_id = :public_id, provider = :provider, user_id = :user_id, user_role_id = :user_role_id, data = :data, used = :used, jwt_generated = :jwt_generated, created_at = :created_at, expires_at = :expires_at"
+	OauthStateFieldNames               = []string{"id","provider","user_id","user_role_id","data","used","jwt_generated","created_at","expires_at"}
+	OauthStateRows                     = "id,provider,user_id,user_role_id,data,used,jwt_generated,created_at,expires_at"
+	OauthStateRowsExpectAutoSet        = "provider,user_id,user_role_id,data,used,jwt_generated,created_at,expires_at"
+	OauthStateRowsWithPlaceHolder      = "provider = $2, user_id = $3, user_role_id = $4, data = $5, used = $6, jwt_generated = $7, created_at = $8, expires_at = $9"
+	OauthStateRowsWithNamedPlaceHolder = "provider = :provider, user_id = :user_id, user_role_id = :user_role_id, data = :data, used = :used, jwt_generated = :jwt_generated, created_at = :created_at, expires_at = :expires_at"
 )
 
 func FindAllOauthStates(ctx context.Context, db SqlxDB, page int, pageSize int) ([]*OauthState, error) {
@@ -45,7 +45,7 @@ type SearchOauthStateResponse struct {
 func SearchOauthStates(ctx context.Context, db SqlxDB, currentPage, pageSize int64, filter string) (res *SearchOauthStateResponse, err error) {
 	var builder = buildsql.NewQueryBuilder()
 	where, orderBy, namedParamMap, err := builder.Build(filter, map[string]interface{}{
-		"O": OauthState{},
+		"o": OauthState{},
 	})
 	if err != nil {
 		return nil, err
@@ -57,14 +57,14 @@ func SearchOauthStates(ctx context.Context, db SqlxDB, currentPage, pageSize int
 
 	// set a default order by
 	if orderBy == "" {
-		orderBy = "ORDER BY O.id DESC"
+		orderBy = "ORDER BY o.id DESC"
 	}
 	limit := fmt.Sprintf("LIMIT %d OFFSET %d", pageSize, currentPage*pageSize)
 
 	// field names
 	var fieldNames []string
 	for _, fieldName := range OauthStateFieldNames {
-		fieldNames = append(fieldNames, fmt.Sprintf("O.%s as \"%s.%s\"", fieldName, OauthStateTableName, fieldName))
+		fieldNames = append(fieldNames, fmt.Sprintf("o.%s as \"%s.%s\"", fieldName, OauthStateTableName, fieldName))
 	}
 
 	// fmt.Println("fieldNames:", fieldNames)
@@ -76,7 +76,7 @@ func SearchOauthStates(ctx context.Context, db SqlxDB, currentPage, pageSize int
 			%s,
 			-- stats
 			COUNT(*) OVER() AS "pagingstats.total_records"
-		FROM oauth_states O
+		FROM oauth_states o
 		%s
 		%s
 		%s

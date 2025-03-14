@@ -5,14 +5,15 @@ package models
 import (
 	"context"
 	"database/sql"
+
+	"github.com/google/uuid"
 )
 
 // OauthState represents a row from 'public.oauth_states'.
 type OauthState struct {
-	ID           int64         `json:"id" db:"id" form:"id"`                                  // id
-	PublicID     NullPublicID  `json:"public_id" db:"public_id" form:"public_id"`             // public_id
+	ID           uuid.UUID     `json:"id" db:"id" form:"id"`                                  // id
 	Provider     string        `json:"provider" db:"provider" form:"provider"`                // provider
-	UserID       sql.NullInt64 `json:"user_id" db:"user_id" form:"user_id"`                   // user_id
+	UserID       uuid.UUID     `json:"user_id" db:"user_id" form:"user_id"`                   // user_id
 	UserRoleID   sql.NullInt64 `json:"user_role_id" db:"user_role_id" form:"user_role_id"`    // user_role_id
 	Data         []byte        `json:"data" db:"data" form:"data"`                            // data
 	Used         sql.NullBool  `json:"used" db:"used" form:"used"`                            // used
@@ -42,15 +43,15 @@ func (os *OauthState) Insert(ctx context.Context, db DB) error {
 	case os._deleted: // deleted
 		return logerror(&ErrInsertFailed{ErrMarkedForDeletion})
 	}
-	// insert (primary key generated and returned by database)
+	// insert (manual)
 	const sqlstr = `INSERT INTO public.oauth_states (` +
-		`public_id, provider, user_id, user_role_id, data, used, jwt_generated, created_at, expires_at` +
+		`id, provider, user_id, user_role_id, data, used, jwt_generated, created_at, expires_at` +
 		`) VALUES (` +
 		`$1, $2, $3, $4, $5, $6, $7, $8, $9` +
-		`) RETURNING id`
+		`)`
 	// run
-	logf(sqlstr, os.PublicID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt)
-	if err := db.QueryRowContext(ctx, sqlstr, os.PublicID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt).Scan(&os.ID); err != nil {
+	logf(sqlstr, os.ID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt)
+	if _, err := db.ExecContext(ctx, sqlstr, os.ID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -68,11 +69,11 @@ func (os *OauthState) Update(ctx context.Context, db DB) error {
 	}
 	// update with composite primary key
 	const sqlstr = `UPDATE public.oauth_states SET ` +
-		`public_id = $1, provider = $2, user_id = $3, user_role_id = $4, data = $5, used = $6, jwt_generated = $7, created_at = $8, expires_at = $9 ` +
-		`WHERE id = $10`
+		`provider = $1, user_id = $2, user_role_id = $3, data = $4, used = $5, jwt_generated = $6, created_at = $7, expires_at = $8 ` +
+		`WHERE id = $9`
 	// run
-	logf(sqlstr, os.PublicID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt, os.ID)
-	if _, err := db.ExecContext(ctx, sqlstr, os.PublicID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt, os.ID); err != nil {
+	logf(sqlstr, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt, os.ID)
+	if _, err := db.ExecContext(ctx, sqlstr, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt, os.ID); err != nil {
 		return logerror(err)
 	}
 	return nil
@@ -94,16 +95,16 @@ func (os *OauthState) Upsert(ctx context.Context, db DB) error {
 	}
 	// upsert
 	const sqlstr = `INSERT INTO public.oauth_states (` +
-		`id, public_id, provider, user_id, user_role_id, data, used, jwt_generated, created_at, expires_at` +
+		`id, provider, user_id, user_role_id, data, used, jwt_generated, created_at, expires_at` +
 		`) VALUES (` +
-		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10` +
+		`$1, $2, $3, $4, $5, $6, $7, $8, $9` +
 		`)` +
 		` ON CONFLICT (id) DO ` +
 		`UPDATE SET ` +
-		`public_id = EXCLUDED.public_id, provider = EXCLUDED.provider, user_id = EXCLUDED.user_id, user_role_id = EXCLUDED.user_role_id, data = EXCLUDED.data, used = EXCLUDED.used, jwt_generated = EXCLUDED.jwt_generated, created_at = EXCLUDED.created_at, expires_at = EXCLUDED.expires_at `
+		`provider = EXCLUDED.provider, user_id = EXCLUDED.user_id, user_role_id = EXCLUDED.user_role_id, data = EXCLUDED.data, used = EXCLUDED.used, jwt_generated = EXCLUDED.jwt_generated, created_at = EXCLUDED.created_at, expires_at = EXCLUDED.expires_at `
 	// run
-	logf(sqlstr, os.ID, os.PublicID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt)
-	if _, err := db.ExecContext(ctx, sqlstr, os.ID, os.PublicID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt); err != nil {
+	logf(sqlstr, os.ID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt)
+	if _, err := db.ExecContext(ctx, sqlstr, os.ID, os.Provider, os.UserID, os.UserRoleID, os.Data, os.Used, os.JwtGenerated, os.CreatedAt, os.ExpiresAt); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -135,10 +136,10 @@ func (os *OauthState) Delete(ctx context.Context, db DB) error {
 // OauthStateByID retrieves a row from 'public.oauth_states' as a [OauthState].
 //
 // Generated from index 'oauth_states_pkey'.
-func OauthStateByID(ctx context.Context, db DB, id int64) (*OauthState, error) {
+func OauthStateByID(ctx context.Context, db DB, id uuid.UUID) (*OauthState, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, public_id, provider, user_id, user_role_id, data, used, jwt_generated, created_at, expires_at ` +
+		`id, provider, user_id, user_role_id, data, used, jwt_generated, created_at, expires_at ` +
 		`FROM public.oauth_states ` +
 		`WHERE id = $1`
 	// run
@@ -146,30 +147,17 @@ func OauthStateByID(ctx context.Context, db DB, id int64) (*OauthState, error) {
 	os := OauthState{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&os.ID, &os.PublicID, &os.Provider, &os.UserID, &os.UserRoleID, &os.Data, &os.Used, &os.JwtGenerated, &os.CreatedAt, &os.ExpiresAt); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&os.ID, &os.Provider, &os.UserID, &os.UserRoleID, &os.Data, &os.Used, &os.JwtGenerated, &os.CreatedAt, &os.ExpiresAt); err != nil {
 		return nil, logerror(err)
 	}
 	return &os, nil
 }
 
-// OauthStateByPublicID retrieves a row from 'public.oauth_states' as a [OauthState].
+// UserByUserID returns the User associated with the [OauthState]'s (UserID).
 //
-// Generated from index 'oauth_states_public_id_key'.
-func OauthStateByPublicID(ctx context.Context, db DB, publicID NullPublicID) (*OauthState, error) {
-	// query
-	const sqlstr = `SELECT ` +
-		`id, public_id, provider, user_id, user_role_id, data, used, jwt_generated, created_at, expires_at ` +
-		`FROM public.oauth_states ` +
-		`WHERE public_id = $1`
-	// run
-	logf(sqlstr, publicID)
-	os := OauthState{
-		_exists: true,
-	}
-	if err := db.QueryRowContext(ctx, sqlstr, publicID).Scan(&os.ID, &os.PublicID, &os.Provider, &os.UserID, &os.UserRoleID, &os.Data, &os.Used, &os.JwtGenerated, &os.CreatedAt, &os.ExpiresAt); err != nil {
-		return nil, logerror(err)
-	}
-	return &os, nil
+// Generated from foreign key 'oauth_states_user_id_fkey'.
+func (os *OauthState) UserByUserID(ctx context.Context, db DB) (*User, error) {
+	return UserByID(ctx, db, os.UserID)
 }
 
 // UserTypeByUserRoleID returns the UserType associated with the [OauthState]'s (UserRoleID).

@@ -2,9 +2,11 @@ package security
 
 import (
 	"errors"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 )
 
 // ParseUnverifiedJWT parses JWT and returns its claims
@@ -55,4 +57,23 @@ func NewJWT(payload jwt.MapClaims, signingKey string, secondsDuration int64) (st
 	}
 
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(signingKey))
+}
+
+// GenerateJWT creates a JWT token for a user
+func GenerateJWT(userID uuid.UUID, email string) (string, error) {
+	// Get JWT secret from environment variable or use a default for development
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "development_secret_key" // Default for development, should be overridden in production
+	}
+
+	// Create claims
+	claims := jwt.MapClaims{
+		"sub":   userID,
+		"email": email,
+		"iat":   time.Now().Unix(),
+	}
+
+	// Generate token with 24 hour expiration
+	return NewJWT(claims, jwtSecret, 86400) // 24 hours in seconds
 }

@@ -6,12 +6,13 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // User represents a row from 'public.users'.
 type User struct {
-	ID                     int64        `json:"id" db:"id" form:"id"`                                                                      // id
-	PublicID               NullPublicID `json:"public_id" db:"public_id" form:"public_id"`                                                 // public_id
+	ID                     uuid.UUID    `json:"id" db:"id" form:"id"`                                                                      // id
 	FirstName              string       `json:"first_name" db:"first_name" form:"first_name"`                                              // first_name
 	LastName               string       `json:"last_name" db:"last_name" form:"last_name"`                                                 // last_name
 	Title                  string       `json:"title" db:"title" form:"title"`                                                             // title
@@ -50,15 +51,15 @@ func (u *User) Insert(ctx context.Context, db DB) error {
 	case u._deleted: // deleted
 		return logerror(&ErrInsertFailed{ErrMarkedForDeletion})
 	}
-	// insert (primary key generated and returned by database)
+	// insert (manual)
 	const sqlstr = `INSERT INTO public.users (` +
-		`public_id, first_name, last_name, title, username, email, email_visibility, last_reset_sent_at, last_verification_sent_at, password_hash, token_key, verified, avatar, type_id, created_at, updated_at` +
+		`id, first_name, last_name, title, username, email, email_visibility, last_reset_sent_at, last_verification_sent_at, password_hash, token_key, verified, avatar, type_id, created_at, updated_at` +
 		`) VALUES (` +
 		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16` +
-		`) RETURNING id`
+		`)`
 	// run
-	logf(sqlstr, u.PublicID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt)
-	if err := db.QueryRowContext(ctx, sqlstr, u.PublicID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt).Scan(&u.ID); err != nil {
+	logf(sqlstr, u.ID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt)
+	if _, err := db.ExecContext(ctx, sqlstr, u.ID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -76,11 +77,11 @@ func (u *User) Update(ctx context.Context, db DB) error {
 	}
 	// update with composite primary key
 	const sqlstr = `UPDATE public.users SET ` +
-		`public_id = $1, first_name = $2, last_name = $3, title = $4, username = $5, email = $6, email_visibility = $7, last_reset_sent_at = $8, last_verification_sent_at = $9, password_hash = $10, token_key = $11, verified = $12, avatar = $13, type_id = $14, created_at = $15, updated_at = $16 ` +
-		`WHERE id = $17`
+		`first_name = $1, last_name = $2, title = $3, username = $4, email = $5, email_visibility = $6, last_reset_sent_at = $7, last_verification_sent_at = $8, password_hash = $9, token_key = $10, verified = $11, avatar = $12, type_id = $13, created_at = $14, updated_at = $15 ` +
+		`WHERE id = $16`
 	// run
-	logf(sqlstr, u.PublicID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt, u.ID)
-	if _, err := db.ExecContext(ctx, sqlstr, u.PublicID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt, u.ID); err != nil {
+	logf(sqlstr, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt, u.ID)
+	if _, err := db.ExecContext(ctx, sqlstr, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt, u.ID); err != nil {
 		return logerror(err)
 	}
 	return nil
@@ -102,16 +103,16 @@ func (u *User) Upsert(ctx context.Context, db DB) error {
 	}
 	// upsert
 	const sqlstr = `INSERT INTO public.users (` +
-		`id, public_id, first_name, last_name, title, username, email, email_visibility, last_reset_sent_at, last_verification_sent_at, password_hash, token_key, verified, avatar, type_id, created_at, updated_at` +
+		`id, first_name, last_name, title, username, email, email_visibility, last_reset_sent_at, last_verification_sent_at, password_hash, token_key, verified, avatar, type_id, created_at, updated_at` +
 		`) VALUES (` +
-		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17` +
+		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16` +
 		`)` +
 		` ON CONFLICT (id) DO ` +
 		`UPDATE SET ` +
-		`public_id = EXCLUDED.public_id, first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, title = EXCLUDED.title, username = EXCLUDED.username, email = EXCLUDED.email, email_visibility = EXCLUDED.email_visibility, last_reset_sent_at = EXCLUDED.last_reset_sent_at, last_verification_sent_at = EXCLUDED.last_verification_sent_at, password_hash = EXCLUDED.password_hash, token_key = EXCLUDED.token_key, verified = EXCLUDED.verified, avatar = EXCLUDED.avatar, type_id = EXCLUDED.type_id, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at `
+		`first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, title = EXCLUDED.title, username = EXCLUDED.username, email = EXCLUDED.email, email_visibility = EXCLUDED.email_visibility, last_reset_sent_at = EXCLUDED.last_reset_sent_at, last_verification_sent_at = EXCLUDED.last_verification_sent_at, password_hash = EXCLUDED.password_hash, token_key = EXCLUDED.token_key, verified = EXCLUDED.verified, avatar = EXCLUDED.avatar, type_id = EXCLUDED.type_id, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at `
 	// run
-	logf(sqlstr, u.ID, u.PublicID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt)
-	if _, err := db.ExecContext(ctx, sqlstr, u.ID, u.PublicID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt); err != nil {
+	logf(sqlstr, u.ID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt)
+	if _, err := db.ExecContext(ctx, sqlstr, u.ID, u.FirstName, u.LastName, u.Title, u.Username, u.Email, u.EmailVisibility, u.LastResetSentAt, u.LastVerificationSentAt, u.PasswordHash, u.TokenKey, u.Verified, u.Avatar, u.TypeID, u.CreatedAt, u.UpdatedAt); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -146,7 +147,7 @@ func (u *User) Delete(ctx context.Context, db DB) error {
 func UserByEmail(ctx context.Context, db DB, email string) (*User, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, public_id, first_name, last_name, title, username, email, email_visibility, last_reset_sent_at, last_verification_sent_at, password_hash, token_key, verified, avatar, type_id, created_at, updated_at ` +
+		`id, first_name, last_name, title, username, email, email_visibility, last_reset_sent_at, last_verification_sent_at, password_hash, token_key, verified, avatar, type_id, created_at, updated_at ` +
 		`FROM public.users ` +
 		`WHERE email = $1`
 	// run
@@ -154,7 +155,7 @@ func UserByEmail(ctx context.Context, db DB, email string) (*User, error) {
 	u := User{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, email).Scan(&u.ID, &u.PublicID, &u.FirstName, &u.LastName, &u.Title, &u.Username, &u.Email, &u.EmailVisibility, &u.LastResetSentAt, &u.LastVerificationSentAt, &u.PasswordHash, &u.TokenKey, &u.Verified, &u.Avatar, &u.TypeID, &u.CreatedAt, &u.UpdatedAt); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, email).Scan(&u.ID, &u.FirstName, &u.LastName, &u.Title, &u.Username, &u.Email, &u.EmailVisibility, &u.LastResetSentAt, &u.LastVerificationSentAt, &u.PasswordHash, &u.TokenKey, &u.Verified, &u.Avatar, &u.TypeID, &u.CreatedAt, &u.UpdatedAt); err != nil {
 		return nil, logerror(err)
 	}
 	return &u, nil
@@ -163,10 +164,10 @@ func UserByEmail(ctx context.Context, db DB, email string) (*User, error) {
 // UserByID retrieves a row from 'public.users' as a [User].
 //
 // Generated from index 'users_pkey'.
-func UserByID(ctx context.Context, db DB, id int64) (*User, error) {
+func UserByID(ctx context.Context, db DB, id uuid.UUID) (*User, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, public_id, first_name, last_name, title, username, email, email_visibility, last_reset_sent_at, last_verification_sent_at, password_hash, token_key, verified, avatar, type_id, created_at, updated_at ` +
+		`id, first_name, last_name, title, username, email, email_visibility, last_reset_sent_at, last_verification_sent_at, password_hash, token_key, verified, avatar, type_id, created_at, updated_at ` +
 		`FROM public.users ` +
 		`WHERE id = $1`
 	// run
@@ -174,27 +175,7 @@ func UserByID(ctx context.Context, db DB, id int64) (*User, error) {
 	u := User{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&u.ID, &u.PublicID, &u.FirstName, &u.LastName, &u.Title, &u.Username, &u.Email, &u.EmailVisibility, &u.LastResetSentAt, &u.LastVerificationSentAt, &u.PasswordHash, &u.TokenKey, &u.Verified, &u.Avatar, &u.TypeID, &u.CreatedAt, &u.UpdatedAt); err != nil {
-		return nil, logerror(err)
-	}
-	return &u, nil
-}
-
-// UserByPublicID retrieves a row from 'public.users' as a [User].
-//
-// Generated from index 'users_public_id_key'.
-func UserByPublicID(ctx context.Context, db DB, publicID NullPublicID) (*User, error) {
-	// query
-	const sqlstr = `SELECT ` +
-		`id, public_id, first_name, last_name, title, username, email, email_visibility, last_reset_sent_at, last_verification_sent_at, password_hash, token_key, verified, avatar, type_id, created_at, updated_at ` +
-		`FROM public.users ` +
-		`WHERE public_id = $1`
-	// run
-	logf(sqlstr, publicID)
-	u := User{
-		_exists: true,
-	}
-	if err := db.QueryRowContext(ctx, sqlstr, publicID).Scan(&u.ID, &u.PublicID, &u.FirstName, &u.LastName, &u.Title, &u.Username, &u.Email, &u.EmailVisibility, &u.LastResetSentAt, &u.LastVerificationSentAt, &u.PasswordHash, &u.TokenKey, &u.Verified, &u.Avatar, &u.TypeID, &u.CreatedAt, &u.UpdatedAt); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&u.ID, &u.FirstName, &u.LastName, &u.Title, &u.Username, &u.Email, &u.EmailVisibility, &u.LastResetSentAt, &u.LastVerificationSentAt, &u.PasswordHash, &u.TokenKey, &u.Verified, &u.Avatar, &u.TypeID, &u.CreatedAt, &u.UpdatedAt); err != nil {
 		return nil, logerror(err)
 	}
 	return &u, nil

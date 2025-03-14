@@ -12,14 +12,8 @@ type ServiceContext struct {
 	Session            *systemSession.Session
 	Menus              map[string][]config.MenuEntry
 	{{end -}}
-	AWSSession         *session.Session
-	DWSession          *session.Session
 	ChatGPTService     *chatgpt.ChatGPTService
 	RateLimiter        *ratelimiter.RateLimiter
-	{{if not .isService}}
-	StorageManager     *storagemanager.StorageManager
-	SystemEmailClient  emailTypes.EmailClient
-	{{end -}}
 	JobManager         *jobs.JobManager
 	PubSubBroker       pubsub.Broker
 	EventHub          *sse.EventHub
@@ -31,13 +25,6 @@ func NewServiceContext(c *{{.config}}) *ServiceContext {
 	).GetDB()
 	sqlxDB.SetMaxOpenConns(5)
 	sqlxDB.SetMaxIdleConns(5)
-
-	// Create an AWS session
-	awsSession := awssession.MustNewSession(awssession.Config{
-		AWS:           c.AWS,
-		MaxRetries:    3,
-		RetryInterval: 2 * time.Second,
-	})
 
 	// Get the instance count from Kubernetes
 	instanceCount, err := k8sutil.GetInstanceCount("{{.serviceName}}") // Replace with your actual app label
@@ -62,6 +49,22 @@ func NewServiceContext(c *{{.config}}) *ServiceContext {
 
 	// customStatic := middleware.CustomStaticMiddleware("build", c.EmbeddedFS["build"], c.Environment == "production")
 
+	// Create a PubSub broker (use NoOpBroker if NATS is not available)
+	var pubSubBroker pubsub.Broker
+	if c.Nats.URL == "" || c.Nats.URL == "nats://nats:4222" {
+		log.Println("NATS URL not provided or using default. Using no-op broker instead.")
+		pubSubBroker = &NoOpBroker{}
+	} else {
+		// Try to create a real NATS broker
+		broker, err := pubsub.NewNATSBroker(c.Nats.URL, c.Redis.URL)
+		if err != nil {
+			log.Printf("Failed to create NATS broker: %v. Using no-op broker instead.", err)
+			pubSubBroker = &NoOpBroker{}
+		} else {
+			pubSubBroker = broker
+		}
+	}
+
 	return &ServiceContext{
 		Config: c,
 		DB:  sqlxDB,
@@ -69,18 +72,11 @@ func NewServiceContext(c *{{.config}}) *ServiceContext {
 		{{if not .isService}}
 		Menus:              c.InitMenus(),
 		Session:            systemSession.NewSession(c),
-		AWSSession:         awsSession,
-		SystemEmailClient: client.MustNewClient(emailTypes.SESClient, &emailTypes.EmailAuth{
-			AWSSession: awsSession,
-		}),
 		{{end -}}
 		ChatGPTService: chatGPTService,
 		RateLimiter:    rateLimiter,
-		{{if not .isService}}
-		StorageManager: storagemanager.MustNewStorageManager(context.TODO(), c, sqlxDB, 85.0),
-		{{end -}}
 		JobManager:     jobManager,
-		PubSubBroker:   pubsub.MustNewNATSBroker(c.Nats.URL, c.Redis.URL),
+		PubSubBroker:   pubSubBroker,
 		EventHub:       sse.NewEventHub(),
 	}
 }
@@ -99,4 +95,22 @@ func (c *ServiceContext) StartInstanceCountUpdater(appLabel string, cfg *config.
 			c.RateLimiter.UpdateLimits(cfg, instanceCount)
 		}
 	}()
+}
+
+// NoOpBroker is a no-op implementation of the pubsub.Broker interface for when NATS is not available
+type NoOpBroker struct{}
+
+func (b *NoOpBroker) Publish(subject string, message []byte, msgID ...string) error {
+	log.Printf("NoOpBroker: Would publish to subject %s", subject)
+	return nil
+}
+
+func (b *NoOpBroker) Subscribe(subject string, group string, handler func([]byte) ([]byte, error)) error {
+	log.Printf("NoOpBroker: Would subscribe to subject %s with group %s", subject, group)
+	return nil
+}
+
+func (b *NoOpBroker) CreateStream(streamName, subject string, dedupWindow time.Duration) error {
+	log.Printf("NoOpBroker: Would create stream %s for subject %s with dedup window %v", streamName, subject, dedupWindow)
+	return nil
 }

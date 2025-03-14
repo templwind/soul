@@ -4,15 +4,13 @@ package models
 
 import (
 	"context"
-	"database/sql"
 )
 
 // UserType represents a row from 'public.user_types'.
 type UserType struct {
-	ID          int64          `json:"id" db:"id" form:"id"`                            // id
-	PublicID    sql.NullString `json:"public_id" db:"public_id" form:"public_id"`       // public_id
-	TypeName    string         `json:"type_name" db:"type_name" form:"type_name"`       // type_name
-	Description string         `json:"description" db:"description" form:"description"` // description
+	ID          int64  `json:"id" db:"id" form:"id"`                            // id
+	TypeName    string `json:"type_name" db:"type_name" form:"type_name"`       // type_name
+	Description string `json:"description" db:"description" form:"description"` // description
 	// xo fields
 	_exists, _deleted bool
 }
@@ -38,13 +36,13 @@ func (ut *UserType) Insert(ctx context.Context, db DB) error {
 	}
 	// insert (primary key generated and returned by database)
 	const sqlstr = `INSERT INTO public.user_types (` +
-		`public_id, type_name, description` +
+		`type_name, description` +
 		`) VALUES (` +
-		`$1, $2, $3` +
+		`$1, $2` +
 		`) RETURNING id`
 	// run
-	logf(sqlstr, ut.PublicID, ut.TypeName, ut.Description)
-	if err := db.QueryRowContext(ctx, sqlstr, ut.PublicID, ut.TypeName, ut.Description).Scan(&ut.ID); err != nil {
+	logf(sqlstr, ut.TypeName, ut.Description)
+	if err := db.QueryRowContext(ctx, sqlstr, ut.TypeName, ut.Description).Scan(&ut.ID); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -62,11 +60,11 @@ func (ut *UserType) Update(ctx context.Context, db DB) error {
 	}
 	// update with composite primary key
 	const sqlstr = `UPDATE public.user_types SET ` +
-		`public_id = $1, type_name = $2, description = $3 ` +
-		`WHERE id = $4`
+		`type_name = $1, description = $2 ` +
+		`WHERE id = $3`
 	// run
-	logf(sqlstr, ut.PublicID, ut.TypeName, ut.Description, ut.ID)
-	if _, err := db.ExecContext(ctx, sqlstr, ut.PublicID, ut.TypeName, ut.Description, ut.ID); err != nil {
+	logf(sqlstr, ut.TypeName, ut.Description, ut.ID)
+	if _, err := db.ExecContext(ctx, sqlstr, ut.TypeName, ut.Description, ut.ID); err != nil {
 		return logerror(err)
 	}
 	return nil
@@ -88,16 +86,16 @@ func (ut *UserType) Upsert(ctx context.Context, db DB) error {
 	}
 	// upsert
 	const sqlstr = `INSERT INTO public.user_types (` +
-		`id, public_id, type_name, description` +
+		`id, type_name, description` +
 		`) VALUES (` +
-		`$1, $2, $3, $4` +
+		`$1, $2, $3` +
 		`)` +
 		` ON CONFLICT (id) DO ` +
 		`UPDATE SET ` +
-		`public_id = EXCLUDED.public_id, type_name = EXCLUDED.type_name, description = EXCLUDED.description `
+		`type_name = EXCLUDED.type_name, description = EXCLUDED.description `
 	// run
-	logf(sqlstr, ut.ID, ut.PublicID, ut.TypeName, ut.Description)
-	if _, err := db.ExecContext(ctx, sqlstr, ut.ID, ut.PublicID, ut.TypeName, ut.Description); err != nil {
+	logf(sqlstr, ut.ID, ut.TypeName, ut.Description)
+	if _, err := db.ExecContext(ctx, sqlstr, ut.ID, ut.TypeName, ut.Description); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -132,7 +130,7 @@ func (ut *UserType) Delete(ctx context.Context, db DB) error {
 func UserTypeByID(ctx context.Context, db DB, id int64) (*UserType, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, public_id, type_name, description ` +
+		`id, type_name, description ` +
 		`FROM public.user_types ` +
 		`WHERE id = $1`
 	// run
@@ -140,27 +138,7 @@ func UserTypeByID(ctx context.Context, db DB, id int64) (*UserType, error) {
 	ut := UserType{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&ut.ID, &ut.PublicID, &ut.TypeName, &ut.Description); err != nil {
-		return nil, logerror(err)
-	}
-	return &ut, nil
-}
-
-// UserTypeByPublicID retrieves a row from 'public.user_types' as a [UserType].
-//
-// Generated from index 'user_types_public_id_key'.
-func UserTypeByPublicID(ctx context.Context, db DB, publicID sql.NullString) (*UserType, error) {
-	// query
-	const sqlstr = `SELECT ` +
-		`id, public_id, type_name, description ` +
-		`FROM public.user_types ` +
-		`WHERE public_id = $1`
-	// run
-	logf(sqlstr, publicID)
-	ut := UserType{
-		_exists: true,
-	}
-	if err := db.QueryRowContext(ctx, sqlstr, publicID).Scan(&ut.ID, &ut.PublicID, &ut.TypeName, &ut.Description); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&ut.ID, &ut.TypeName, &ut.Description); err != nil {
 		return nil, logerror(err)
 	}
 	return &ut, nil

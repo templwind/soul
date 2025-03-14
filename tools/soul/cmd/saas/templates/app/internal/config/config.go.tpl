@@ -11,7 +11,7 @@ type Config struct {
 	Redis       RedisConfig
 	Environment string
 	{{if not .isService}}
-	EmbeddedFS  map[string]embed.FS
+	EmbeddedFS  map[string]*embed.FS
 	{{- end}}
 	{{.auth -}}
 	{{.jwtTrans -}}
@@ -37,9 +37,6 @@ type Config struct {
 	Assets           Assets
 	Menus            Menus
 	{{- end}}
-	{{if not .isService}}
-	Pricing          Pricing
-	{{- end}}
 	TotalInstances   int
 	GPT              GPT
 {{if not .isService}}
@@ -51,7 +48,6 @@ type Config struct {
 	DigitalOcean     DigitalOcean
 	Email            Email
 	Stripe           Stripe
-	Settings         settings.Settings
 	{{- end}}
 }
 
@@ -191,70 +187,5 @@ func (c *Config) GetCountryCodeList() map[string]string {
 	}
 
 	return c.countryCodeList
-}
-{{end}}
-{{if not .isService}}
-// Pricing defines the pricing plans and their features
-type Pricing struct {
-	Plans          []Plan // List of pricing plans
-	HighlightedIdx int    // Index of the highlighted plan
-	FAQ            []FAQ  // List of FAQ items
-}
-
-// FAQ defines the structure for Frequently Asked Questions
-type FAQ struct {
-	Question string   // The question being asked
-	Answer   string   // The answer to the question
-	Example  *Example // Optional example for the FAQ (e.g., pricing calculation)
-}
-
-// Example defines a structure to show an optional pricing example
-type Example struct {
-	Description  string  // Short description of the example
-	PlanPrice    int     // Base plan price
-	OverageQty   int     // Quantity of overages (extra downloads)
-	OverageCost  float64 // Cost per extra download
-	FormatString string  // Format string for the example
-}
-
-// Plan defines the structure for each pricing plan
-type Plan struct {
-	ID           string   // Plan ID (e.g., free, aspiring, dominating)
-	Name         string   // Plan name (e.g., Free, Aspiring, Dominating)
-	MonthlyPrice int      // Monthly price for the plan
-	AnnualPrice  int      // Annual price for the plan (with discount)
-	PriceHelp    string   // Pricing help or discount information
-	Headline     string   // Plan headline
-	SubHeadline  string   // Plan subheadline
-	Description  string   // Short description of the plan
-	Features     []string // List of plan features
-	ButtonText   string   // Text for the plan selection button
-	URL          string   // URL for the plan registration
-	Bundles      []Bundle // Additional bundles for more downloads
-	Overage      Overage  // Overage pricing information
-	Notes        []string // Additional notes for the plan
-	Credits      int      // Number of credits included in the plan
-	CreditsTitle string   // Title of the credits (e.g., downloads, uploads, etc.)
-	Bonuses      []Bonus  // List of bonuses offered with the plan
-}
-
-// Bundle defines the structure for additional bundles available within a plan
-type Bundle struct {
-	Name        string // Bundle name (e.g., 500 downloads)
-	Price       int    // Price for the bundle
-	Qty         int    // Number of downloads included in the bundle
-	Description string // Description of the bundle
-}
-
-// Overage defines the structure for overage pricing per download
-type Overage struct {
-	PricePerDownload float64 // Price per additional download beyond plan limit
-	Description      string  // Description of the overage pricing
-}
-
-type Bonus struct {
-	Name        string  // Name of the bonus
-	RetailPrice float64 // Retail price of the bonus
-	Description string  // Description of the bonus
 }
 {{end}}

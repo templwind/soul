@@ -64,8 +64,8 @@ const api = {
   put<T>(url: string, data?: unknown, config?: RequestInit, customFetch?: typeof fetch): Promise<T> {
     return request({ method: "PUT", url, data, config, customFetch });
   },
-  delete<T>(url: string, config?: RequestInit, customFetch?: typeof fetch): Promise<T> {
-    return request({ method: "DELETE", url, config, customFetch });
+  delete<T>(url: string, data?: unknown, config?: RequestInit, customFetch?: typeof fetch): Promise<T> {
+    return request({ method: "DELETE", url, data, config, customFetch });
   },
   patch<T>(url: string, data?: unknown, config?: RequestInit, customFetch?: typeof fetch): Promise<T> {
     return request({ method: "PATCH", url, data, config, customFetch });

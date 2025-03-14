@@ -12,11 +12,11 @@ import (
 
 var (
 	UserTypeTableName                = "user_types"
-	UserTypeFieldNames               = []string{"id","public_id","type_name","description"}
-	UserTypeRows                     = "id,public_id,type_name,description"
-	UserTypeRowsExpectAutoSet        = "public_id,type_name,description"
-	UserTypeRowsWithPlaceHolder      = "public_id = $2, type_name = $3, description = $4"
-	UserTypeRowsWithNamedPlaceHolder = "public_id = :public_id, type_name = :type_name, description = :description"
+	UserTypeFieldNames               = []string{"id","type_name","description"}
+	UserTypeRows                     = "id,type_name,description"
+	UserTypeRowsExpectAutoSet        = "type_name,description"
+	UserTypeRowsWithPlaceHolder      = "type_name = $2, description = $3"
+	UserTypeRowsWithNamedPlaceHolder = "type_name = :type_name, description = :description"
 )
 
 func FindAllUserTypes(ctx context.Context, db SqlxDB, page int, pageSize int) ([]*UserType, error) {
@@ -45,7 +45,7 @@ type SearchUserTypeResponse struct {
 func SearchUserTypes(ctx context.Context, db SqlxDB, currentPage, pageSize int64, filter string) (res *SearchUserTypeResponse, err error) {
 	var builder = buildsql.NewQueryBuilder()
 	where, orderBy, namedParamMap, err := builder.Build(filter, map[string]interface{}{
-		"U": UserType{},
+		"u": UserType{},
 	})
 	if err != nil {
 		return nil, err
@@ -57,14 +57,14 @@ func SearchUserTypes(ctx context.Context, db SqlxDB, currentPage, pageSize int64
 
 	// set a default order by
 	if orderBy == "" {
-		orderBy = "ORDER BY U.id DESC"
+		orderBy = "ORDER BY u.id DESC"
 	}
 	limit := fmt.Sprintf("LIMIT %d OFFSET %d", pageSize, currentPage*pageSize)
 
 	// field names
 	var fieldNames []string
 	for _, fieldName := range UserTypeFieldNames {
-		fieldNames = append(fieldNames, fmt.Sprintf("U.%s as \"%s.%s\"", fieldName, UserTypeTableName, fieldName))
+		fieldNames = append(fieldNames, fmt.Sprintf("u.%s as \"%s.%s\"", fieldName, UserTypeTableName, fieldName))
 	}
 
 	// fmt.Println("fieldNames:", fieldNames)
@@ -76,7 +76,7 @@ func SearchUserTypes(ctx context.Context, db SqlxDB, currentPage, pageSize int64
 			%s,
 			-- stats
 			COUNT(*) OVER() AS "pagingstats.total_records"
-		FROM user_types U
+		FROM user_types u
 		%s
 		%s
 		%s

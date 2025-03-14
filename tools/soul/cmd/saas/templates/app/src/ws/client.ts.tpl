@@ -7,21 +7,21 @@ export class WsClient {
   private ws: WebSocket | null = null;
   private url: string;
   private reconnectInterval: number;
-  private maxRetries: number;
   private retries: number = 0;
   private messageHandlers: Map<string, MessageHandler> = new Map();
   private eventHandlers: Map<string, EventHandler[]> = new Map();
-  private pingInterval: number = 60000; // 60 seconds for demonstration purposes
+  private pingInterval: number = 60000; // 60 seconds
   private pingTimeoutId: number | null = null;
+  private debug: boolean = false;
 
   constructor(
     path: string,
     reconnectInterval: number = 1000,
-    maxRetries: number = 10
+    debug: boolean = false
   ) {
     this.url = this.getWebSocketURL(path);
     this.reconnectInterval = reconnectInterval;
-    this.maxRetries = maxRetries;
+    this.debug = debug;
     this.connect();
   }
 
@@ -31,11 +31,29 @@ export class WsClient {
     return `${protocol}//${host}${path}`;
   }
 
+  private log(...args: any[]) {
+    if (this.debug) {
+      console.log('[WsClient]', ...args);
+    }
+  }
+
+  private warn(...args: any[]) {
+    if (this.debug) {
+      console.warn('[WsClient]', ...args);
+    }
+  }
+
+  private error(...args: any[]) {
+    if (this.debug) {
+      console.error('[WsClient]', ...args);
+    }
+  }
+
   private connect() {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
-      console.log("Connected to WebSocket");
+      this.log("Connected to WebSocket");
       this.retries = 0;
       this.emitEvent("open");
       this.startPing();
@@ -46,29 +64,24 @@ export class WsClient {
     };
 
     this.ws.onclose = (event: CloseEvent) => {
-      console.log(`WebSocket closed: ${event.reason}`);
+      this.log(`WebSocket closed: ${event.reason}`);
       this.emitEvent("close");
       this.stopPing();
       this.reconnect();
     };
 
     this.ws.onerror = (event: Event) => {
-      console.error("WebSocket error:", event);
-      this.emitEvent("error");
+      this.error("WebSocket error:", event);
       this.ws?.close();
     };
   }
 
   private reconnect() {
-    if (this.retries < this.maxRetries) {
-      setTimeout(() => {
-        console.log(`Reconnecting... (${this.retries + 1}/${this.maxRetries})`);
-        this.retries++;
-        this.connect();
-      }, this.reconnectInterval);
-    } else {
-      console.error("Max retries reached. Could not reconnect to WebSocket.");
-    }
+    setTimeout(() => {
+      this.log(`Reconnecting... (attempt ${this.retries + 1})`);
+      this.retries++;
+      this.connect();
+    }, this.reconnectInterval);
   }
 
   private handleMessage(message: MessageEvent) {
@@ -81,17 +94,17 @@ export class WsClient {
         if (handler) {
           handler(parsedData.payload);
         } else {
-          console.warn(`No handler found for message topic: ${topic}`);
+          this.warn(`No handler found for message topic: ${topic}`);
         }
       } else if (message.data === "pong") {
-        console.log("Received pong");
+        this.log("Received pong");
       } else if (message.data === "ok") {
-        console.log("Received ok");
+        this.log("Received ok");
       } else {
-        console.warn("Received non-JSON message:", message.data);
+        this.warn("Received non-JSON message:", message.data);
       }
     } catch (error) {
-      console.error("Error handling message:", error);
+      this.error("Error handling message:", error);
     }
   }
 
@@ -112,7 +125,7 @@ export class WsClient {
 
   private ping() {
     if (this.isConnected()) {
-      console.log("Sending ping");
+      this.log("Sending ping");
       this.send("ping");
     }
   }
@@ -131,7 +144,7 @@ export class WsClient {
       }
       this.ws.send(data);
     } else {
-      console.error("WebSocket is not open. Unable to send message.");
+      this.error("WebSocket is not open. Unable to send message.");
     }
     return this;
   }
@@ -187,5 +200,9 @@ export class WsClient {
       id: uuidv4(),
       payload: { topic },
     });
+  }
+
+  public setDebug(enabled: boolean) {
+    this.debug = enabled;
   }
 }

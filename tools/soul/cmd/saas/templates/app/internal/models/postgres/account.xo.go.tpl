@@ -7,12 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Account represents a row from 'public.accounts'.
 type Account struct {
-	ID            int64          `json:"id" db:"id" form:"id"`                                        // id
-	PublicID      NullPublicID   `json:"public_id" db:"public_id" form:"public_id"`                   // public_id
+	ID            uuid.UUID      `json:"id" db:"id" form:"id"`                                        // id
 	CompanyName   sql.NullString `json:"company_name" db:"company_name" form:"company_name"`          // company_name
 	Address1      sql.NullString `json:"address_1" db:"address_1" form:"address_1"`                   // address_1
 	Address2      sql.NullString `json:"address_2" db:"address_2" form:"address_2"`                   // address_2
@@ -23,7 +24,7 @@ type Account struct {
 	Phone         sql.NullString `json:"phone" db:"phone" form:"phone"`                               // phone
 	Email         sql.NullString `json:"email" db:"email" form:"email"`                               // email
 	Website       sql.NullString `json:"website" db:"website" form:"website"`                         // website
-	PrimaryUserID int64          `json:"primary_user_id" db:"primary_user_id" form:"primary_user_id"` // primary_user_id
+	PrimaryUserID uuid.UUID      `json:"primary_user_id" db:"primary_user_id" form:"primary_user_id"` // primary_user_id
 	CreatedAt     time.Time      `json:"created_at" db:"created_at" form:"created_at"`                // created_at
 	UpdatedAt     time.Time      `json:"updated_at" db:"updated_at" form:"updated_at"`                // updated_at
 	// xo fields
@@ -49,15 +50,15 @@ func (a *Account) Insert(ctx context.Context, db DB) error {
 	case a._deleted: // deleted
 		return logerror(&ErrInsertFailed{ErrMarkedForDeletion})
 	}
-	// insert (primary key generated and returned by database)
+	// insert (manual)
 	const sqlstr = `INSERT INTO public.accounts (` +
-		`public_id, company_name, address_1, address_2, city, state_province, postal_code, country, phone, email, website, primary_user_id, created_at, updated_at` +
+		`id, company_name, address_1, address_2, city, state_province, postal_code, country, phone, email, website, primary_user_id, created_at, updated_at` +
 		`) VALUES (` +
 		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14` +
-		`) RETURNING id`
+		`)`
 	// run
-	logf(sqlstr, a.PublicID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt)
-	if err := db.QueryRowContext(ctx, sqlstr, a.PublicID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt).Scan(&a.ID); err != nil {
+	logf(sqlstr, a.ID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt)
+	if _, err := db.ExecContext(ctx, sqlstr, a.ID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -75,11 +76,11 @@ func (a *Account) Update(ctx context.Context, db DB) error {
 	}
 	// update with composite primary key
 	const sqlstr = `UPDATE public.accounts SET ` +
-		`public_id = $1, company_name = $2, address_1 = $3, address_2 = $4, city = $5, state_province = $6, postal_code = $7, country = $8, phone = $9, email = $10, website = $11, primary_user_id = $12, created_at = $13, updated_at = $14 ` +
-		`WHERE id = $15`
+		`company_name = $1, address_1 = $2, address_2 = $3, city = $4, state_province = $5, postal_code = $6, country = $7, phone = $8, email = $9, website = $10, primary_user_id = $11, created_at = $12, updated_at = $13 ` +
+		`WHERE id = $14`
 	// run
-	logf(sqlstr, a.PublicID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt, a.ID)
-	if _, err := db.ExecContext(ctx, sqlstr, a.PublicID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt, a.ID); err != nil {
+	logf(sqlstr, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt, a.ID)
+	if _, err := db.ExecContext(ctx, sqlstr, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt, a.ID); err != nil {
 		return logerror(err)
 	}
 	return nil
@@ -101,16 +102,16 @@ func (a *Account) Upsert(ctx context.Context, db DB) error {
 	}
 	// upsert
 	const sqlstr = `INSERT INTO public.accounts (` +
-		`id, public_id, company_name, address_1, address_2, city, state_province, postal_code, country, phone, email, website, primary_user_id, created_at, updated_at` +
+		`id, company_name, address_1, address_2, city, state_province, postal_code, country, phone, email, website, primary_user_id, created_at, updated_at` +
 		`) VALUES (` +
-		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15` +
+		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14` +
 		`)` +
 		` ON CONFLICT (id) DO ` +
 		`UPDATE SET ` +
-		`public_id = EXCLUDED.public_id, company_name = EXCLUDED.company_name, address_1 = EXCLUDED.address_1, address_2 = EXCLUDED.address_2, city = EXCLUDED.city, state_province = EXCLUDED.state_province, postal_code = EXCLUDED.postal_code, country = EXCLUDED.country, phone = EXCLUDED.phone, email = EXCLUDED.email, website = EXCLUDED.website, primary_user_id = EXCLUDED.primary_user_id, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at `
+		`company_name = EXCLUDED.company_name, address_1 = EXCLUDED.address_1, address_2 = EXCLUDED.address_2, city = EXCLUDED.city, state_province = EXCLUDED.state_province, postal_code = EXCLUDED.postal_code, country = EXCLUDED.country, phone = EXCLUDED.phone, email = EXCLUDED.email, website = EXCLUDED.website, primary_user_id = EXCLUDED.primary_user_id, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at `
 	// run
-	logf(sqlstr, a.ID, a.PublicID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt)
-	if _, err := db.ExecContext(ctx, sqlstr, a.ID, a.PublicID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt); err != nil {
+	logf(sqlstr, a.ID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt)
+	if _, err := db.ExecContext(ctx, sqlstr, a.ID, a.CompanyName, a.Address1, a.Address2, a.City, a.StateProvince, a.PostalCode, a.Country, a.Phone, a.Email, a.Website, a.PrimaryUserID, a.CreatedAt, a.UpdatedAt); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -142,10 +143,10 @@ func (a *Account) Delete(ctx context.Context, db DB) error {
 // AccountByID retrieves a row from 'public.accounts' as a [Account].
 //
 // Generated from index 'accounts_pkey'.
-func AccountByID(ctx context.Context, db DB, id int64) (*Account, error) {
+func AccountByID(ctx context.Context, db DB, id uuid.UUID) (*Account, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, public_id, company_name, address_1, address_2, city, state_province, postal_code, country, phone, email, website, primary_user_id, created_at, updated_at ` +
+		`id, company_name, address_1, address_2, city, state_province, postal_code, country, phone, email, website, primary_user_id, created_at, updated_at ` +
 		`FROM public.accounts ` +
 		`WHERE id = $1`
 	// run
@@ -153,28 +154,15 @@ func AccountByID(ctx context.Context, db DB, id int64) (*Account, error) {
 	a := Account{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&a.ID, &a.PublicID, &a.CompanyName, &a.Address1, &a.Address2, &a.City, &a.StateProvince, &a.PostalCode, &a.Country, &a.Phone, &a.Email, &a.Website, &a.PrimaryUserID, &a.CreatedAt, &a.UpdatedAt); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&a.ID, &a.CompanyName, &a.Address1, &a.Address2, &a.City, &a.StateProvince, &a.PostalCode, &a.Country, &a.Phone, &a.Email, &a.Website, &a.PrimaryUserID, &a.CreatedAt, &a.UpdatedAt); err != nil {
 		return nil, logerror(err)
 	}
 	return &a, nil
 }
 
-// AccountByPublicID retrieves a row from 'public.accounts' as a [Account].
+// UserByPrimaryUserID returns the User associated with the [Account]'s (PrimaryUserID).
 //
-// Generated from index 'accounts_public_id_key'.
-func AccountByPublicID(ctx context.Context, db DB, publicID NullPublicID) (*Account, error) {
-	// query
-	const sqlstr = `SELECT ` +
-		`id, public_id, company_name, address_1, address_2, city, state_province, postal_code, country, phone, email, website, primary_user_id, created_at, updated_at ` +
-		`FROM public.accounts ` +
-		`WHERE public_id = $1`
-	// run
-	logf(sqlstr, publicID)
-	a := Account{
-		_exists: true,
-	}
-	if err := db.QueryRowContext(ctx, sqlstr, publicID).Scan(&a.ID, &a.PublicID, &a.CompanyName, &a.Address1, &a.Address2, &a.City, &a.StateProvince, &a.PostalCode, &a.Country, &a.Phone, &a.Email, &a.Website, &a.PrimaryUserID, &a.CreatedAt, &a.UpdatedAt); err != nil {
-		return nil, logerror(err)
-	}
-	return &a, nil
+// Generated from foreign key 'fk_accounts_primary_user'.
+func (a *Account) UserByPrimaryUserID(ctx context.Context, db DB) (*User, error) {
+	return UserByID(ctx, db, a.PrimaryUserID)
 }

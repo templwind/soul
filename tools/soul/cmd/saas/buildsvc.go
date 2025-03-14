@@ -82,9 +82,9 @@ func buildServiceContext(builder *SaaSBuilder) error {
 func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 	i := imports.New()
 
-	if !builder.IsService {
-		i.AddNativeImport("context")
-	}
+	// if !builder.IsService {
+	// 	i.AddNativeImport("context")
+	// }
 	i.AddNativeImport("log")
 	i.AddNativeImport("time")
 
@@ -95,13 +95,13 @@ func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 		i.AddProjectImport(path.Join(builder.ServiceName, "internal/session"), "systemSession")
 	}
 
-	i.AddProjectImport(path.Join(builder.ServiceName, "internal/awssession"))
+	// i.AddProjectImport(path.Join(builder.ServiceName, "internal/awssession"))
 	if !builder.IsService {
-		i.AddProjectImport(path.Join(builder.ServiceName, "internal/storagemanager"))
+		// i.AddProjectImport(path.Join(builder.ServiceName, "internal/storagemanager"))
 	}
 
-	i.AddProjectImport(path.Join(builder.ServiceName, "internal/emailclient/types"), "emailTypes")
-	i.AddProjectImport(path.Join(builder.ServiceName, "internal/emailclient/client"))
+	// i.AddProjectImport(path.Join(builder.ServiceName, "internal/emailclient/types"), "emailTypes")
+	// i.AddProjectImport(path.Join(builder.ServiceName, "internal/emailclient/client"))
 	i.AddProjectImport(path.Join(builder.ServiceName, "internal/chatgpt"))
 	i.AddProjectImport(path.Join(builder.ServiceName, "internal/jobs"))
 	i.AddProjectImport(path.Join(builder.ServiceName, "internal/k8sutil"))
@@ -117,7 +117,7 @@ func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 		i.AddExternalImport("github.com/go-sql-driver/mysql", "_")
 	}
 
-	i.AddExternalImport("github.com/aws/aws-sdk-go/aws/session")
+	// i.AddExternalImport("github.com/aws/aws-sdk-go/aws/session")
 	i.AddExternalImport("github.com/jmoiron/sqlx")
 	i.AddExternalImport("github.com/templwind/soul/db")
 	i.AddExternalImport("github.com/templwind/soul/pubsub")

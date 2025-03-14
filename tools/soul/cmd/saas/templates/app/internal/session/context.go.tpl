@@ -27,8 +27,8 @@ func UserFromContext(c echo.Context) *models.User {
 }
 
 type SubscriptionCtx struct {
-	Subscription *models.Subscription
-	Product      *models.Product
+	// Subscription *models.Subscription
+	// Product      *models.Product
 }
 
 func SubscriptionFromContext(c echo.Context) *SubscriptionCtx {

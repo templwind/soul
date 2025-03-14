@@ -1,11 +1,13 @@
 package middleware
 
 import (
+	"fmt"
+
 	"{{ .serviceName }}/internal/config"
 	"{{ .serviceName }}/internal/models"
 	"{{ .serviceName }}/internal/security"
-	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -37,14 +39,14 @@ func (m *UserGuardMiddleware) Handle(next echo.HandlerFunc) echo.HandlerFunc {
 			return next(c)
 		}
 
-		id, ok := unverifiedClaims["id"].(float64)
+		id, ok := unverifiedClaims["id"].(string)
 		if !ok {
-			fmt.Println("Error: 'id' claim is not a float64")
+			fmt.Println("Error: 'id' claim is not a string")
 			return next(c)
 		}
 
 		// find user by id
-		user, err := models.UserByID(c.Request().Context(), m.db, int64(id))
+		user, err := models.UserByID(c.Request().Context(), m.db, uuid.MustParse(id))
 		if err != nil {
 			// fmt.Println(err)
 			return next(c)
