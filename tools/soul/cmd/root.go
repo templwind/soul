@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/templwind/soul/tools/soul/cmd/echo"
+	"github.com/templwind/soul/tools/soul/cmd/new"
 	"github.com/templwind/soul/tools/soul/cmd/parsexo"
 	"github.com/templwind/soul/tools/soul/cmd/saas"
 )
@@ -23,8 +23,8 @@ var rootCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	rootCmd.AddCommand(saas.Cmd())
-	rootCmd.AddCommand(echo.Cmd())
 	rootCmd.AddCommand(parsexo.Cmd())
+	rootCmd.AddCommand(new.Cmd()) // Add the new command
 	rootCmd.AddCommand(UpdateCmd())
 	rootCmd.AddCommand(VersionCmd())
 
