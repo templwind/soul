@@ -30,39 +30,71 @@ func buildApi(builder *SaaSBuilder) error {
 	})
 
 	allowedTypes := make(map[string]bool)
-
 	constants := make(map[string]string)
-	endpointBuilder := new(strings.Builder)
-	// endpointBuilder.WriteString("\n\n")
+
+	// Create a tree structure that mirrors the API path hierarchy
+	// This structure will group endpoints by their full path
+	type NamespaceNode struct {
+		Children map[string]*NamespaceNode // Child namespaces
+		Content  *strings.Builder          // Endpoint functions at this level
+	}
+
+	// Root namespaces (Private, Api, Auth, etc.)
+	rootNamespaces := make(map[string]*NamespaceNode)
+
+	// Helper function to get or create a namespace path
+	getOrCreateNamespacePath := func(root *NamespaceNode, path []string) *NamespaceNode {
+		current := root
+		for _, segment := range path {
+			if segment == "" {
+				continue
+			}
+			if current.Children == nil {
+				current.Children = make(map[string]*NamespaceNode)
+			}
+			if _, exists := current.Children[segment]; !exists {
+				current.Children[segment] = &NamespaceNode{
+					Content: new(strings.Builder),
+				}
+			}
+			current = current.Children[segment]
+		}
+		return current
+	}
 
 	// Iterate through all services and methods to identify JSON-returning request and response types
 	for _, s := range builder.Spec.Servers {
 		routePrefix := strings.ToLower(s.GetAnnotation(types.PrefixProperty))
-		// fmt.Println("RoutePrefix:", routePrefix)
+
+		// Determine primary namespace from the route prefix or annotations
+		primaryNS := getPrimaryNamespace(s, routePrefix)
+
+		// Ensure the root namespace exists
+		if _, exists := rootNamespaces[primaryNS]; !exists {
+			rootNamespaces[primaryNS] = &NamespaceNode{
+				Children: make(map[string]*NamespaceNode),
+				Content:  new(strings.Builder),
+			}
+		}
+
 		for _, srv := range s.Services {
 			for _, h := range srv.Handlers {
 			outerLoop:
 				for _, m := range h.Methods {
-
+					// Handle socket events and constants
 					if m.IsSocket {
 						for _, node := range m.SocketNode.Topics {
-
 							if node.Topic != "" {
-								// fmt.Println("Socket:", node.Topic)
 								constants[util.ToPascal(fmt.Sprintf("Topic_%s", node.Topic))] = node.Topic
 							}
 							if node.ResponseTopic != "" {
-								// fmt.Println("Socket:", node.ResponseTopic)
 								constants[util.ToPascal(fmt.Sprintf("Topic_%s", node.ResponseTopic))] = node.ResponseTopic
 							}
 						}
 					}
-					// fmt.Println(constants)
 
 					if m.IsSocket && m.SocketNode != nil {
 						for _, node := range m.SocketNode.Topics {
-							// fmt.Println("Socket:", node.GetName(), node.RequestType, node.ResponseType)
-
 							if node.RequestType != nil {
 								allowedTypes[node.RequestType.GetName()] = true
 							}
@@ -70,13 +102,7 @@ func buildApi(builder *SaaSBuilder) error {
 								allowedTypes[node.ResponseType.GetName()] = true
 							}
 						}
-						// fmt.Println("Socket:", m.SocketNode)
 					}
-
-					// fmt.Println("Method:", m.GetName(), m.RequestType, m.ResponseType)
-					// if m.RequestType != nil {
-					// 	fmt.Println("Method:", m.RequestType.GetName(), m.GetName(), m.ReturnsJson)
-					// }
 
 					if m.ReturnsJson {
 						var requestType spec.Type
@@ -90,39 +116,106 @@ func buildApi(builder *SaaSBuilder) error {
 							}
 
 							for _, field := range requestType.GetFields() {
-								// fmt.Println("Field:", field.Name, field.Tag)
 								if strings.Contains(field.Tag, "form:") && !strings.Contains(field.Tag, "json:") {
 									continue outerLoop
 								}
 							}
 
 							allowedTypes[m.RequestType.GetName()] = true
-
 						}
+
 						if m.ResponseType != nil {
 							allowedTypes[m.ResponseType.GetName()] = true
-							// fmt.Println("ResponseType:", m.ResponseType.GetName())
 							responseType = findTypeByName(builder.Spec.Types, m.ResponseType.GetName())
 						} else {
 							fmt.Println("ResponseType not found:", m.ResponseType.GetName())
 							continue outerLoop
 						}
 
-						writeApiEndpoint(builder, endpointBuilder, requestType, responseType, h, m, routePrefix)
-						// fmt.Println("Endpoint:", endpointBuilder.String())
+						// Build the path for this endpoint
+						// Combine routePrefix and route, removing leading/trailing slashes
+						fullPath := path.Join("/", strings.TrimLeft(routePrefix, "/"), m.Route)
+						fullPath = strings.TrimPrefix(fullPath, "/")
+
+						// Generate path segments for namespacing
+						pathSegments := generatePathSegments(fullPath)
+
+						// Always use the path-based namespace structure
+						targetNode := getOrCreateNamespacePath(rootNamespaces[primaryNS], pathSegments)
+
+						// Write the endpoint to the target namespace
+						writeApiEndpoint(builder, targetNode.Content, requestType, responseType, h, m, routePrefix)
 					}
 				}
 			}
 		}
 	}
 
-	builder.Data["Endpoints"] = strings.TrimSpace(endpointBuilder.String())
-	// fmt.Println("Endpoints:", builder.Data["Endpoints"])
+	// Assemble all namespaces into the final endpoints string
+	endpointBuilder := new(strings.Builder)
 
-	// fmt.Println(builder.Data["Endpoints"])
+	// Sort root namespace names for consistent output
+	rootNames := make([]string, 0, len(rootNamespaces))
+	for name := range rootNamespaces {
+		rootNames = append(rootNames, name)
+	}
+	sort.Strings(rootNames)
+
+	// Helper function to recursively write namespaces
+	var writeNamespace func(node *NamespaceNode, name string, indent string)
+
+	writeNamespace = func(node *NamespaceNode, name string, indent string) {
+		// Skip namespaces with no content and no children
+		if (node.Content == nil || node.Content.Len() == 0) && (node.Children == nil || len(node.Children) == 0) {
+			return
+		}
+
+		// Write namespace declaration
+		fmt.Fprintf(endpointBuilder, "%sexport namespace %s {\n", indent, name)
+
+		// Write content at this level
+		if node.Content != nil && node.Content.Len() > 0 {
+			lines := strings.Split(node.Content.String(), "\n")
+			for _, line := range lines {
+				if line != "" {
+					fmt.Fprintf(endpointBuilder, "%s  %s\n", indent, line)
+				}
+			}
+
+			// Add a line break if there are both content and children
+			if len(node.Children) > 0 {
+				fmt.Fprint(endpointBuilder, "\n")
+			}
+		}
+
+		// Write child namespaces
+		if len(node.Children) > 0 {
+			// Sort child names for consistent output
+			childNames := make([]string, 0, len(node.Children))
+			for childName := range node.Children {
+				childNames = append(childNames, childName)
+			}
+			sort.Strings(childNames)
+
+			// Process each child
+			for _, childName := range childNames {
+				writeNamespace(node.Children[childName], util.ToPascal(childName), indent+"  ")
+			}
+		}
+
+		// Close namespace
+		fmt.Fprintf(endpointBuilder, "%s}\n\n", indent)
+	}
+
+	// Write all root namespaces
+	for _, name := range rootNames {
+		writeNamespace(rootNamespaces[name], name, "")
+	}
+
+	builder.Data["Endpoints"] = strings.TrimSpace(endpointBuilder.String())
+
 	if !builder.IsService {
 		filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "lib", "api", "endpoints.ts")
-		// fmt.Println("Removing:", filename)
 		os.Remove(filename)
 		// Generate the endpoints.ts file
 		if err := builder.genFile(fileGenConfig{
@@ -155,6 +248,68 @@ func buildApi(builder *SaaSBuilder) error {
 	return nil
 }
 
+// getPrimaryNamespace determines the primary namespace for a server
+func getPrimaryNamespace(server spec.Server, routePrefix string) string {
+	// First try to get explicit namespace annotation
+	primaryNS := server.GetAnnotation("namespace")
+	if primaryNS != "" {
+		return util.ToPascal(primaryNS)
+	}
+
+	// Next, try to use the group property
+	group := server.GetAnnotation(types.GroupProperty)
+	if group != "" {
+		// Clean up the group name for use as a namespace
+		group = strings.TrimPrefix(group, "/")
+		group = strings.TrimSuffix(group, "/")
+
+		// Get the first segment
+		segments := strings.Split(group, "/")
+		if len(segments) > 0 {
+			return util.ToPascal(segments[0])
+		}
+	}
+
+	// Finally, fall back to route prefix if available
+	if routePrefix != "" {
+		routePrefix = strings.TrimPrefix(routePrefix, "/")
+		routePrefix = strings.TrimSuffix(routePrefix, "/")
+
+		if routePrefix != "" {
+			// Get the first segment
+			segments := strings.Split(routePrefix, "/")
+			if len(segments) > 0 {
+				return util.ToPascal(segments[0])
+			}
+		}
+	}
+
+	// Default namespace if nothing else is available
+	return "Api"
+}
+
+// generatePathSegments creates a list of path segments for namespacing
+func generatePathSegments(routePath string) []string {
+	// Split the route into segments
+	segments := strings.Split(routePath, "/")
+
+	// Clean up the segments and filter out empty ones
+	var cleanSegments []string
+	for i, segment := range segments {
+		// Skip the first segment (handled by primary namespace)
+		if i == 0 {
+			continue
+		}
+
+		// Keep all non-empty segments
+		if segment != "" {
+			cleanSegments = append(cleanSegments, segment)
+		}
+	}
+
+	return cleanSegments
+}
+
 // findTypeByName finds a type by name from a list of types
 func findTypeByName(allTypes []spec.Type, name string) spec.Type {
 	for _, tp := range allTypes {
@@ -171,10 +326,6 @@ func findTypeByName(allTypes []spec.Type, name string) spec.Type {
 
 // addAllRequiredTypes recursively adds all required types to the allowedTypes map
 func addAllRequiredTypes(tp spec.Type, allowedTypes map[string]bool, allTypes []spec.Type, addAllFound bool) {
-	// if allowedTypes[tp.GetName()] {
-	// 	return // Avoid processing already visited types
-	// }
-
 	self := tp.GetName()
 	allowedTypes[tp.GetName()] = true // Mark the current type as allowed
 
@@ -195,7 +346,6 @@ func addAllRequiredTypes(tp spec.Type, allowedTypes map[string]bool, allTypes []
 		}
 		visited[fieldType] = true
 
-		// fmt.Println("Field:", field.Name, fieldType)
 		// Skip primitive types
 		if isPrimitive(fieldType) {
 			continue
@@ -280,7 +430,6 @@ func genApiTypes(builder *SaaSBuilder, allowedTypes map[string]bool) error {
 
 	// Iterate through sorted keys and write the types
 	for _, key := range sortedKeys {
-		// fmt.Println("Writing:", key)
 		tp := allowedMap[key] // Get the corresponding type from the map
 		if tp != nil {
 			if !first {
@@ -294,11 +443,9 @@ func genApiTypes(builder *SaaSBuilder, allowedTypes map[string]bool) error {
 	}
 
 	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "lib", "api", "models.ts")
-	// fmt.Println("Removing:", filename)
 	os.Remove(filename)
 
 	models := modelBuilder.String()
-	// fmt.Println(models)
 
 	builder.Data["Models"] = models
 
@@ -332,12 +479,10 @@ func writeConstants(builder *SaaSBuilder, constants map[string]string) error {
 		}
 		fmt.Fprintf(constantsBuilder, "export const %s = '%s';\n", key, constants[key])
 	}
-	// fmt.Println(constantsBuilder.String())
 
 	builder.Data["Constants"] = constantsBuilder.String()
 
 	filename := path.Join(builder.Dir, builder.ServiceName, types.SrcDir, "lib", "api", "constants.ts")
-	// fmt.Println("Removing:", filename)
 	os.Remove(filename)
 
 	// Generate the models.ts file
@@ -350,6 +495,60 @@ func writeConstants(builder *SaaSBuilder, constants map[string]string) error {
 	}
 
 	return nil
+}
+
+// getRouteBasedNamespace determines the namespace name based on the route
+func getRouteBasedNamespace(route string) string {
+	routePath := strings.TrimPrefix(route, "/")
+
+	// Transform the route path into a namespace
+	if routePath == "" || routePath == "/" {
+		return "Index"
+	} else if strings.HasPrefix(routePath, ":") {
+		// For routes like /:slug, use the parameter name as namespace
+		paramName := strings.TrimPrefix(routePath, ":")
+		return util.ToPascal(paramName)
+	} else {
+		// Split the path into segments and remove empty ones
+		segments := []string{}
+		for _, s := range strings.Split(routePath, "/") {
+			if s != "" && !strings.HasPrefix(s, ":") {
+				segments = append(segments, s)
+			}
+		}
+
+		// No segments left after filtering
+		if len(segments) == 0 {
+			return "Index"
+		}
+
+		// Generate namespace based on path structure and depth
+		if len(segments) >= 3 {
+			// For deeper paths, use a more specific namespace derived from multiple segments
+			// For paths like /api/oauth/zapier/client-id, create namespaces like ZapierClientId
+			lastSegmentIndex := len(segments) - 1
+			secondLastSegmentIndex := len(segments) - 2
+
+			// Form a composite namespace from the last two non-parameter segments
+			lastSegment := util.ToPascal(segments[lastSegmentIndex])
+			secondLastSegment := util.ToPascal(segments[secondLastSegmentIndex])
+
+			// If both segments are valid, combine them for a unique namespace
+			if lastSegment != "" && secondLastSegment != "" {
+				return secondLastSegment + lastSegment
+			}
+		}
+
+		// Default to using the last non-empty segment
+		for i := len(segments) - 1; i >= 0; i-- {
+			if segments[i] != "" {
+				return util.ToPascal(segments[i])
+			}
+		}
+	}
+
+	// If we couldn't determine a route-based namespace, use a default
+	return "Endpoint"
 }
 
 func writeApiEndpoint(builder *SaaSBuilder, endpointBuilder io.Writer, requestType, responseType spec.Type, h spec.Handler, m spec.Method, routePrefix string) error {
@@ -372,8 +571,12 @@ func writeApiEndpoint(builder *SaaSBuilder, endpointBuilder io.Writer, requestTy
 			}
 		}
 
-		// Only add request object if it's not a GET or if there are non-path fields
-		if !strings.Contains(m.Route, ":") && totalFields > 0 && !(strings.ToUpper(m.Method) == "GET" && allFieldsArePath) {
+		// Only add request object if there are non-path fields
+		// For GET, PUT, DELETE methods with only path parameters, don't add a request object
+		if !strings.Contains(m.Route, ":") && totalFields > 0 &&
+			!((strings.ToUpper(m.Method) == "GET" ||
+				strings.ToUpper(m.Method) == "PUT" ||
+				strings.ToUpper(m.Method) == "DELETE") && allFieldsArePath) {
 			request = fmt.Sprintf("req: models.%s", requestType.GetName())
 			hasRequestObject = true
 		}
@@ -420,7 +623,43 @@ func writeApiEndpoint(builder *SaaSBuilder, endpointBuilder io.Writer, requestTy
 		}
 	}
 
-	// Format parameters
+	// We'll update route parameters after detecting any in the URL path
+	route := path.Join("/", strings.TrimLeft(routePrefix, "/"), m.Route)
+
+	// First, extract all :param patterns from the route
+	routeParamRegex := regexp.MustCompile(`:(\w+)`)
+	routeParams := routeParamRegex.FindAllStringSubmatch(route, -1)
+
+	// Add route parameters to pathParams if they're not already there
+	for _, param := range routeParams {
+		if param[1] != "" && pathParams[param[1]] == "" {
+			// Convert the parameter name to camelCase if needed
+			paramName := util.FirstToLower(param[1])
+			pathParams[param[1]] = paramName
+
+			// Add missing path parameters to reqParams if they weren't defined in the request type
+			// This ensures they show up in the function signature
+			paramFound := false
+			for _, existingParam := range reqParams {
+				if strings.HasPrefix(existingParam, paramName+":") {
+					paramFound = true
+					break
+				}
+			}
+
+			if !paramFound {
+				reqParams = append(reqParams, fmt.Sprintf("%s: string", paramName))
+				primitiveParams = append(primitiveParams, paramName)
+			}
+		}
+	}
+
+	// Replace path parameters in the route
+	for param, varName := range pathParams {
+		route = strings.ReplaceAll(route, ":"+param, "${"+varName+"}")
+	}
+
+	// Format parameters after all path parameters have been processed
 	params := strings.Join(reqParams, ", ")
 	if request != "" {
 		if params != "" {
@@ -437,81 +676,60 @@ func writeApiEndpoint(builder *SaaSBuilder, endpointBuilder io.Writer, requestTy
 		response = fmt.Sprintf(": Promise<models.%s>", util.ToTitle(m.ResponseType.GetName()))
 	}
 
-	handlerName := strings.Replace(util.ToPascal(getHandlerName(h, &m)), "Handler", "", -1)
-	fmt.Fprintf(endpointBuilder, "export function %s(%s)%s {\n", handlerName, params, response)
-	util.WriteIndent(endpointBuilder, 1)
+	// Generate a simple function name based on the HTTP method
+	functionName := util.ToPascal(strings.ToLower(m.Method))
 
-	route := path.Join("/", strings.TrimLeft(routePrefix, "/"), m.Route)
-
-	// First, extract all :param patterns from the route
-	routeParamRegex := regexp.MustCompile(`:(\w+)`)
-	routeParams := routeParamRegex.FindAllStringSubmatch(route, -1)
-
-	// Add route parameters to pathParams if they're not already there
-	for _, param := range routeParams {
-		if param[1] != "" && pathParams[param[1]] == "" {
-			// Convert the parameter name to camelCase if needed
-			paramName := util.FirstToLower(param[1])
-			pathParams[param[1]] = paramName
-		}
-	}
-
-	// Replace path parameters in the route
-	for param, varName := range pathParams {
-		route = strings.ReplaceAll(route, ":"+param, "${"+varName+"}")
-	}
-
-	// Only append primitive parameters if they don't correspond to path parameters
-	for _, param := range primitiveParams {
-		// Check if this parameter is already used as a path parameter
-		isPathParam := false
-		for _, pathVar := range pathParams {
-			if pathVar == param {
-				isPathParam = true
-				break
+	// If we have path parameters, append them to the function name
+	// Example: GET /api/posts/:slug -> GetBySlug
+	if len(routeParams) > 0 {
+		pathParamParts := []string{}
+		for _, param := range routeParams {
+			if param[1] != "" {
+				pathParamParts = append(pathParamParts, util.ToPascal(param[1]))
 			}
 		}
-		if !isPathParam {
-			route = fmt.Sprintf("%s/${%s}", route, param)
+
+		// Sort param names for consistency when multiple parameters exist
+		sort.Strings(pathParamParts)
+
+		// Add "By" prefix and join all parameter names
+		if len(pathParamParts) > 0 {
+			functionName += "By" + strings.Join(pathParamParts, "And")
 		}
 	}
 
-	// Append query parameters if present
-	if len(queryParams) > 0 {
-		route = fmt.Sprintf("%s?%s", route, strings.Join(queryParams, "&"))
-	}
+	// Write the function definition
+	fmt.Fprintf(endpointBuilder, "export function %s(%s)%s {\n", functionName, params, response)
 
-	method := strings.ToLower(m.Method)
-	if method == "get" {
-		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`, undefined, options?.fetch)",
-			method,
-			util.ToTitle(m.ResponseType.GetName()),
-			route)
+	// Determine the proper indentation (1 tab/2 spaces)
+	indentation := "  "
+
+	// Write the API call
+	fmt.Fprintf(endpointBuilder, "%sreturn api.%s<models.%s>(`%s`, ", indentation, strings.ToLower(m.Method), util.ToTitle(m.ResponseType.GetName()), route)
+
+	// Add request parameter if needed
+	if strings.ToLower(m.Method) == "get" {
+		fmt.Fprintf(endpointBuilder, "undefined, options?.fetch)")
 	} else if hasRequestObject {
-		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`, req, undefined, options?.fetch)",
-			method,
-			util.ToTitle(m.ResponseType.GetName()),
-			route)
+		fmt.Fprintf(endpointBuilder, "req, undefined, options?.fetch)")
 	} else {
-		fmt.Fprintf(endpointBuilder, "return api.%s<models.%s>(`%s`, undefined, undefined, options?.fetch)",
-			method,
-			util.ToTitle(m.ResponseType.GetName()),
-			route)
+		fmt.Fprintf(endpointBuilder, "undefined, undefined, options?.fetch)")
 	}
 
-	fmt.Fprintf(endpointBuilder, "\n}\n\n")
+	// Close the function
+	fmt.Fprintf(endpointBuilder, "\n")
+	fmt.Fprintf(endpointBuilder, "}\n")
+
 	return nil
 }
 
 func findFieldType(builder *SaaSBuilder, name string) *string {
-	// fmt.Println("Finding:", name)
 	// search the types folder for files containing the type name
 	files, err := filepath.Glob(path.Join(builder.ServiceName, types.TypesDir, "*.go"))
 	if err != nil {
 		return nil
 	}
 	for _, file := range files {
-		// fmt.Println("Searching:", file)
 		content, err := os.ReadFile(file)
 		if err != nil {
 			return nil
@@ -530,8 +748,6 @@ func findFieldType(builder *SaaSBuilder, name string) *string {
 				typeRe := regexp.MustCompile(`type\s+(\w+)\s+(\w+)`)
 				out := typeRe.FindAllStringSubmatch(string(content), -1)
 				if len(out) > 0 && len(out[0]) > 2 {
-					// fmt.Println("Found:", name, "in", file, "of type", out[0][2])
-					// fmt.Printf("Type: %v\n", out[0])
 					if out[0][2] == "string" {
 						return &out[0][2]
 					}
@@ -594,12 +810,9 @@ func WriteApiProperty(builder *SaaSBuilder, writer io.Writer, name, tp string, i
 
 // ConvertToTypeScriptType converts Go types to TypeScript types
 func ConvertToTypeScriptType(builder *SaaSBuilder, goType string) string {
-	// fmt.Println("Converting:", goType)
 	fieldType := findFieldType(builder, goType)
 	if fieldType != nil {
-		// fmt.Println("Member:", member.Name, member.Type, member.Tag)
 		goType = *fieldType
-		// fmt.Println("Converted:", goType)
 	}
 
 	switch goType {
@@ -634,4 +847,48 @@ func ConvertToTypeScriptType(builder *SaaSBuilder, goType string) string {
 		}
 		return goType
 	}
+}
+
+// getNestedNamespaces determines the primary and secondary namespaces for a server
+// This function is maintained for backward compatibility with tests
+func getNestedNamespaces(server spec.Server, routePrefix string) (string, string) {
+	// Get primary namespace using the new approach
+	primaryNS := getPrimaryNamespace(server, routePrefix)
+
+	// Check for explicit subnamespace annotation
+	secondaryNS := server.GetAnnotation("subnamespace")
+	if secondaryNS != "" {
+		return primaryNS, util.ToPascal(secondaryNS)
+	}
+
+	// Check group property for secondary namespace
+	group := server.GetAnnotation(types.GroupProperty)
+	if group != "" {
+		group = strings.TrimPrefix(group, "/")
+		group = strings.TrimSuffix(group, "/")
+
+		segments := strings.Split(group, "/")
+		if len(segments) > 1 {
+			return primaryNS, util.ToPascal(segments[1])
+		} else {
+			// For "group" property with single segment, the test expects empty secondary
+			return primaryNS, ""
+		}
+	}
+
+	// Check route prefix for secondary namespace
+	if routePrefix != "" {
+		routePrefix = strings.TrimPrefix(routePrefix, "/")
+		routePrefix = strings.TrimSuffix(routePrefix, "/")
+
+		segments := strings.Split(routePrefix, "/")
+		if len(segments) > 1 {
+			return primaryNS, util.ToPascal(segments[1])
+		} else {
+			// For single-segment route prefix, the test expects empty secondary
+			return primaryNS, ""
+		}
+	}
+
+	return primaryNS, ""
 }

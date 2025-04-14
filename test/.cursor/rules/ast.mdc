@@ -1,0 +1,1203 @@
+---
+description: Soul AST System Architecture and Development Guidelines
+globs: /**
+alwaysApply: true
+---
+
+# Soul AST System Architecture and Development Guidelines
+
+This document provides comprehensive guidance for developing applications with the Soul AST framework. Soul AST is a powerful code generation system that creates a complete API layer across both backend and frontend components from declarative API definitions.
+
+## Project Structure
+
+Soul projects follow a specific structure where AST definitions live alongside your application code:
+
+```
+project/
+├── ast/                # API definitions
+│   ├── main.api        # Main entry point importing all modules
+│   ├── common-types.api # Shared type definitions
+│   ├── [feature]/      # Feature-specific modules
+│   │   ├── types.api   # Type definitions
+│   │   └── handlers.api # API endpoints
+├── [app-name]/         # Your application code
+│   ├── internal/       # Backend code
+│   │   ├── handler/    # HTTP handlers (auto-generated)
+│   │   ├── logic/      # Business logic
+│   │   ├── models/     # Database models
+│   │   ├── svc/        # Service context
+│   │   └── types/      # Type definitions (auto-generated)
+│   ├── src/            # Frontend code
+│   │   ├── lib/api/    # TypeScript API clients (auto-generated)
+│   │   └── components/ # UI components
+│   └── themes/         # HTML templates
+└── temporal/           # Workflow definitions
+```
+
+## Development Workflow
+
+1. Define your API in `.api` files within the `ast/` directory
+2. Run `make gen` to generate code from your AST definitions
+3. Implement business logic in generated logic files
+4. Never manually edit auto-generated files in `internal/handler/`, `internal/types/`, or `src/lib/api/`
+
+## How Soul AST Works
+
+Soul AST operates through a multi-stage process:
+
+1. **Lexing Stage**: The lexer reads and tokenizes your `.api` files, starting from `main.api` and resolving all imports
+2. **Parsing Stage**: The parser builds an Abstract Syntax Tree (AST) from these tokens, representing your entire API
+3. **Code Generation Stage**: The generator creates code files for handlers, types, and TypeScript clients
+4. **Type System**: Soul uses Go-like type definitions with special tags for parameter binding
+5. **API Definition**: Handlers are defined using annotations and HTTP methods
+6. **WebSocket Support**: Special socket syntax enables real-time communication
+
+This MDC file provides rules for each aspect of Soul development, helping ensure consistent and correct code patterns across your project.
+
+## Rule Categories
+
+The rules in this MDC are organized into the following categories:
+
+1. **Soul AST System Rules** - Guidelines for structuring AST files and defining APIs
+2. **Soul Architecture Components** - Best practices for core components like httpx and events
+3. **WebSocket Implementation Rules** - Patterns for WebSocket communication
+4. **Soul CLI Usage Rules** - Guidance on code generation and templating
+5. **Security and Best Practices** - Guidelines for secure and maintainable code
+6. **Development Guidelines** - Workflow and organization standards
+
+## Soul AST System Rules
+
+The following rules guide how you structure and organize your AST files. Soul AST uses a specialized syntax for defining API endpoints, types, and WebSocket communication. These rules help maintain a clean, consistent organization of your API definitions.
+
+Soul's AST system parses your `.api` files to generate code for handlers, types, and clients. A well-organized AST structure makes your API easier to understand, extend, and maintain. The rules in this section focus on file organization, import patterns, and proper AST syntax.
+
+<rule>
+name: soul_critical_workflow
+description: Enforces the critical Soul AST workflow and architecture principles
+filters:
+  - type: file_path
+    pattern: "internal/logic/.*\\.go$"
+  - type: content
+    pattern: "func.*Logic"
+actions:
+  - type: reject
+    conditions:
+      - pattern: "db\\.(?:Query|Exec|QueryRow)Context"
+        message: "SQL operations should ONLY be in the models layer, not in logic files."
+      - pattern: "sql\\.DB|sql\\.Tx"
+        message: "Direct SQL database operations should be encapsulated in the models layer."
+  - type: suggest
+    message: |
+      ## Critical Soul AST Workflow Rules
+      
+      ### Rule 1: Let Soul Generate Code First
+      
+      **NEVER manually create handler or logic files that Soul should generate.** Always follow this workflow:
+      
+      1. Define your API endpoints in `.api` files within the `ast/` directory
+      2. Run `make gen` to generate code from your AST definitions
+      3. Only then implement business logic in the generated logic files
+      
+      ### Rule 2: Separation of Concerns
+      
+      Follow the proper separation of concerns:
+      
+      - **AST Files**: Define API contracts (endpoints, request/response types)
+      - **Generated Handlers**: Handle HTTP requests, parameter binding, and response formatting
+      - **Logic Files**: Implement business logic (NO SQL HERE)
+      - **Models**: Define database entities and encapsulate ALL SQL operations
+      
+      ### Rule 3: SQL Belongs in Models Layer ONLY
+      
+      **NEVER put SQL in logic files.** SQL should ONLY exist in the models layer:
+      
+      ```go
+      // WRONG - SQL in logic file
+      func (l *GetUserLogic) GetUser(req *types.GetUserRequest) (resp *types.GetUserResponse, err error) {
+          var user User
+          err := l.svcCtx.DB.QueryRowContext(l.ctx, `SELECT * FROM users WHERE id = $1`, req.UserID).Scan(&user.ID, &user.Name)
+          // ...
+      }
+      
+      // CORRECT - Using models for database operations
+      func (l *GetUserLogic) GetUser(req *types.GetUserRequest) (resp *types.GetUserResponse, err error) {
+          user, err := models.UserByID(l.ctx, l.svcCtx.DB, req.UserID)
+          // ...
+      }
+      ```
+      
+      ### Rule 4: Handler Implementation
+      
+      **NEVER implement handler methods manually.** Soul generates these for you:
+      
+      ```go
+      // WRONG - Manually implementing handler method
+      func (l *GetUserLogic) GetUserGet(c echo.Context, req *types.GetUserRequest) (resp *types.GetUserResponse, err error) {
+          // ...
+      }
+      
+      // CORRECT - Implement the method Soul expects
+      func (l *GetUserLogic) GetUser(req *types.GetUserRequest) (resp *types.GetUserResponse, err error) {
+          // ...
+      }
+      ```
+      
+      ### Common Mistakes to Avoid
+      
+      1. ❌ Manually creating handler or logic files
+      2. ❌ Putting SQL directly in logic files
+      3. ❌ Implementing handler methods (e.g., `GetUserGet`)
+      4. ❌ Editing generated files in `internal/handler/` or `internal/types/`
+      5. ❌ Forgetting to run `make gen` after changing `.api` files
+examples:
+  - input: |
+      func (l *GetUserLogic) GetUser(req *types.GetUserRequest) (resp *types.GetUserResponse, err error) {
+          var user User
+          err := l.svcCtx.DB.QueryRowContext(l.ctx, `SELECT * FROM users WHERE id = $1`, req.UserID).Scan(&user.ID, &user.Name)
+          // ...
+      }
+    output: |
+      func (l *GetUserLogic) GetUser(req *types.GetUserRequest) (resp *types.GetUserResponse, err error) {
+          // Use models for database operations
+          user, err := models.UserByID(l.ctx, l.svcCtx.DB, req.UserID)
+          // ...
+      }
+  - input: |
+      func (l *GetUserLogic) GetUserGet(c echo.Context, req *types.GetUserRequest) (resp *types.GetUserResponse, err error) {
+          // ...
+      }
+    output: "Do not implement handler methods manually. Soul generates these for you. Implement the GetUser method instead."
+metadata:
+  priority: critical
+  version: 1.0
+</rule>
+
+<rule>
+name: soul_ast_file_organization
+description: Provides guidance on organizing Soul AST files
+filters:
+  - type: file_path
+    pattern: "ast/"
+  - type: event
+    pattern: "project_open"
+actions:
+  - type: suggest
+    message: |
+      Soul AST files should be organized to maximize modularity and maintainability:
+      
+      **Recommended File Structure:**
+      
+      ```
+      ast/
+      ├── main.api                # Main entry point that imports all modules
+      ├── common-types.api        # Shared type definitions used across modules
+      │
+      ├── auth/                   # Authentication module
+      │   ├── types.api           # Auth-specific types
+      │   └── handlers.api        # Auth endpoint handlers
+      │
+      ├── api/                    # Core API module
+      │   ├── types.api           # API types
+      │   └── handlers.api        # API handlers
+      │
+      ├── www/                    # Public website module
+      │   ├── types.api
+      │   └── handlers.api
+      │
+      ├── app/                    # Application-specific modules
+      │   ├── types.api           # Shared app types
+      │   ├── api.api             # Main app endpoints
+      │   │
+      │   ├── profile/            # Profile feature
+      │   │   ├── types.api
+      │   │   └── api.api
+      │   │
+      │   └── [feature]/          # Feature-specific modules
+      │       ├── types.api
+      │       └── api.api
+      ```
+      
+      **Best Practices:**
+      
+      1. **Separate Types from Handlers**: Keep type definitions and handler definitions in separate files
+      2. **Group by Domain**: Organize files by domain/feature rather than by technical category
+      3. **Use Imports Wisely**: Import only what's needed to minimize dependencies
+      4. **Main Entry Point**: Use main.api to coordinate imports rather than putting definitions there
+      5. **Common Types**: Place shared types in a common file that can be imported by other modules
+      
+      **Example main.api:**
+      ```go
+      // Common types
+      import "common-types.api"
+      
+      // Auth module
+      import "auth/types.api"
+      import "auth/handlers.api"
+      
+      // API module
+      import "api/types.api"
+      import "api/handlers.api"
+      
+      // WWW module
+      import "www/types.api"
+      import "www/handlers.api"
+      
+      // App module
+      import "app/types.api"
+      import "app/api.api"
+      import "app/profile/types.api"
+      import "app/profile/api.api"
+      ```
+examples:
+  - input: "How should I organize my API files for a large application?"
+    output: "Organize by domain with separate types.api and handlers.api files in each module directory. Import everything through main.api as the entry point."
+metadata:
+  priority: high
+  version: 1.0
+</rule>
+
+<rule>
+name: soul_ast_import_pattern
+description: Enforces proper import patterns in main.api and modular API files
+filters:
+  - type: file_path
+    pattern: "ast/main\\.api$|ast/.*/[^/]+\\.api$"
+  - type: content
+    pattern: "import |service GoShare"
+actions:
+  - type: suggest
+    message: |
+      Follow the proper AST import patterns:
+      
+      In main.api:
+      ```go
+      // Section name
+      import "[module]/types.api"
+      import "[module]/handlers.api"
+      ```
+      
+      In modular API files:
+      ```go
+      // Import common types if needed
+      import "../common-types.api"
+      
+      @server (
+          group:      api/[group]
+          prefix:     /api
+          middleware: [middleware]
+      )
+      service GoShare {
+          // API endpoints
+      }
+      ```
+      
+      Organize imports in main.api by sections with comments, and use relative paths for imports in module-specific API files.
+examples:
+  - input: |
+      // Just importing without organization
+      import "auth/types.api"
+      import "billing/types.api"
+    output: |
+      // Auth
+      import "auth/types.api"
+      import "auth/handlers.api"
+      
+      // Billing
+      import "billing/types.api"
+      import "billing/handlers.api"
+  - input: "import \"../../common-types.api\""
+    output: "import \"../common-types.api\""
+metadata:
+  priority: medium
+  version: 1.0
+</rule>
+
+<rule>
+name: ast_file_syntax_understanding
+description: Provides guidance on Soul AST file syntax and structure
+filters:
+  - type: file_extension
+    pattern: "\\.api$"
+  - type: content
+    pattern: "type|@server|service|@handler"
+actions:
+  - type: suggest
+    message: |
+      ## Soul AST File Syntax Guide
+      
+      Soul AST files use a specialized syntax that's parsed by the Soul lexer and parser:
+      
+      ### Type Definitions
+      
+      ```go
+      type User {
+          ID        int     `json:"id" path:"id"`
+          Name      string  `json:"name,optional,omitempty"`
+          Email     string  `json:"email" validate:"required,email"`
+          CreatedAt string  `json:"createdAt,optional,omitempty"`
+      }
+      ```
+      
+      **Field Tags:**
+      - `json:"fieldName"` - JSON field name for serialization/deserialization
+      - `path:"paramName"` - URL path parameter binding
+      - `query:"paramName"` - URL query parameter binding
+      - `form:"fieldName"` - Form data binding
+      - `header:"headerName"` - HTTP header binding
+      - `optional` - Marks field as optional
+      - `omitempty` - Omits empty fields in JSON
+      - `validate:"rules"` - Validation rules for the field
+      
+      ### Server Configuration
+      
+      ```go
+      @server (
+          group:      api/users
+          prefix:     /api/users
+          middleware: AuthGuard,NoCache
+          jwt:        Auth
+      )
+      ```
+      
+      **Server Properties:**
+      - `group` - Logical grouping for handlers and routes
+      - `prefix` - URL prefix for all routes in this group
+      - `middleware` - Comma-separated list of middleware to apply
+      - `jwt` - JWT configuration name
+      
+      ### Service Definitions
+      
+      ```go
+      service YourApp {
+          @handler getUser
+          get /users/:id (UserRequest) returns (User)
+          
+          @handler createUser
+          post /users (CreateUserRequest) returns (User)
+      }
+      ```
+      
+      ### WebSocket Endpoints
+      
+      ```go
+      @handler ws
+      get socket /ws (
+          client:get-updates(UpdateRequest) <<>> server:updates(UpdateResponse)
+          client:send-message(MessageRequest) >> (MessageResponse)
+          server:notifications << (Notification)
+      )
+      ```
+      
+      **WebSocket Operators:**
+      - `>>` - Client-to-server unidirectional messages
+      - `<<` - Server-to-client unidirectional messages
+      - `<<>>` - Bidirectional messages (request with streaming response)
+      
+      ### Import System
+      
+      ```go
+      import "common-types.api"
+      import "users/types.api"
+      ```
+      
+      Soul's lexer resolves imports recursively, flattening all definitions.
+examples:
+  - input: "How do I define optional fields in my types?"
+    output: "Use the `optional` tag in the field definition: `Email string `json:\"email,optional,omitempty\"`"
+  - input: "How do I create a bidirectional WebSocket connection?"
+    output: "Use the `<<>>` operator in your WebSocket endpoint: `client:stream-data(DataRequest) <<>> server:data-update(DataResponse)`"
+metadata:
+  priority: high
+  version: 1.0
+</rule>
+
+<rule>
+name: soul_ast_server_directive
+description: Enforces proper server directives in API definitions
+filters:
+  - type: file_extension
+    pattern: "\\.api$"
+  - type: content
+    pattern: "@server"
+actions:
+  - type: suggest
+    message: |
+      Follow the standard server directive format for different API types:
+      
+      **Public API without Authentication**:
+      ```go
+      @server (
+          group:      api/public
+          prefix:     /api
+          middleware: NoCache
+      )
+      service YourApp {
+          // Public endpoints
+      }
+      ```
+      
+      **Private API with Authentication**:
+      ```go
+      @server (
+          group:      api/private
+          prefix:     /api
+          jwt:        Auth
+          middleware: AuthGuard,AccountGuard,UserGuard,NoCache
+      )
+      service YourApp {
+          // Private endpoints
+      }
+      ```
+      
+      **Feature-Specific API**:
+      ```go
+      @server (
+          group:      api/oauth/[provider]
+          prefix:     /api/oauth/[provider]
+          middleware: NoCache
+      )
+      service YourApp {
+          // Provider-specific endpoints
+      }
+      ```
+      
+      The group name should reflect the path and purpose of the API.
+examples:
+  - input: |
+      @server (
+          group: users
+          prefix: /api
+      )
+      service YourApp {
+          // User endpoints
+      }
+    output: |
+      @server (
+          group:      api/users
+          prefix:     /api
+          jwt:        Auth
+          middleware: AuthGuard,NoCache
+      )
+      service YourApp {
+          // User endpoints
+      }
+  - input: |
+      @server (
+          group:      api/oauth/zapier
+          prefix:     /api/oauth/zapier
+          middleware: NoCache
+      )
+      service YourApp {
+          // Zapier OAuth endpoints
+      }
+    output: "Correctly formatted server directive for feature-specific API"
+metadata:
+  priority: high
+  version: 1.0
+</rule>
+
+<rule>
+name: soul_ast_handler_syntax
+description: Enforces correct syntax for Soul AST handler definitions
+filters:
+  - type: file_extension
+    pattern: "\\.api$"
+  - type: content
+    pattern: "@handler"
+actions:
+  - type: reject
+    conditions:
+      - pattern: "@handler\\s+\\w+\\s*\\n\\s*(?!get|post|put|patch|delete)"
+        message: "Handler must specify a valid HTTP method (get, post, put, patch, delete)"
+  - type: suggest
+    message: |
+      Handlers must:
+      1. Start with @handler [name]
+      2. Specify an HTTP method (get, post, put, delete)
+      3. Include path and types
+      
+      Example REST endpoint:
+      ```go
+      @handler getUser
+      get /:id (UserRequest) returns (User)
+      ```
+      
+      Example WebSocket endpoint:
+      ```go
+      @handler ws
+      get socket /ws (
+          client:shares(PaginationRequest) >> (ShareListResponse)
+          client:generate(GenerateRequest) <<>> server:generate-response(GenerateResponse)
+      )
+      ```
+      
+      Use descriptive handler names that reflect the action being performed.
+examples:
+  - input: "@handler getUser\nfetch /:id (UserRequest) returns (User)"
+    output: "Invalid HTTP method 'fetch'. Use get, post, put, patch, or delete."
+  - input: "@handler getUser\nget /:id (UserRequest) returns (User)"
+    output: "Valid handler definition"
+  - input: |
+      @handler ws
+      get socket /ws (
+          client:get-analytics(AnalyticsRequest) <<>> server:analytics-update(AnalyticsResponse)
+      )
+    output: "Valid WebSocket handler definition with proper topic naming"
+metadata:
+  priority: high
+  version: 1.0
+</rule>
+
+<rule>
+name: soul_ast_type_definition
+description: Enforces proper type definitions and tag usage
+filters:
+  - type: file_extension
+    pattern: "\\.api$"
+  - type: content
+    pattern: "type\\s+\\w+\\s*{"
+actions:
+  - type: suggest
+    message: |
+      Follow these guidelines for type definitions:
+      
+      1. Use CamelCase for type names, with Request/Response suffix for API types
+      2. Use appropriate field tags for different purposes:
+      
+      **JSON Serialization/Deserialization**:
+      ```go
+      // For request/response bodies
+      Field string `json:"fieldName,optional,omitempty"`
+      ```
+      
+      **Path Parameters**:
+      ```go
+      // For URL path parameters
+      ID string `path:"id"`
+      ```
+      
+      **Query Parameters**:
+      ```go
+      // For URL query parameters
+      Sort string `query:"sort,optional"`
+      ```
+      
+      **Form Parameters**:
+      ```go
+      // For form submissions
+      Email string `form:"email"`
+      ```
+      
+      3. Use `optional` tag for optional fields
+      4. Use `omitempty` to omit empty fields in responses
+      5. Group related types in the same file
+      6. Include comments for complex fields
+examples:
+  - input: |
+      type User {
+          Id int `json:"id"`
+          username string `json:"username"`
+          Email string 
+      }
+    output: |
+      type User {
+          ID int `json:"id" path:"id"`
+          Username string `json:"username"`
+          Email string `json:"email,optional,omitempty"`
+      }
+  - input: |
+      type UpdateProfileRequest {
+          FirstName string `json:"firstName,optional,omitempty"`
+          LastName string `json:"lastName,optional,omitempty"`
+          Bio string `json:"bio,optional,omitempty"`
+      }
+    output: "Correctly formatted type definition with proper tags"
+metadata:
+  priority: high
+  version: 1.0
+</rule>
+
+<rule>
+name: soul_lexer_parser_understanding
+description: Provides insight into how Soul's lexer and parser process AST files
+filters:
+  - type: file_path
+    pattern: "ast/"
+  - type: event
+    pattern: "project_open"
+actions:
+  - type: suggest
+    message: |
+      ## Understanding Soul's AST Processing Pipeline
+
+      Soul uses a sophisticated parsing system to convert your API definitions into generated code:
+
+      **Lexer Phase:**
+      1. The lexer reads your .api files, starting with the main.api entry point
+      2. It resolves all imports recursively, creating a flattened representation
+      3. Each line is tokenized into specific types (IDENT, AT_TYPE, AT_SERVER, etc.)
+      4. Comments and whitespace are appropriately handled
+      
+      **Parser Phase:**
+      1. The parser builds a structured AST (Abstract Syntax Tree) from the tokens
+      2. It organizes your API into a hierarchical structure:
+         - Structs/Types
+         - Servers
+         - Services
+         - Handlers
+         - Methods (HTTP/WebSocket)
+      3. It validates relationships and constructs
+      
+      **Code Generation Phase:**
+      1. The AST is converted to more specific representations
+      2. Code generators create:
+         - Go handler files
+         - Go type definitions
+         - TypeScript client interfaces
+         - WebSocket topics and constants
+         - Route registrations
+      
+      **Key Lexer Tokens:**
+      - `@type`: Type definitions
+      - `@server`: Server configuration
+      - `@handler`: Handler definitions
+      - `socket`: WebSocket endpoints
+      - `get/post/put/delete/patch`: HTTP methods
+
+      **Parser Node Types:**
+      - `StructNode`: Represents type definitions
+      - `ServerNode`: Contains service and middleware configs
+      - `HandlerNode`: Defines API endpoints
+      - `MethodNode`: Specifies HTTP methods and paths
+      - `SocketNode`: Defines WebSocket communication
+      - `TopicNode`: Represents WebSocket topics
+
+      This entire pipeline executes when you run `make gen` to regenerate your code.
+examples:
+  - input: "Why do I need to regenerate code after changing API files?"
+    output: "The Soul lexer and parser need to process your updated API definitions to rebuild the AST and generate corresponding code files. Without regeneration, your code would be out of sync with your API definitions."
+metadata:
+  priority: medium
+  version: 1.0
+</rule>
+
+## Soul Architecture Components
+
+This section covers the core architectural components of the Soul framework. Soul provides several key packages for handling HTTP requests, parameter binding, and event communication. Understanding these components is crucial for effective development.
+
+The rules in this section help you use components like `httpx` for parameter binding and validation, as well as the event systems for real-time communication. These components form the foundation of Soul's backend architecture and enable clean separation of concerns.
+
+<rule>
+name: httpx_parameter_binding
+description: Ensures proper use of Soul's httpx parameter binding
+filters:
+  - type: file_path
+    pattern: "internal/logic/"
+  - type: content
+    pattern: "func.*Logic"
+actions:
+  - type: suggest
+    message: |
+      ## Effective Use of httpx Parameter Binding
+      
+      Soul's `httpx` package provides powerful automatic binding of HTTP parameters to Go structs. Understanding its capabilities helps you create cleaner, more maintainable code:
+      
+      ### Parameter Binding Tags
+      
+      Soul supports various binding sources through struct tags:
+      
+      ```go
+      type UserRequest {
+          ID        int    `path:"id"`                // URL path parameter (/users/:id)
+          Sort      string `query:"sort,optional"`    // Query parameter (?sort=name)
+          Fields    string `query:"fields,optional"`  // Query parameter (?fields=id,name)
+          Name      string `form:"name,optional"`     // Form field data
+          AuthToken string `header:"Authorization"`   // HTTP header value
+          Details   User   `json:"details,optional"`  // JSON body field
+      }
+      ```
+      
+      ### The Parse Function
+      
+      The `httpx.Parse()` function handles all parameter binding automatically:
+      
+      ```go
+      // In the auto-generated handler
+      func GetUserHandler(svcCtx *svc.ServiceContext, path string) echo.HandlerFunc {
+          return func(c echo.Context) error {
+              var req types.UserRequest
+              if err := httpx.Parse(c, &req, path); err != nil {
+                  return err
+              }
+              
+              // Call the logic function with the parsed request
+              l := users.NewGetUserLogic(c.Request().Context(), svcCtx)
+              resp, err := l.GetUser(&req)
+              if err != nil {
+                  return err
+              }
+              
+              return c.JSON(http.StatusOK, resp)
+          }
+      }
+      ```
+      
+      ### Validation
+      
+      Soul integrates validation with the `validate` tag:
+      
+      ```go
+      type CreateUserRequest {
+          Email     string `json:"email" validate:"required,email"`
+          Password  string `json:"password" validate:"required,min=8"`
+          Age       int    `json:"age,optional" validate:"omitempty,gte=18"`
+          Username  string `json:"username" validate:"required,alphanum"`
+      }
+      ```
+      
+      ### Best Practices
+      
+      1. **Use Appropriate Tags**: Match tag type to parameter location
+      2. **Mark Optional Fields**: Use `optional` for non-required parameters
+      3. **Validation**: Add `validate` tags for input validation
+      4. **Clear Naming**: Use descriptive field names
+      5. **Consistent Casing**: Follow JSON camelCase convention
+      6. **Reuse Types**: Define common structures for reuse
+      7. **Document Types**: Add comments for complex fields
+examples:
+  - input: |
+      type NewsletterRequest {
+          Email string `json:"email"`
+      }
+    output: |
+      type NewsletterRequest {
+          Email string `json:"email" validate:"required,email"`
+      }
+  - input: |
+      type UpdateProfileRequest {
+          UserID int `json:"userId"`
+          Bio    string `json:"bio"`
+      }
+    output: |
+      type UpdateProfileRequest {
+          UserID int    `path:"userId"`                  // From URL path
+          Bio    string `json:"bio,optional,omitempty"`  // From request body
+      }
+metadata:
+  priority: high
+  version: 1.0
+</rule>
+
+<rule>
+name: event_communication_patterns
+description: Provides guidance on using event communication systems
+filters:
+  - type: file_path
+    pattern: "internal/logic/"
+  - type: content
+    pattern: "sse\\.|wsmanager\\.|events\\."
+actions:
+  - type: suggest
+    message: |
+      ## Event Communication Best Practices
+      
+      Soul provides multiple event communication mechanisms for different scenarios:
+      
+      ### 1. Server-Sent Events (SSE)
+      
+      Use SSE for one-way, server-to-client real-time notifications:
+      
+      ```go
+      // Send a simple event to a specific client
+      sse.SendWithStatus("/updates/user", userID, sse.StatusUpdated, userData)
+      
+      // Send to all clients on a path
+      sse.SendToPathWithStatus("/global/notifications", sse.StatusInfo, notification)
+      
+      // Send progress updates with percentage and step tracking
+      sse.SendProgress("/generation/status", userID, 75, 3, 4, "Processing images")
+      
+      // Send alerts with importance level
+      sse.SendAlert("/alerts", userID, "Security Alert", "Unusual login detected", sse.LevelWarning)
+      ```
+      
+      **Best for**:
+      - Progress updates on long-running operations
+      - System notifications and alerts
+      - Live dashboard updates
+      - One-way data streams
+      
+      ### 2. WebSockets
+      
+      Use WebSockets for bidirectional, real-time communication:
+      
+      ```go
+      // Send event to all subscribers of a topic
+      wsmanager.SendEvent("/ws", "server:resource-updated", updatedResource)
+      
+      // Send event to a specific user
+      wsmanager.SendEventToUser("/ws", userID, "server:private-message", message)
+      
+      // Broadcast to all connected clients
+      manager.Broadcast(message, nil)
+      ```
+      
+      **Best for**:
+      - Chat applications
+      - Collaborative editing
+      - Real-time gaming
+      - Interactive features requiring bidirectional communication
+      
+      ### 3. Internal Events
+      
+      Use the events package for service-to-service communication:
+      
+      ```go
+      // Publishing an event
+      events.Publish("user:registered", userData)
+      
+      // Subscribing to an event
+      subscription := events.Subscribe("user:registered", func(ctx context.Context, data interface{}) {
+          // Handle the event
+          user := data.(*types.User)
+          // Process user registration
+      })
+      defer subscription.Close()
+      ```
+      
+      **Best for**:
+      - Internal system notifications
+      - Service coordination
+      - Cross-module communication
+      - Event-driven architectures
+      
+      ### Selection Guide
+      
+      | Feature Needed | Recommended Mechanism |
+      |----------------|------------------------|
+      | One-way server-to-client updates | SSE |
+      | Progress reporting | SSE with SendProgress |
+      | Bidirectional real-time communication | WebSockets |
+      | Client-initiated requests with streaming responses | WebSockets with <<>> |
+      | Topic-based subscriptions | WebSockets with Subscribe |
+      | Service-to-service communication | Events |
+      | Distributed system coordination | Temporal Workflows |
+examples:
+  - input: |
+      // For progress updates on a long-running process
+      for i := 1; i <= totalSteps; i++ {
+          // Process step
+          percent := (i * 100) / totalSteps
+          // Need to notify the user about progress
+      }
+    output: |
+      // For progress updates on a long-running process
+      for i := 1; i <= totalSteps; i++ {
+          // Process step
+          percent := (i * 100) / totalSteps
+          description := fmt.Sprintf("Processing step %d of %d", i, totalSteps)
+          sse.SendProgress("/process/status", userID, percent, i, totalSteps, description)
+      }
+  - input: |
+      // For bidirectional chat messages
+      // Need to send private message to a specific user
+    output: |
+      // For bidirectional chat messages
+      wsmanager.SendEventToUser("/ws", recipientID, "server:chat-message", message)
+metadata:
+  priority: medium
+  version: 1.0
+</rule>
+
+## WebSocket Implementation Rules
+
+WebSockets provide real-time, bidirectional communication between clients and servers. Soul has robust support for WebSockets with a specialized syntax in AST files and dedicated packages for implementation.
+
+The rules in this section guide proper implementation of WebSockets, including message patterns, connection management, and topic naming. Following these guidelines ensures reliable real-time communication and maintainable WebSocket code.
+
+<rule>
+name: websocket_message_pattern
+description: Enforces proper WebSocket message pattern in API definitions
+filters:
+  - type: file_extension
+    pattern: "\\.api$"
+  - type: content
+    pattern: "socket\\s+/ws"
+actions:
+  - type: suggest
+    message: |
+      ## WebSocket Message Patterns
+      
+      Follow these guidelines for defining WebSocket messages in your API:
+      
+      ### Naming Conventions
+      
+      - Use `client:` prefix for messages initiated by the client
+      - Use `server:` prefix for messages sent from the server
+      - Use verb-noun format for topic names (e.g., `client:get-resources`)
+      - Be consistent and descriptive in naming
+      
+      ### Direction Indicators
+      
+      - `>>` for client-to-server unidirectional messages (requests)
+      - `<<` for server-to-client unidirectional messages (notifications)
+      - `<<>>` for bidirectional communication (streaming responses)
+      
+      ### Organization
+      
+      Group related messages by feature and annotate with comments:
+      
+      ```go
+      @handler ws
+      get socket /ws (
+          // User presence and status
+          client:set-status(StatusRequest) >> (StatusResponse)
+          server:user-online << (UserPresence)
+          server:user-offline << (UserPresence)
+          
+          // Real-time content updates
+          client:get-content(ContentRequest) >> (ContentResponse)
+          client:get-content-updates(ContentSubscription) <<>> server:content-updated(ContentUpdate)
+          
+          // Collaborative editing
+          client:update-document(DocumentUpdate) >> (DocumentUpdateResponse)
+          server:document-changed << (DocumentChange)
+          
+          // Chat messaging
+          client:send-message(ChatMessage) >> (MessageResponse)
+          server:new-message << (ChatMessage)
+      )
+      ```
+      
+      ### Type Definitions
+      
+      For each WebSocket message, define corresponding request and response types:
+      
+      ```go
+      // User presence types
+      type StatusRequest {
+          Status    string `json:"status"`
+          Timestamp int64  `json:"timestamp"`
+      }
+      
+      type StatusResponse {
+          Success   bool   `json:"success"`
+          Message   string `json:"message,optional,omitempty"`
+      }
+      
+      type UserPresence {
+          UserID    int64  `json:"userId"`
+          Username  string `json:"username"`
+          Status    string `json:"status"`
+          Timestamp int64  `json:"timestamp"`
+      }
+      ```
+      
+      ### Best Practices
+      
+      1. **Descriptive Names**: Make topic names self-explanatory
+      2. **Consistent Prefixes**: Always use client:/server: prefixes
+      3. **Proper Grouping**: Keep related messages together
+      4. **Clear Comments**: Add comment headers for each group
+      5. **Bidirectional for Streaming**: Use `<<>>` for ongoing updates
+      6. **Stateful Awareness**: Consider which messages need state tracking
+examples:
+  - input: |
+      @handler ws
+      get socket /ws (
+          client:resources(PaginationRequest) >> (ResourceListResponse)
+          client:generate(GenerateRequest) <<>> server:generate-response(GenerateResponse)
+      )
+    output: |
+      @handler ws
+      get socket /ws (
+          // Resource management
+          client:get-resources(PaginationRequest) >> (ResourceListResponse)
+          
+          // Content generation with progress updates
+          client:generate-content(GenerateRequest) <<>> server:generation-progress(GenerateResponse)
+      )
+  - input: |
+      client:update-content(UpdateContentRequest) >> (UpdateContentResponse)
+    output: "Properly formatted WebSocket message with descriptive naming and direction indicator"
+metadata:
+  priority: high
+  version: 1.0
+</rule>
+
+<rule>
+name: no_hardcoded_secrets
+description: Prevents hardcoded secrets and credentials
+filters:
+  - type: file_extension
+    pattern: "\\.(js|jsx|ts|tsx|go)$"
+actions:
+  - type: reject
+    conditions:
+      - pattern: "(password|secret|key|token|auth)\\s*=\\s*['\"][^'\"]+['\"]"
+        message: "Hardcoded secrets detected. Use environment variables instead."
+  - type: suggest
+    message: |
+      Replace hardcoded secrets with environment variables:
+      
+      In Go:
+      ```go
+      // Instead of:
+      apiKey := "abc123xyz456"
+      
+      // Use:
+      apiKey := os.Getenv("API_KEY")
+      ```
+      
+      In TypeScript:
+      ```typescript
+      // Instead of:
+      const apiKey = 'abc123xyz456';
+      
+      // Use:
+      const apiKey = process.env.API_KEY;
+      ```
+examples:
+  - input: "const apiSecret = 'sk_live_1234567890abcdef';"
+    output: "const apiSecret = process.env.API_SECRET;"
+  - input: "apiKey := os.Getenv(\"API_KEY\")"
+    output: "Already using environment variables"
+metadata:
+  priority: critical
+  version: 1.0
+</rule>
+
+<rule>
+name: auto_generated_code_protection
+description: Prevents manual edits to auto-generated code
+filters:
+  - type: file_path
+    pattern: "(internal/(handler|types)|src/lib/api)/"
+actions:
+  - type: reject
+    conditions:
+      - pattern: ".*"
+        message: "This file is auto-generated. Do not edit manually."
+  - type: suggest
+    message: |
+      This file is auto-generated by Soul CLI and should not be edited manually.
+      
+      Instead:
+      1. Edit the corresponding AST file in the ast/ directory
+      2. Run `make gen` from the project root
+      
+      Auto-generated directories:
+      - internal/handler/ (API handlers)
+      - internal/types/ (Type definitions)
+      - src/lib/api/ (TypeScript API clients)
+examples:
+  - input: "Editing internal/handler/users/get_user_handler.go"
+    output: "Edit the corresponding API definition in ast/ and run 'make gen'"
+  - input: "Fixed a typo in internal/types/types.go"
+    output: "Edit the type definition in the appropriate ast/*.api file and run 'make gen'"
+metadata:
+  priority: critical
+  version: 1.0
+</rule>
+
+<rule>
+name: code_organization_standards
+description: Enforces code organization standards
+filters:
+  - type: file_extension
+    pattern: "\\.(go|ts|js|svelte)$"
+actions:
+  - type: suggest
+    message: |
+      Follow these code organization standards:
+      
+      **Go Code Structure**:
+      1. Place imports in alphabetical order
+      2. Group imports (stdlib, third-party, internal)
+      3. Define types at the top of the file
+      4. Implement methods in logical order
+      5. Place helper functions at the bottom
+      
+      **TypeScript/JavaScript Code Structure**:
+      1. Place imports at the top, sorted alphabetically
+      2. Define types and interfaces next
+      3. Define constants and configuration
+      4. Implement component/function logic
+      5. Export at the bottom of the file
+      
+      **Svelte Component Structure**:
+      1. Script section with imports and logic
+      2. Style section with component-specific styles
+      3. Template markup last
+examples:
+  - input: "import { Button } from '../components';\nimport React from 'react';"
+    output: |
+      import React from 'react';
+      import { Button } from '../components';
+  - input: "func (l *Logic) ProcessData() {...}\n\ntype Logic struct {...}"
+    output: |
+      type Logic struct {
+        // ...
+      }
+      
+      func (l *Logic) ProcessData() {
+        // ...
+      }
+metadata:
+  priority: medium
+  version: 1.0
+</rule>
+
+<rule>
+name: proper_error_handling
+description: Enforces proper error handling in backend code
+filters:
+  - type: file_extension
+    pattern: "\\.go$"
+  - type: file_path
+    pattern: "internal/logic/"
+actions:
+  - type: suggest
+    conditions:
+      - pattern: "if err != nil {\\s*return err\\s*}"
+        message: "Add context to returned errors"
+    message: |
+      Enhance error handling with proper context:
+      
+      ```go
+      // Instead of:
+      if err != nil {
+          return err
+      }
+      
+      // Use:
+      if err != nil {
+          l.Logger.Error("failed to fetch user", logx.Field("error", err), logx.Field("userID", userID))
+          return errors.Wrap(err, "failed to fetch user")
+      }
+      ```
+      
+      Best practices:
+      1. Log errors with context fields before returning
+      2. Wrap errors with useful context using `errors.Wrap`
+      3. Return specific error messages for client-facing errors
+      4. Use custom error types for expected error conditions
+examples:
+  - input: |
+      user, err := l.svcCtx.UserRepo.GetByID(userID)
+      if err != nil {
+          return nil, err
+      }
+    output: |
+      user, err := l.svcCtx.UserRepo.GetByID(userID)
+      if err != nil {
+          if errors.Is(err, sql.ErrNoRows) {
+              return nil, errors.New("user not found")
+          }
+          l.Logger.Error("failed to get user", logx.Field("error", err), logx.Field("userID", userID))
+          return nil, errors.Wrap(err, "failed to get user")
+      }
+metadata:
+  priority: high
+  version: 1.0
+</rule>

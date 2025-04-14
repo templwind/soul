@@ -1,0 +1,480 @@
+// API Definition
+
+type User {
+	ID              string            `json:"id"`
+	Email           string            `json:"email" validate:"required,email"`
+	Name            string            `json:"name,omitempty"`
+	Role            string            `json:"role,omitempty"`
+	ApiKey          string            `json:"apiKey,omitempty"`
+	DefaultSubdomain string           `json:"defaultSubdomain"`
+	AccountStatus   string            `json:"accountStatus,omitempty"`
+	CreatedAt       string            `json:"createdAt"`
+	UpdatedAt       string            `json:"updatedAt"`
+}
+
+type LoginRequest {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+}
+
+type RegisterRequest {
+	Name     string `json:"name" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+}
+
+type LoginCodeRequest {
+	Email string `json:"email" validate:"required,email"`
+}
+
+type VerifyCodeRequest {
+	Email string `json:"email" validate:"required,email"`
+	Code  string `json:"code" validate:"required"`
+}
+
+type BlogPost {
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	Slug      string   `json:"slug"`
+	Content   string   `json:"content"`
+	Status    string   `json:"status"`
+	AuthorID  string   `json:"authorId"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+type Tag {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+type Category {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+type Team {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	OwnerID string `json:"ownerId"`
+}
+
+type Membership {
+	UserID string `json:"userId"`
+	TeamID string `json:"teamId"`
+	Role   string `json:"role"`
+}
+
+type Invitation {
+	Email     string `json:"email"`
+	TeamID    string `json:"teamId"`
+	Role      string `json:"role"`
+	Token     string `json:"token"`
+	Status    string `json:"status"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
+type Plan {
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	PriceMonthly  float64 `json:"priceMonthly"`
+	PriceYearly   float64 `json:"priceYearly,omitempty"`
+	Features      map[string]interface{} `json:"features"`
+}
+
+type Subscription {
+	ID                   string `json:"id"`
+	UserID              string `json:"userId"`
+	PlanID              string `json:"planId"`
+	Status              string `json:"status"`
+	CurrentPeriodStart  string `json:"currentPeriodStart"`
+	CurrentPeriodEnd    string `json:"currentPeriodEnd"`
+}
+
+type Notification {
+	ID        string `json:"id"`
+	UserID    string `json:"userId"`
+	Title     string `json:"title"`
+	Body      string `json:"body"`
+	Type      string `json:"type"`
+	IsRead    bool   `json:"isRead"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type Response {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+type EmailPreferences {
+	Marketing bool `json:"marketing"`
+	Updates   bool `json:"updates"`
+	Security  bool `json:"security"`
+}
+
+type SecuritySettings {
+	TwoFactorEnabled bool   `json:"twoFactorEnabled"`
+	LastPasswordChange string `json:"lastPasswordChange"`
+}
+
+type APIUsageStats {
+	RequestsToday    int `json:"requestsToday"`
+	RequestsThisMonth int `json:"requestsThisMonth"`
+	RateLimitRemaining int `json:"rateLimitRemaining"`
+}
+
+type DashboardMetrics {
+	TotalUsers      int `json:"totalUsers"`
+	ActiveUsers     int `json:"activeUsers"`
+	TotalTeams      int `json:"totalTeams"`
+	ActiveSubscriptions int `json:"activeSubscriptions"`
+}
+
+type AddonRequest {
+	AddonID string `path:"addonId"`
+}
+
+type AddonResponse {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	AddonID string `json:"addonId"`
+}
+
+type CheckoutSessionRequest {
+	PlanID    string `json:"planId" validate:"required"`
+	IsYearly  bool   `json:"isYearly"`
+}
+
+type CheckoutSessionResponse {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	SessionID string `json:"sessionId"`
+	URL      string `json:"url"`
+}
+
+type PortalSessionResponse {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	URL     string `json:"url"`
+}
+
+type InvoiceResponse {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Invoices []struct {
+		ID        string  `json:"id"`
+		Amount    float64 `json:"amount"`
+		Currency  string  `json:"currency"`
+		Status    string  `json:"status"`
+		CreatedAt string  `json:"createdAt"`
+	} `json:"invoices"`
+}
+
+type TeamRequest {
+	TeamID string `path:"teamId"`
+}
+
+type TeamMemberRequest {
+	TeamID   string `path:"teamId"`
+	MemberID string `path:"memberId"`
+}
+
+type TeamInvitationRequest {
+	TeamID       string `path:"teamId"`
+	InvitationID string `path:"invitationId"`
+}
+
+type InvitationTokenRequest {
+	Token string `path:"token"`
+}
+
+type NotificationRequest {
+	NotificationID string `path:"notificationId"`
+}
+
+type AdminUserRequest {
+	UserID string `path:"userId"`
+}
+
+type TeamResponse {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Team    Team   `json:"team,omitempty"`
+}
+
+type TeamMembersResponse {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Members []Membership `json:"members"`
+}
+
+type TeamMemberResponse {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Member  Membership `json:"member,omitempty"`
+}
+
+type TeamInvitationsResponse {
+	Success      bool         `json:"success"`
+	Message      string       `json:"message"`
+	Invitations []Invitation `json:"invitations"`
+}
+
+type InvitationResponse {
+	Success    bool       `json:"success"`
+	Message    string     `json:"message"`
+	Invitation Invitation `json:"invitation,omitempty"`
+}
+
+type NotificationResponse {
+	Success      bool         `json:"success"`
+	Message      string       `json:"message"`
+	Notification Notification `json:"notification,omitempty"`
+}
+
+type NotificationsResponse {
+	Success       bool           `json:"success"`
+	Message       string         `json:"message"`
+	Notifications []Notification `json:"notifications"`
+}
+
+type AdminUserResponse {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	User    User   `json:"user,omitempty"`
+}
+
+type AdminUserCommunicationsResponse {
+	Success       bool           `json:"success"`
+	Message       string         `json:"message"`
+	Notifications []Notification `json:"notifications"`
+}
+
+type BlogListRequest {
+	Page     int    `query:"page" validate:"min=1"`
+	PerPage  int    `query:"perPage" validate:"min=1,max=100"`
+	Sort     string `query:"sort" validate:"oneof=newest oldest"`
+}
+
+type BlogPostRequest {
+	Slug string `path:"slug"`
+}
+
+type BlogTagRequest {
+	TagSlug string `path:"tagSlug"`
+	Page    int    `query:"page" validate:"min=1"`
+	PerPage int    `query:"perPage" validate:"min=1,max=100"`
+}
+
+type BlogCategoryRequest {
+	CategorySlug string `path:"categorySlug"`
+	Page         int    `query:"page" validate:"min=1"`
+	PerPage      int    `query:"perPage" validate:"min=1,max=100"`
+}
+
+@server(
+	group: auth
+	prefix: /api
+)
+service Backend {
+	@handler RegisterUser
+	post /register (RegisterRequest) returns (Response)
+
+	@handler LoginUser
+	post /login (LoginRequest) returns (Response)
+
+	@handler ForgotPassword
+	post /forgot-password returns (Response)
+
+	@handler ResetPassword
+	post /reset-password returns (Response)
+
+	@handler RequestLoginCode
+	post /login/code (LoginCodeRequest) returns (Response)
+
+	@handler VerifyLoginCode
+	post /login/verify (VerifyCodeRequest) returns (Response)
+
+	@handler GoogleLogin
+	get /login/google returns (Response)
+
+	@handler GoogleCallback
+	get /callback/google returns (Response)
+}
+
+@server(
+	group: blog
+	prefix: /api/blog
+)
+service Backend {
+	@handler ListPublishedPosts
+	get /posts (BlogListRequest) returns ([]BlogPost)
+
+	@handler GetPostBySlug
+	get /posts/:slug (BlogPostRequest) returns (BlogPost)
+
+	@handler ListPostsByTag
+	get /tags/:tagSlug/posts (BlogTagRequest) returns ([]BlogPost)
+
+	@handler ListPostsByCategory
+	get /categories/:categorySlug/posts (BlogCategoryRequest) returns ([]BlogPost)
+}
+
+@server(
+	group: profile
+	prefix: /api/profile
+	jwt: Auth
+)
+service Backend {
+	@handler GetProfile
+	get "" returns (User)
+
+	@handler RegenerateApiKey
+	post /regenerate-apikey returns (Response)
+
+	@handler ChangeEmail
+	post /change-email returns (Response)
+
+	@handler GetEmailPreferences
+	get /preferences/email returns (EmailPreferences)
+
+	@handler UpdateEmailPreferences
+	put /preferences/email (EmailPreferences) returns (Response)
+
+	@handler GetSecuritySettings
+	get /settings/security returns (SecuritySettings)
+}
+
+@server(
+	group: billing
+	prefix: /api
+	jwt: Auth
+)
+service Backend {
+	@handler GetPlans
+	get /plans returns ([]Plan)
+
+	@handler CreateCheckoutSession
+	post /billing/checkout-session (CheckoutSessionRequest) returns (CheckoutSessionResponse)
+
+	@handler CreatePortalSession
+	post /billing/portal-session returns (PortalSessionResponse)
+
+	@handler GetSubscription
+	get /billing/subscription returns (Subscription)
+
+	@handler GetInvoices
+	get /billing/invoices returns (InvoiceResponse)
+
+	@handler AddAddon
+	post /billing/add-ons/:addonId (AddonRequest) returns (AddonResponse)
+
+	@handler RemoveAddon
+	delete /billing/add-ons/:addonId (AddonRequest) returns (AddonResponse)
+}
+
+@server(
+	group: teams
+	prefix: /api/teams
+	jwt: Auth
+)
+service Backend {
+	@handler CreateTeam
+	post / (Team) returns (TeamResponse)
+
+	@handler ListTeams
+	get / returns ([]Team)
+
+	@handler GetTeamDetails
+	get /:teamId (TeamRequest) returns (TeamResponse)
+
+	@handler ListMembers
+	get /:teamId/members (TeamRequest) returns (TeamMembersResponse)
+
+	@handler RemoveMember
+	delete /:teamId/members/:memberId (TeamMemberRequest) returns (TeamMemberResponse)
+
+	@handler UpdateMemberRole
+	patch /:teamId/members/:memberId/role (TeamMemberRequest) returns (TeamMemberResponse)
+
+	@handler InviteMember
+	post /:teamId/invitations (TeamRequest) returns (InvitationResponse)
+
+	@handler ListInvitations
+	get /:teamId/invitations (TeamRequest) returns (TeamInvitationsResponse)
+
+	@handler CancelInvitation
+	delete /:teamId/invitations/:invitationId (TeamInvitationRequest) returns (InvitationResponse)
+
+	@handler GetInvitationDetails
+	get /invitations/:token (InvitationTokenRequest) returns (InvitationResponse)
+
+	@handler AcceptInvitation
+	post /invitations/:token/accept (InvitationTokenRequest) returns (InvitationResponse)
+
+	@handler DeclineInvitation
+	post /invitations/:token/decline (InvitationTokenRequest) returns (InvitationResponse)
+}
+
+@server(
+	group: developer
+	prefix: /api/developer
+	jwt: Auth
+)
+service Backend {
+	@handler GetAPIUsageStats
+	get /usage returns (APIUsageStats)
+
+	@handler GetRateLimitStatus
+	get /rate-limit returns (Response)
+}
+
+@server(
+	group: notifications
+	prefix: /api/notifications
+	jwt: Auth
+)
+service Backend {
+	@handler ListNotifications
+	get / returns (NotificationsResponse)
+
+	@handler MarkAllNotificationsRead
+	post /read-all returns (NotificationsResponse)
+
+	@handler MarkNotificationRead
+	post /:notificationId/read (NotificationRequest) returns (NotificationResponse)
+}
+
+@server(
+	group: admin
+	prefix: /api/admin
+	jwt: Auth
+)
+service Backend {
+	@handler ListUsersAdmin
+	get /users returns ([]User)
+
+	@handler GetUserDetailsAdmin
+	get /users/:userId (AdminUserRequest) returns (AdminUserResponse)
+
+	@handler ListUserCommunications
+	get /users/:userId/communications (AdminUserRequest) returns (AdminUserCommunicationsResponse)
+
+	@handler SendCommunication
+	post /users/:userId/communications (AdminUserRequest) returns (NotificationResponse)
+
+	@handler GetDashboardMetrics
+	get /dashboard/metrics returns (DashboardMetrics)
+}
+
+@server(
+	group: internal
+	prefix: /internal
+)
+service Backend {
+	@handler HealthCheck
+	get /health returns (Response)
+}
+
