@@ -509,9 +509,16 @@ func writeApiEndpoint(builder *SaaSBuilder, endpointBuilder io.Writer, requestTy
 			}
 		}
 
+		// Get the request type kind using RequestGoTypeName
+		requestKind := util.RequestGoTypeName(m, types.TypesPacket)
+
 		// Only add request object if there are form/json body fields
 		if hasBodyParams {
-			request = fmt.Sprintf("data: models.%s", requestType.GetName())
+			if strings.HasPrefix(requestKind, "[]") || strings.HasPrefix(requestKind, "*[]") {
+				request = fmt.Sprintf("data: models.%s[]", requestType.GetName())
+			} else {
+				request = fmt.Sprintf("data: models.%s", requestType.GetName())
+			}
 			hasRequestObject = true
 		}
 
@@ -625,7 +632,12 @@ func writeApiEndpoint(builder *SaaSBuilder, endpointBuilder io.Writer, requestTy
 	}
 
 	if responseType != nil {
-		response = fmt.Sprintf(": Promise<models.%s>", strings.TrimSpace(util.ToTitle(responseType.GetName())))
+		kind := util.ResponseGoTypeName(m, types.TypesPacket)
+		if strings.HasPrefix(kind, "[]") || strings.HasPrefix(kind, "*[]") {
+			response = fmt.Sprintf(": Promise<models.%s[]>", strings.TrimSpace(util.ToTitle(responseType.GetName())))
+		} else {
+			response = fmt.Sprintf(": Promise<models.%s>", strings.TrimSpace(util.ToTitle(responseType.GetName())))
+		}
 	} else {
 		// Default to Promise<any> or a generic response type if responseType is nil
 		response = ": Promise<any>" // Or Promise<models.GenericResponse> if you have one
@@ -646,7 +658,14 @@ func writeApiEndpoint(builder *SaaSBuilder, endpointBuilder io.Writer, requestTy
 	// Determine response type name for the API call
 	responseTypeName := "any" // Default if responseType is nil
 	if responseType != nil {
-		responseTypeName = strings.TrimSpace(util.ToTitle(responseType.GetName()))
+		// what kind of response type is this?
+		// is it an array?
+		kind := util.ResponseGoTypeName(m, types.TypesPacket)
+		if strings.HasPrefix(kind, "[]") || strings.HasPrefix(kind, "*[]") {
+			responseTypeName = fmt.Sprintf("%s[]", strings.TrimSpace(util.ToTitle(responseType.GetName())))
+		} else {
+			responseTypeName = strings.TrimSpace(util.ToTitle(responseType.GetName()))
+		}
 	}
 
 	// Write the API call

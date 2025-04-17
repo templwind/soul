@@ -24,21 +24,7 @@ func buildHandlers(builder *SaaSBuilder) error {
 			}
 		}
 	}
-
-	// generate the 404 handler
-	return genHandler(builder, spec.Server{
-		Annotation: spec.NewAnnotation(map[string]interface{}{
-			types.GroupProperty: "notfound",
-		}),
-	}, spec.Handler{
-		Name: "notfound",
-		Methods: []spec.Method{
-			{
-				Method: "GET",
-				Route:  "/*",
-			},
-		},
-	})
+	return nil
 }
 
 func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) error {
@@ -337,27 +323,6 @@ func genHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) 
 		hasTopicsFromClient = true
 	}
 
-	if handler.Name == "notfound" {
-		imports := genHandlerImports(server, handler, builder.ModuleName, true, hasTopicsFromClient)
-
-		builder.Data["PkgName"] = pkgName
-		builder.Data["Imports"] = imports
-		builder.Data["Methods"] = methods
-
-		builder.WithOverwriteFile(filepath.Join(builder.ServiceName, subDir, "404handler.go"))
-		builder.WithRenameFile(filepath.Join(builder.ServiceName, subDir, "404handler.go"), filepath.Join(builder.ServiceName, subDir, "notfoundhandler.go"))
-
-		// fmt.Println("notfound subDir:", subDir)
-		if err := builder.genFile(fileGenConfig{
-			subdir:       path.Join(builder.ServiceName, subDir),
-			templateFile: "templates/app/internal/handler/404handler.go.tpl",
-			data:         builder.Data,
-		}); err != nil {
-			return err
-		}
-		return nil
-	}
-
 	imports := genHandlerImports(server, handler, builder.ModuleName, false, hasTopicsFromClient)
 
 	builder.Data["PkgName"] = pkgName
@@ -401,17 +366,6 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 			i.AddNativeImport("net/http")
 			i.AddProjectImport(path.Join(moduleName, types.ContextDir))
 			i.AddExternalImport("github.com/labstack/echo/v4")
-
-			// set the logic handler based on the handler name
-			if handler.Name == "notfound" {
-				i.AddNativeImport("strings")
-				i.AddProjectImport(path.Join(moduleName, theme, "error4x"), "error4x")
-				i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
-				i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
-				i.AddExternalImport("github.com/templwind/soul/htmx")
-				i.AddExternalImport("github.com/templwind/soul")
-				continue
-			}
 
 			if method.IsSSE {
 				i.AddNativeImport("time")
@@ -466,40 +420,12 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 				i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
 			}
 
-			if method.ReturnsPartial {
-				i.AddExternalImport("github.com/templwind/soul")
-				i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-				i.AddExternalImport("github.com/templwind/soul/htmx")
-				continue
-			}
-
-			// full html page
-			if method.IsFullHTMLPage {
-				if omitLogic {
-					i.AddNativeImport("strings")
-					i.AddProjectImport(path.Join(moduleName, theme, "error4x"), "error4x")
-				} else {
-					i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-				}
-
-				i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-				i.AddExternalImport("github.com/templwind/soul")
-
-				i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
-				i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
-				i.AddExternalImport("github.com/templwind/soul/htmx")
-			}
-
 			continue
 
 		case "POST", "PUT", "PATCH", "DELETE":
 			if method.ReturnsRedirect {
-				i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
 				i.AddExternalImport("github.com/templwind/soul")
 				i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
-				i.AddExternalImport("github.com/templwind/soul/htmx")
-				i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
-				i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
 			}
 
 			// POST
@@ -517,149 +443,11 @@ func genHandlerImports(server spec.Server, handler spec.Handler, moduleName stri
 				i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
 			}
 
-			if method.ReturnsPartial {
-				i.AddNativeImport("net/http")
-				i.AddExternalImport("github.com/templwind/soul")
-				i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-				i.AddExternalImport("github.com/templwind/soul/htmx")
-			}
-
-			if method.ReturnsJson {
+			if method.ReturnsJson || method.NoOutput {
 				i.AddNativeImport("net/http")
 			}
 
-			if method.NoOutput {
-				i.AddNativeImport("net/http")
-			}
-
-			if method.IsFullHTMLPage {
-				if omitLogic {
-					i.AddNativeImport("strings")
-					i.AddProjectImport(path.Join(moduleName, theme, "error4x"), "error4x")
-				} else {
-					i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-				}
-
-				i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
-				i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
-				i.AddExternalImport("github.com/templwind/soul/htmx")
-				i.AddExternalImport("github.com/templwind/soul")
-			}
 			continue
-
-		// case "PUT":
-		// 	// PUT
-		// 	// put can return full html page, json or partial
-
-		// 	i.AddProjectImport(path.Join(moduleName, types.ContextDir))
-		// 	i.AddExternalImport("github.com/labstack/echo/v4")
-
-		// 	// set the logic handler based on the handler name
-		// 	i.AddProjectImport(path.Join(moduleName, getLogicFolderPath(server, handler)), "logicHandler")
-
-		// 	if method.HasRequestType && !method.ReturnsPartial {
-		// 		i.AddNativeImport("net/http")
-		// 		i.AddProjectImport(path.Join(moduleName, types.TypesDir))
-		// 		i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
-
-		// 	}
-
-		// 	if method.HasRequestType && method.ReturnsPartial {
-		// 		i.AddProjectImport(path.Join(moduleName, types.TypesDir))
-		// 		i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
-		// 	}
-
-		// 	if method.HasResponseType {
-		// 		i.AddExternalImport("github.com/templwind/soul")
-		// 		i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-		// 	}
-
-		// 	if method.ReturnsPartial {
-		// 		i.AddNativeImport("net/http")
-		// 		i.AddExternalImport("github.com/templwind/soul")
-		// 	}
-
-		// 	if method.ReturnsJson {
-		// 		i.AddNativeImport("net/http")
-		// 	}
-
-		// 	continue
-
-		// case "PATCH":
-		// 	// PATCH
-		// 	// patch can return full html page, json or partial
-
-		// 	i.AddProjectImport(path.Join(moduleName, types.ContextDir))
-		// 	i.AddExternalImport("github.com/labstack/echo/v4")
-		// 	i.AddNativeImport("net/http")
-		// 	i.AddProjectImport(path.Join(moduleName, getLogicFolderPath(server, handler)), "logicHandler")
-
-		// 	if method.HasRequestType {
-		// 		i.AddProjectImport(path.Join(moduleName, types.TypesDir))
-		// 		i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
-		// 	}
-
-		// 	if !method.HasResponseType && !method.ReturnsPartial {
-		// 		i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-		// 		i.AddExternalImport("github.com/templwind/soul")
-		// 	}
-
-		// 	if method.ReturnsPartial {
-		// 		i.AddExternalImport("github.com/templwind/soul")
-		// 	}
-
-		// 	if method.IsFullHTMLPage {
-		// 		if omitLogic {
-		// 			i.AddNativeImport("strings")
-		// 			i.AddProjectImport(path.Join(moduleName, theme, "error4x"), "error4x")
-		// 		} else {
-		// 			i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-		// 		}
-
-		// 		i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
-		// 		i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
-		// 		i.AddExternalImport("github.com/templwind/soul/htmx")
-		// 	}
-
-		// 	continue
-
-		// case "DELETE":
-		// 	// DELETE
-		// 	// delete can return nothing, json or partial
-
-		// 	i.AddProjectImport(path.Join(moduleName, types.ContextDir))
-		// 	i.AddExternalImport("github.com/labstack/echo/v4")
-		// 	i.AddNativeImport("net/http")
-		// 	i.AddProjectImport(path.Join(moduleName, getLogicFolderPath(server, handler)), "logicHandler")
-
-		// 	if method.HasRequestType {
-		// 		i.AddProjectImport(path.Join(moduleName, types.TypesDir))
-		// 		i.AddExternalImport("github.com/templwind/soul/webserver/httpx")
-		// 	}
-
-		// 	if !method.HasResponseType && !method.ReturnsPartial {
-		// 		i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-		// 		i.AddExternalImport("github.com/templwind/soul")
-		// 	}
-
-		// 	if method.ReturnsPartial {
-		// 		i.AddExternalImport("github.com/templwind/soul")
-		// 	}
-
-		// 	if method.IsFullHTMLPage {
-		// 		if omitLogic {
-		// 			i.AddNativeImport("strings")
-		// 			i.AddProjectImport(path.Join(moduleName, theme, "error4x"), "error4x")
-		// 		} else {
-		// 			i.AddProjectImport(path.Join(moduleName, theme, "error5x"), "error5x")
-		// 		}
-
-		// 		i.AddProjectImport(path.Join(moduleName, getLogicLayoutPath(server)), "pageLayout")
-		// 		i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
-		// 		i.AddExternalImport("github.com/templwind/soul/htmx")
-		// 	}
-
-		// 	continue
 
 		case "SUB":
 			// SUB

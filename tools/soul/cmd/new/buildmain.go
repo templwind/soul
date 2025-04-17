@@ -9,42 +9,32 @@ import (
 )
 
 func buildMain(builder *SaaSBuilder) error {
-	var iOptFuncs = make([]imports.OptFunc, 0)
-	iOptFuncs = append(iOptFuncs, imports.WithImport("flag"))
-	iOptFuncs = append(iOptFuncs, imports.WithImport("fmt"))
-	iOptFuncs = append(iOptFuncs, imports.WithImport("embed"))
-	iOptFuncs = append(iOptFuncs, imports.WithImport("net/http"))
-	iOptFuncs = append(iOptFuncs, imports.WithSpacer())
-	iOptFuncs = append(iOptFuncs, imports.WithImport(path.Join([]string{
-		builder.ModuleName,
-		types.ConfigDir}...,
-	)))
-	iOptFuncs = append(iOptFuncs, imports.WithImport(path.Join([]string{
-		builder.ModuleName,
-		types.HandlerDir}...,
-	)))
-	iOptFuncs = append(iOptFuncs, imports.WithImport(path.Join([]string{
-		builder.ModuleName,
-		types.ContextDir}...,
-	)))
+	i := imports.New()
+	i.AddNativeImport("flag")
+	i.AddNativeImport("fmt")
+	i.AddNativeImport("embed")
+	i.AddNativeImport("net/http")
+	i.AddProjectImport(path.Join(builder.ModuleName, types.ConfigDir))
+	i.AddProjectImport(path.Join(builder.ModuleName, types.HandlerDir))
+	i.AddProjectImport(path.Join(builder.ModuleName, types.ContextDir))
+	i.AddProjectImport(path.Join(builder.ModuleName, types.DatabaseDir))
+
+	// Triggers module registration
+	i.AddProjectImport(path.Join(builder.ModuleName, types.ModuleInitDir))
 
 	if hasWorkflow, ok := builder.Data["hasWorkflow"]; ok {
 		if hasWorkflow.(bool) {
-			iOptFuncs = append(iOptFuncs, imports.WithImport(path.Join([]string{
-				builder.ModuleName,
-				types.WorkflowDir}...,
-			)))
+			i.AddProjectImport(path.Join(builder.ModuleName, types.WorkflowDir))
 		}
 	}
 
-	iOptFuncs = append(iOptFuncs, imports.WithSpacer())
-	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/joho/godotenv/autoload", "_"))
-	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/labstack/echo/v4"))
-	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/labstack/echo/v4/middleware"))
-	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul/conf"))
-	iOptFuncs = append(iOptFuncs, imports.WithImport("github.com/templwind/soul/webserver"))
+	i.AddExternalImport("github.com/joho/godotenv/autoload", "_")
+	i.AddExternalImport("github.com/labstack/echo/v4")
+	i.AddExternalImport("github.com/labstack/echo/v4/middleware")
+	i.AddExternalImport("github.com/templwind/soul/conf")
+	i.AddExternalImport("github.com/templwind/soul/webserver")
 
-	builder.Data["imports"] = imports.New(iOptFuncs...)
+	builder.Data["imports"] = i.Build()
 	builder.Data["hasEmbeddedFS"] = builder.HasEmbeddedFS
 
 	return builder.genFile(fileGenConfig{

@@ -40,9 +40,6 @@ func buildConfig(builder *SaaSBuilder) error {
 
 	i := imports.New()
 	i.AddNativeImport("embed")
-	i.AddNativeImport("sort")
-	// i.AddProjectImport(builder.ServiceName + "/internal/settings")
-	i.AddExternalImport("github.com/biter777/countries")
 	i.AddExternalImport("github.com/templwind/soul/db")
 	i.AddExternalImport("github.com/templwind/soul/webserver")
 	i.AddExternalImport("github.com/templwind/soul/ratelimiter")

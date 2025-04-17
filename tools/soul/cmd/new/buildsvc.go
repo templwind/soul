@@ -59,8 +59,14 @@ func buildServiceContext(builder *SaaSBuilder) error {
 			}
 		}
 
-		middlewareAssignment += fmt.Sprintf("%s: %s,\n", item,
-			fmt.Sprintf("middleware.New%s(%s).%s", strings.Title(name), strings.Join(reqString, ", "), "Handle"))
+		// only do this if this isn't a CustomStaticMiddleware
+		if !strings.Contains(item, "CustomStatic") {
+			middlewareAssignment += fmt.Sprintf("%s: %s,\n", item,
+				fmt.Sprintf("middleware.New%s(%s).%s", strings.Title(name), strings.Join(reqString, ", "), "Handle"))
+		} else {
+			// middleware.CustomStaticMiddleware("build", c.EmbeddedFS["build"], c.Environment == "production")
+			middlewareAssignment += fmt.Sprintf("%s: middleware.CustomStaticMiddleware(\"build\", c.EmbeddedFS[\"build\"], c.Environment == \"production\"),\n", item)
+		}
 	}
 
 	imports := genSvcImports(builder, len(middlewares) > 0)
@@ -83,6 +89,7 @@ func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 	i.AddNativeImport("log")
 	i.AddNativeImport("time")
 
+	i.AddProjectImport(path.Join(builder.ServiceName, types.JobsDir))
 	i.AddProjectImport(path.Join(builder.ModuleName, types.ConfigDir))
 	if hasMiddlware {
 		i.AddProjectImport(path.Join(builder.ModuleName, types.MiddlewareDir))
@@ -94,19 +101,12 @@ func genSvcImports(builder *SaaSBuilder, hasMiddlware bool) string {
 	i.AddExternalImport("github.com/templwind/soul/ratelimiter")
 	i.AddExternalImport("github.com/templwind/soul/events")
 
-	// i.AddProjectImport(path.Join(builder.ServiceName, "internal/awssession"))
-	// i.AddProjectImport(path.Join(builder.ServiceName, "internal/chatgpt"))
-	i.AddProjectImport(path.Join(builder.ServiceName, "internal/jobs"))
-
 	i.AddExternalImport("github.com/jmoiron/sqlx")
-
 	i.AddExternalImport("github.com/lib/pq", "_")
-
-	// i.AddExternalImport("github.com/aws/aws-sdk-go/aws/session")
 	i.AddExternalImport("github.com/jmoiron/sqlx")
 	i.AddExternalImport("github.com/templwind/soul/db")
 	i.AddExternalImport("github.com/templwind/soul/pubsub")
-	i.AddExternalImport("github.com/templwind/soul/webserver/sse", "// ")
+	i.AddExternalImport("github.com/templwind/soul/webserver/sse")
 
 	return i.Build()
 }

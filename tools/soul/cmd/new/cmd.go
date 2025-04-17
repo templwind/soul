@@ -372,7 +372,7 @@ func doGenProject(opts doGenProjectOptions) error {
 				}
 				return false
 			},
-			dir: path.Join(opts.dir, serviceName),
+			dir: path.Join(opts.dir),
 		},
 	}
 

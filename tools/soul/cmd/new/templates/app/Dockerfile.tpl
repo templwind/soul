@@ -34,7 +34,7 @@ WORKDIR /app
 COPY . /app/
 
 # Copy the git directory to ensure git commands work
-COPY .git /app/.git
+# COPY .git /app/.git
 
 # Install Node.js dependencies
 RUN rm -rf node_modules package-lock.json pnpm-lock.yaml && pnpm install --shamefully-hoist --strict-peer-dependencies=false --force

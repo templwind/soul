@@ -22,6 +22,9 @@ func main() {
 	// Create a new service context
 	svcCtx := svc.NewServiceContext(&c)
 
+	database.InitDatabase(svcCtx)
+	defer database.CloseDatabase(svcCtx)
+
 	// Create a new server
 	server := webserver.MustNewServer(
 		c.WebServerConf,

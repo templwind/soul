@@ -38,8 +38,10 @@ func NewServiceContext(c *{{.config}}) *ServiceContext {
 	
 	// Initialize the rate limiter
 	rateLimiter := ratelimiter.NewRateLimiter(rateLimiterConfig)
-	if c.RateLimiter.TotalRPM != 0 {
-		rateLimiter.UpdateLimits(&c.RateLimiter, instanceCount)
+	for _, limitCfg := range c.RateLimiters {
+		if limitCfg.TotalRPM != 0 {
+			rateLimiter.UpdateLimits(&limitCfg, instanceCount)
+		}
 	}
 
 	// Start the instance count updater
@@ -47,8 +49,6 @@ func NewServiceContext(c *{{.config}}) *ServiceContext {
 
 	// Initialize the job manager
 	jobManager := jobs.NewJobManager()
-
-	// customStatic := middleware.CustomStaticMiddleware("build", c.EmbeddedFS["build"], c.Environment == "production")
 
 	// Create a PubSub broker (use events.NoOpBroker if NATS is not available)
 	var pubSubBroker pubsub.Broker

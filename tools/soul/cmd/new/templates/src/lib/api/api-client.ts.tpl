@@ -186,4 +186,5 @@ class ApiClient {
 const client = new ApiClient();
 
 export default client;
-export { ApiClient, ApiError, RequestConfig, RequestOptions };
+export { ApiClient, ApiError };
+export type { RequestConfig, RequestOptions };

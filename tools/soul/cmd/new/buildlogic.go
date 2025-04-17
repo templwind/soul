@@ -31,9 +31,7 @@ func buildLogic(builder *SaaSBuilder) error {
 			}
 		}
 	}
-
-	return genNotFoundLayout(builder)
-
+	return nil
 }
 
 func addMissingMethods(builder *SaaSBuilder, methods []types.MethodConfig, dir, subDir, fileName string) error {
@@ -100,34 +98,11 @@ func (l *{{.LogicType}}) {{.LogicFunc}}({{.Request}}) {{.ResponseType}} {
 	return buf.String()
 }
 
-func genNotFoundLayout(builder *SaaSBuilder) error {
-	// write the layout file now
-	theme := "templwind"
-	layoutPath := path.Join(builder.ServiceName, types.LogicDir, "notfound")
-	builder.Data["pkgName"] = "notfound"
-	builder.Data["theme"] = theme
-	builder.Data["notNotFound"] = false
-
-	// layoutFile := path.Join(builder.Dir, layoutPath, "layout.go")
-	// only if it exists
-	// if _, err := os.Stat(layoutFile); err == nil {
-	// 	if err := os.Remove(layoutFile); err != nil {
-	// 		fmt.Println("error removing file", layoutFile, err)
-	// 	}
-	// }
-
-	// fmt.Println("layoutPath", layoutPath)
-
-	return builder.genFile(fileGenConfig{
-		subdir:       layoutPath,
-		templateFile: "templates/app/internal/logic/layout.go.tpl",
-		data:         builder.Data,
-	})
-}
-
 func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Handler) error {
 	subDir := getLogicFolderPath(server, handler)
 	filename := path.Join(builder.Dir, builder.ServiceName, subDir, strings.ToLower(handler.Name)+".go")
+	//
+	// fmt.Println("subDir", subDir)
 
 	// os.Remove(filename)
 
@@ -154,21 +129,10 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 	// add the theme to the themes map
 	builder.Themes[theme] = theme
 
-	// get the base package name
-	basePackageName := layoutPath[strings.LastIndex(layoutPath, "/")+1:]
-
 	// get the assetGroup
 	assetGroup := server.GetAnnotation("assetGroup")
 	if len(assetGroup) > 0 {
 		builder.Data["assetGroup"] = util.ToTitle(assetGroup)
-	}
-
-	if err := builder.genFile(fileGenConfig{
-		subdir:       path.Join(builder.ServiceName, layoutPath),
-		templateFile: "templates/app/internal/logic/layout.go.tpl",
-		data:         builder.Data,
-	}); err != nil {
-		fmt.Println("error generating layout.go file", err)
 	}
 
 	logicType := util.ToPascal(getLogicName(handler))
@@ -180,9 +144,6 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 		fileExists = true
 	}
 
-	// fmt.Println("fileExists", fileExists, filename)
-
-	requiresTempl := false
 	hasSocket := false
 	uniqueMethods := []string{}
 	uniqueTopics := []string{}
@@ -224,7 +185,6 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 
 		// method types
 		if method.IsSocket && method.SocketNode != nil {
-			requiresTempl = false
 
 			for _, topic := range method.SocketNode.Topics {
 				logicFunc = util.ToPascal(topic.Topic)
@@ -291,101 +251,34 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 				resp := util.ResponseGoTypeName(method, types.TypesPacket)
 				responseString = "(resp " + resp + ", err error)"
 				returnString = "return"
-				requiresTempl = false
+
 			} else if method.NoOutput || (method.IsPubSub && !method.HasResponseType) {
 				responseString = "(err error)"
 				returnString = "return"
-				requiresTempl = false
+
 			} else if method.ReturnsPlainText {
 				responseString = "(resp string, err error)"
 				returnString = `return`
-			} else if method.ReturnsPartial {
-				builder.Data["hasProps"] = false
-				// fmt.Println("templName", builder.Data["templName"], method.Route)
-
-				builder.WithRenameFile(filepath.Join(builder.ServiceName, subDir, "logic.templ"), filepath.Join(builder.ServiceName, subDir, strings.ToLower(util.ToCamel(pathToName(method.Method, method.Route)))+".templ"))
-				if err := builder.genFile(fileGenConfig{
-					subdir:       path.Join(builder.ServiceName, subDir),
-					templateFile: "templates/app/internal/logic/logic.templ.tpl",
-					data:         builder.Data,
-				}); err != nil {
-					return err
-				}
-
-				responseString = "(templ.Component, error)"
-				returnString = fmt.Sprintf("return %s(), nil", pathToName(method.Method, method.Route)+"View")
-				requiresTempl = true
-
 			} else if method.ReturnsRedirect {
 				hasRedirect = true
-				responseString = "(templ.Component, error)"
+				responseString = "(err error)"
 
-				// fmt.Println("method.RedirectURL", method.RedirectURL)
-
+				// Using http.Redirect with StatusSeeOther (303) is generally preferred after POST/PUT/DELETE
+				// to prevent resubmission if the user refreshes.
 				if len(method.RedirectURL) > 0 {
-					returnString = fmt.Sprintf(`return nil, htmx.Redirect(c.Response().Writer, c.Request(), "%s")`, method.RedirectURL)
+					returnString = fmt.Sprintf(`
+					http.Redirect(c.Response().Writer, c.Request(), "%s", http.StatusSeeOther); 
+					return`, method.RedirectURL)
 				} else {
-					returnString = `return nil, htmx.Redirect(c.Response().Writer, c.Request(), "/replace-me")`
-				}
-				requiresTempl = false
-			} else {
-				builder.Data["hasProps"] = true
-				responseString = "(templ.Component, error)"
-				pageTitle := ""
-				if strings.EqualFold(basePackageName, builder.Data["pkgName"].(string)) {
-					pageTitle = util.ToTitle(strings.TrimSpace(builder.Data["pkgName"].(string)))
-				} else {
-					pageTitle = util.ToTitle(strings.TrimSpace(basePackageName + " " + builder.Data["pkgName"].(string)))
-				}
-
-				returnString = fmt.Sprintf(`
-				c.Set("pageTitle", "%s")
-
-				return New(
-					WithComponent(%sView),
-					WithConfig(l.svcCtx.Config),
-					WithRequest(c.Request()),
-					WithPageTitle("%s"),
-				), nil`,
-					pageTitle,
-					pathToName(method.Method, method.Route),
-					pageTitle,
-				)
-				requiresTempl = true
-
-				builder.WithRenameFile(filepath.Join(builder.ServiceName, subDir, "logic.templ"), filepath.Join(builder.ServiceName, subDir, strings.ToLower(util.ToCamel(handler.Name))+".templ"))
-				// builder.WithRenameFile(filepath.Join(builder.ServiceName, subDir, "logic.templ"), filepath.Join(builder.ServiceName, subDir, strings.ToLower(util.ToCamel(pathToName(method.Method, method.Route)))+".templ"))
-				if err := builder.genFile(fileGenConfig{
-					subdir:       path.Join(builder.ServiceName, subDir),
-					templateFile: "templates/app/internal/logic/logic.templ.tpl",
-					data:         builder.Data,
-				}); err != nil {
-					return err
-				}
-
-				builder.Data["imports"] = imports.New(
-					imports.WithImport("net/http"),
-					imports.WithSpacer(),
-					imports.WithImport(path.Join([]string{
-						builder.ModuleName,
-						"internal/config"}...,
-					)),
-					imports.WithSpacer(),
-					imports.WithImport("github.com/a-h/templ"),
-					imports.WithImport("github.com/templwind/soul"),
-				).String()
-
-				// builder.WithRenameFile(filepath.Join(builder.ServiceName, subDir, "props.go"), filepath.Join(builder.ServiceName, subDir, strings.ToLower(util.ToCamel(pathToName(method.Method, method.Route)))+".props.go"))
-				if err := builder.genFile(fileGenConfig{
-					subdir:       path.Join(builder.ServiceName, subDir),
-					templateFile: "templates/app/internal/logic/props.go.tpl",
-					data:         builder.Data,
-				}); err != nil {
-					return err
+					// Placeholder URL, should be replaced by actual logic
+					returnString = `
+					http.Redirect(c.Response().Writer, c.Request(), "/replace-me", http.StatusSeeOther); 
+					return`
 				}
 			}
 
 			if method.HasRequestType && len(method.RequestType.GetName()) > 0 {
+				// fmt.Println("method.RequestType", method.RequestType.GetName())
 				requestString = "req " + util.RequestGoTypeName(method, types.TypesPacket)
 			}
 
@@ -421,24 +314,13 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 					rParts = append(rParts, strings.TrimSpace(part))
 				}
 
-				if (method.Method == "GET" || method.Method == "POST") && method.IsFullHTMLPage {
-					rParts = append(rParts, "baseProps *[]soul.OptFunc[baseof.Props]")
-				}
-
 				return strings.Join(rParts, ", ")
 			}(requestStringParts)
 
 			// fmt.Println("AFTER :: requestString", method.GetName(), requestString)
 
 			logicName = strings.ToLower(util.ToCamel(handler.Name))
-			// logicFunc = util.ToPascal(strings.TrimSuffix(handlerName, "Handler"))
-			// var logicFunc string
-			// if !method.IsPubSub {
-			// 	logicFunc = util.ToPascal(pathToName(method.Method, method.Route))
-			// } else {
-			// 	logicFunc = util.ToPascal(method.PubSubNode.Route)
-			// }
-			// logicFunc = strings.TrimSuffix(logicFunc, "Handler")
+
 			var logicFunc string
 			if !method.IsPubSub {
 				logicFunc = util.ToPascal(getHandlerName(handler, &method))
@@ -492,44 +374,6 @@ func genLogicByHandler(builder *SaaSBuilder, server spec.Server, handler spec.Ha
 		)
 	}
 
-	// set the package name
-	// builder.Data["pkgName"] = subDir[strings.LastIndex(subDir, "/")+1:]
-
-	if requiresTempl {
-		// builder.Data["templName"] = util.ToCamel(handler.Name + "View")
-		// builder.Data["pageTitle"] = util.ToTitle(handler.Name)
-
-		// builder.WithRenameFile(filepath.Join(builder.ServiceName, subDir, "logic.templ"), filepath.Join(builder.ServiceName, subDir, strings.ToLower(util.ToCamel(handler.Name))+".templ"))
-		// if err := builder.genFile(fileGenConfig{
-		// 	subdir:       path.Join(builder.ServiceName, subDir),
-		// 	templateFile: "templates/app/internal/logic/logic.templ.tpl",
-		// 	data:         builder.Data,
-		// }); err != nil {
-		// 	return err
-		// }
-
-		// builder.Data["imports"] = imports.New(
-		// 	imports.WithImport("net/http"),
-		// 	imports.WithSpacer(),
-		// 	imports.WithImport(path.Join([]string{
-		// 		builder.ModuleName,
-		// 		"internal/config"}...,
-		// 	)),
-		// 	imports.WithSpacer(),
-		// 	imports.WithImport("github.com/a-h/templ"),
-		// 	imports.WithImport("github.com/templwind/soul"),
-		// ).String()
-
-		// // builder.WithRenameFile(builder.ServiceName+"/internal/logic/props.go", filepath.Join(builder.ServiceName, subDir, "props.go"))
-		// if err := builder.genFile(fileGenConfig{
-		// 	subdir:       path.Join(builder.ServiceName, subDir),
-		// 	templateFile: "templates/app/internal/logic/props.go.tpl",
-		// 	data:         builder.Data,
-		// }); err != nil {
-		// 	return err
-		// }
-	}
-
 	builder.Data["pkgName"] = subDir[strings.LastIndex(subDir, "/")+1:]
 	builder.Data["imports"] = genLogicImports(server, handler, builder.ModuleName, false)
 	builder.Data["LogicType"] = logicType
@@ -561,24 +405,18 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 	i.AddExternalImport(path.Join(vars.ProjectOpenSourceURL, "/core/logx"))
 
 	for _, method := range handler.Methods {
+		// Add net/http import once if any method requires redirection
+		if method.ReturnsRedirect {
+			i.AddNativeImport("net/http")
+		}
 
 		// let's define the rules for the different method types
 		switch method.Method {
 		case "GET":
 			i.AddExternalImport("github.com/labstack/echo/v4")
-			if method.ReturnsPartial {
-				i.AddExternalImport("github.com/a-h/templ")
-			}
-			if method.IsFullHTMLPage {
-				i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
-				i.AddExternalImport("github.com/a-h/templ")
-				i.AddExternalImport("github.com/templwind/soul")
-			}
+
 			if method.HasRequestType || method.HasResponseType {
 				i.AddProjectImport(path.Join(moduleName, types.TypesDir))
-			}
-			if method.ReturnsRedirect {
-				i.AddExternalImport("github.com/templwind/soul/htmx")
 			}
 			if method.IsSocket {
 				i.AddNativeImport("net")
@@ -599,56 +437,11 @@ func genLogicImports(server spec.Server, handler spec.Handler, moduleName string
 			i.AddExternalImport("github.com/labstack/echo/v4")
 
 			if method.HasRequestType || method.HasResponseType {
-				// requiresTempl = false
 				i.AddProjectImport(path.Join(moduleName, types.TypesDir))
 			}
-			if method.ReturnsPartial {
-				i.AddExternalImport("github.com/a-h/templ")
-			}
-			if method.ReturnsRedirect {
-				i.AddExternalImport("github.com/templwind/soul/htmx")
-			}
-			if method.IsFullHTMLPage {
-				i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
-				i.AddExternalImport("github.com/a-h/templ")
-				i.AddExternalImport("github.com/templwind/soul")
-			}
-
 		case "SUB":
 			i.AddProjectImport(path.Join(moduleName, types.TypesDir))
 		}
-
-		// if !method.IsPubSub {
-		// 	i.AddExternalImport("github.com/labstack/echo/v4")
-		// }
-
-		// if method.IsFullHTMLPage || method.ReturnsPartial {
-		// 	i.AddExternalImport("github.com/a-h/templ")
-		// }
-
-		// // || method.ReturnsPartial
-		// if method.IsFullHTMLPage {
-		// 	i.AddExternalImport("github.com/templwind/soul")
-		// 	i.AddProjectImport(path.Join(moduleName, theme, "layouts/baseof"), "baseof")
-		// }
-
-		// if method.HasRequestType || method.HasResponseType {
-		// 	// fmt.Println("method.RequestType", method.RequestType.GetName())
-		// 	i.AddProjectImport(path.Join(moduleName, types.TypesDir))
-		// }
-
-		// if method.IsSocket {
-		// 	i.AddNativeImport("net")
-		// 	// hasSocket = true
-		// 	for _, topic := range method.SocketNode.Topics {
-		// 		if topic.ResponseType != nil || topic.RequestType != nil {
-		// 			i.AddProjectImport(path.Join(moduleName, types.TypesDir))
-		// 		}
-		// 		if !topic.InitiatedByClient {
-		// 			i.AddProjectImport(path.Join(moduleName, types.EventsDir))
-		// 		}
-		// 	}
-		// }
 	}
 
 	return i.Build()

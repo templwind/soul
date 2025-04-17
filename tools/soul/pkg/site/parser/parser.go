@@ -365,10 +365,6 @@ func (p *Parser) parseMethod(method *ast.MethodNode) {
 				state = "redirectURL"
 			}
 			if strings.Contains(part, "partial") {
-				// if method.Method == "DELETE" {
-				// 	fmt.Println("Error: Partial returns can only be used with GET, POST and PUT methods")
-				// 	os.Exit(0)
-				// }
 				method.NoOutput = false
 				method.ReturnsPartial = true
 			}

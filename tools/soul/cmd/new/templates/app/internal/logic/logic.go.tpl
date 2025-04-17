@@ -67,13 +67,6 @@ func (l *{{.LogicType}}) OnDisconnect() {
 	{{- if .IsSocket }}
 		// socket logic {{ if .Topic.InitiatedByClient -}} client initiated {{ else -}} server initiated {{ end }}
 	{{- end }}
-	{{- if .ReturnsFullHTML }}
-		// full html page logic
-	{{- end }}
-	{{- if .ReturnsPartial }}
-		// partial logic
-	{{- end }}
-
 	{{- if .HasDoc }}
 		{{ .Doc }}
 	{{- end }}
@@ -82,16 +75,6 @@ func (l *{{.LogicType}}) OnDisconnect() {
 	func (l *{{.LogicType}}) {{.LogicFunc}}({{.Request}}) {{.ResponseType}} {
 		// todo: add your logic here and delete this line
 		
-		{{- if .HasBaseProps}}
-		// todo: uncomment to add your base template properties
-		// note: updated your template include path to use the correct theme
-		
-		// *baseProps = append(*baseProps,
-			// baseof.WithHeader(nil),
-			// baseof.WithFooter(nil),
-		// )
-		{{end}}
-
 		{{.ReturnString}}
 	}
 	{{ else }}

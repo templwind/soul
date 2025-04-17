@@ -3,7 +3,6 @@ package new
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -183,7 +182,7 @@ func readFilesInDirectory(dirPath string) ([]string, error) {
 			filePath := dirPath + "/" + file.Name()
 
 			// Read the file's content
-			content, err := ioutil.ReadFile(filePath)
+			content, err := os.ReadFile(filePath)
 			if err != nil {
 				return nil, err
 			}
@@ -196,7 +195,10 @@ func readFilesInDirectory(dirPath string) ([]string, error) {
 }
 
 func getLogicFolderPath(server spec.Server, handler spec.Handler) string {
-	return path.Join(getLogicLayoutPath(server), strings.ToLower(util.ToCamel(handler.Name)))
+	// fmt.Println("strings.ToLower(util.ToCamel(handler.Name))", strings.ToLower(util.ToCamel(handler.Name)))
+
+	// return path.Join(getLogicLayoutPath(server), strings.ToLower(util.ToCamel(handler.Name)))
+	return path.Join(getLogicLayoutPath(server))
 }
 
 func getLogicLayoutPath(server spec.Server) string {

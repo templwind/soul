@@ -140,7 +140,7 @@ func RequestGoTypeName(r spec.Method, pkg ...string) string {
 	req = strings.TrimPrefix(req, "*")
 	req = strings.TrimPrefix(req, "[]")
 
-	switch r.ResponseType.(type) {
+	switch r.RequestType.(type) {
 	case *spec.StructType:
 		return "*" + req
 	case *spec.ArrayType:
